@@ -33,6 +33,7 @@
 
 ```powershell
 .\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+.\gradlew.bat assembleRelease
 ```
 
 ## 免责声明

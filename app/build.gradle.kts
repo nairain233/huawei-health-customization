@@ -26,7 +26,7 @@ extensions.configure<ApplicationExtension> {
     buildTypes {
         release {
             optimization {
-                enable = false
+                enable = true
             }
         }
     }
