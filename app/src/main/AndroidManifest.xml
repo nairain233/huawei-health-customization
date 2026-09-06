@@ -24,6 +24,9 @@
             android:name=".app.LayoutTrimActivity"
             android:exported="false" />
         <activity
+            android:name=".app.ThemeSettingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".app.AboutActivity"
             android:exported="false" />
         <activity-alias
