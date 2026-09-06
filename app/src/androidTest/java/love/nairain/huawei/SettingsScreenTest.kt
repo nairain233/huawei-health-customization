@@ -147,7 +147,7 @@ class SettingsScreenTest {
             MiuixTheme(colors = lightColorScheme()) {
                 CategorySettingsScreen(
                     category = SettingsCategory.HEALTH,
-                    settings = SettingsCatalog.settingsFor(SettingsCategory.HEALTH),
+                    groups = SettingsCatalog.groupsFor(SettingsCategory.HEALTH),
                     state = SettingsUiState(
                         isServiceConnected = true,
                         values = mapOf(SettingsKeys.ENABLED to true),
