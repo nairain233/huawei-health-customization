@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -32,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import io.github.libxposed.service.XposedService
 import love.nairain.huawei.R
-import love.nairain.huawei.config.SettingDefinition
+import love.nairain.huawei.config.SettingGroup
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
@@ -42,6 +43,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -71,7 +73,7 @@ class CategorySettingsActivity : ComponentActivity(), ModuleApplication.ServiceS
             ) {
                 CategorySettingsScreen(
                     category = category,
-                    settings = SettingsCatalog.settingsFor(category),
+                    groups = SettingsCatalog.groupsFor(category),
                     state = uiState,
                     onSettingChange = ::updateSetting,
                     onClose = ::finish,
@@ -145,7 +147,7 @@ class CategorySettingsActivity : ComponentActivity(), ModuleApplication.ServiceS
 @Composable
 internal fun CategorySettingsScreen(
     category: SettingsCategory,
-    settings: List<SettingDefinition>,
+    groups: List<SettingGroup>,
     state: SettingsUiState,
     onSettingChange: (String, Boolean) -> Unit,
     onClose: () -> Unit,
@@ -190,7 +192,10 @@ internal fun CategorySettingsScreen(
         ) {
             item(key = "notice") {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 8.dp),
                     insideMargin = PaddingValues(16.dp),
                     colors = CardDefaults.defaultColors(
                         color = MiuixTheme.colorScheme.primary.copy(alpha = 0.2f),
@@ -204,25 +209,39 @@ internal fun CategorySettingsScreen(
                 }
             }
             item(key = "settings") {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                    insideMargin = PaddingValues(0.dp),
-                ) {
-                    settings.forEach { setting ->
-                        SwitchPreference(
-                            title = stringResource(setting.title),
-                            checked = state.valueOf(setting.key),
-                            enabled = state.isServiceConnected && state.valueOf(SettingsKeys.ENABLED),
-                            onCheckedChange = { onSettingChange(setting.key, it) },
-                            modifier = Modifier.testTag("setting:${setting.key}"),
-                        )
+                Column {
+                    groups.forEach { group ->
+                        group.title?.let { title ->
+                            SmallTitle(text = stringResource(title))
+                        }
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp)
+                                .testTag("settings-group:${category.name.lowercase()}:${group.id}"),
+                            insideMargin = PaddingValues(0.dp),
+                        ) {
+                            group.settings.forEach { setting ->
+                                SwitchPreference(
+                                    title = stringResource(setting.title),
+                                    checked = state.valueOf(setting.key),
+                                    enabled = state.isServiceConnected && state.valueOf(SettingsKeys.ENABLED),
+                                    onCheckedChange = { onSettingChange(setting.key, it) },
+                                    modifier = Modifier.testTag("setting:${setting.key}"),
+                                )
+                            }
+                        }
                     }
                 }
             }
             state.statusMessage?.let { message ->
                 item(key = "status") {
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
                         insideMargin = PaddingValues(16.dp),
                     ) {
                         Text(message, color = MiuixTheme.colorScheme.error)

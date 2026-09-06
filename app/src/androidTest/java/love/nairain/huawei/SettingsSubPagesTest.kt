@@ -6,6 +6,8 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import love.nairain.huawei.app.CategorySettingsScreen
 import love.nairain.huawei.app.SettingsUiState
@@ -60,6 +62,20 @@ class SettingsSubPagesTest {
     }
 
     @Test
+    fun showsMineOtherGroup() {
+        setCategoryScreen(
+            SettingsCategory.MINE,
+            SettingsUiState(
+                isServiceConnected = true,
+                values = mapOf(SettingsKeys.ENABLED to true),
+            ),
+        )
+
+        composeRule.onNodeWithTag("settings-group:mine:other").assertExists()
+        composeRule.onNodeWithText("其他").assertExists()
+    }
+
+    @Test
     fun disablesBottomSwitchesUntilMasterSwitchIsOn() {
         setCategoryScreen(
             SettingsCategory.BOTTOM,
@@ -100,7 +116,7 @@ class SettingsSubPagesTest {
             MiuixTheme(colors = lightColorScheme()) {
                 CategorySettingsScreen(
                     category = category,
-                    settings = SettingsCatalog.settingsFor(category),
+                    groups = SettingsCatalog.groupsFor(category),
                     state = state,
                     onSettingChange = { _, _ -> },
                     onClose = {},
