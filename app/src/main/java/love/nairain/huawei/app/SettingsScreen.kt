@@ -48,7 +48,6 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -173,37 +172,10 @@ private fun MiuixServiceStatusCard(
 }
 
 @Composable
-private fun ColorModeCard(
-    colorMode: AppColorMode,
-    onColorModeChange: (AppColorMode) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val modes = AppColorMode.entries
-    val labels = modes.map { stringResource(it.label) }
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        insideMargin = PaddingValues(0.dp),
-    ) {
-        OverlayDropdownPreference(
-            items = labels,
-            selectedIndex = modes.indexOf(colorMode),
-            title = stringResource(R.string.settings_color_mode),
-            modifier = Modifier.testTag("settings:color-mode"),
-            onSelectedIndexChange = { index ->
-                modes.getOrNull(index)?.let(onColorModeChange)
-            },
-        )
-    }
-}
-
-@Composable
 private fun GeneralSettingsCard(
     enabled: Boolean,
-    hideLauncherIcon: Boolean,
     configurationEnabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
-    onHideLauncherIconChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -216,13 +188,6 @@ private fun GeneralSettingsCard(
             enabled = configurationEnabled,
             onCheckedChange = onEnabledChange,
             modifier = Modifier.testTag("setting:${SettingsKeys.ENABLED}"),
-        )
-        SwitchPreference(
-            title = stringResource(R.string.settings_hide_launcher_icon),
-            checked = hideLauncherIcon,
-            enabled = configurationEnabled,
-            onCheckedChange = onHideLauncherIconChange,
-            modifier = Modifier.testTag("setting:${SettingsKeys.HIDE_LAUNCHER_ICON}"),
         )
     }
 }
@@ -274,9 +239,8 @@ private fun StatusCard(
 @Composable
 internal fun SettingsScreen(
     state: SettingsUiState,
-    colorMode: AppColorMode,
     onSettingChange: (String, Boolean) -> Unit,
-    onColorModeChange: (AppColorMode) -> Unit,
+    onOpenThemeSettings: () -> Unit = {},
     onOpenLayoutTrim: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     onRefreshStatus: () -> Unit = {},
@@ -334,21 +298,18 @@ internal fun SettingsScreen(
             item(key = "general_settings") {
                 GeneralSettingsCard(
                     enabled = state.valueOf(SettingsKeys.ENABLED),
-                    hideLauncherIcon = state.valueOf(SettingsKeys.HIDE_LAUNCHER_ICON),
                     configurationEnabled = state.isServiceConnected,
                     onEnabledChange = { onSettingChange(SettingsKeys.ENABLED, it) },
-                    onHideLauncherIconChange = {
-                        onSettingChange(SettingsKeys.HIDE_LAUNCHER_ICON, it)
-                    },
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),
                 )
             }
-            item(key = "color_mode") {
-                ColorModeCard(
-                    colorMode = colorMode,
-                    onColorModeChange = onColorModeChange,
+            item(key = "theme_settings_navigation") {
+                NavigationCard(
+                    title = stringResource(R.string.settings_theme_title),
+                    testTag = "settings:theme-nav",
+                    onClick = onOpenThemeSettings,
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),
