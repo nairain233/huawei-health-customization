@@ -1,6 +1,7 @@
 package love.nairain.huawei
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasText
@@ -13,12 +14,14 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import love.nairain.huawei.app.CategorySettingsScreen
+import love.nairain.huawei.app.AppColorMode
 import love.nairain.huawei.app.SettingsScreen
 import love.nairain.huawei.app.SettingsUiState
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -76,82 +79,49 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun showsMineNavigationEntry() {
-        var opened = false
+    fun showsUsableColorModeAboveLayoutTrimAndDispatchesSelection() {
+        var selectedMode: AppColorMode? = null
         setScreen(
-            state = SettingsUiState(),
-            onOpenMineTrim = { opened = true },
+            state = SettingsUiState(isServiceConnected = false),
+            colorMode = AppColorMode.SYSTEM,
+            onColorModeChange = { selectedMode = it },
         )
 
         composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("“我的”页面精简"))
-        composeRule.onNodeWithTag("settings:mine-nav").assertExists()
-        composeRule.onNodeWithText("“我的”页面精简").assertExists()
-        composeRule.onNodeWithTag("settings:mine-nav").performClick()
-        assert(opened)
+            .performScrollToNode(hasText("布局精简"))
+        val colorModeNode = composeRule.onNodeWithTag("settings:color-mode")
+            .assertIsEnabled()
+        val layoutTrimNode = composeRule.onNodeWithTag("settings:layout-trim-nav")
+        assertTrue(
+            colorModeNode.fetchSemanticsNode().boundsInRoot.top <
+                layoutTrimNode.fetchSemanticsNode().boundsInRoot.top,
+        )
+        composeRule.onNodeWithText("跟随系统").assertExists()
+
+        colorModeNode.performClick()
+        composeRule.onNodeWithText("深色模式").performClick()
+
+        assertEquals(AppColorMode.DARK, selectedMode)
     }
 
     @Test
-    fun showsBottomNavigationEntry() {
+    fun showsOnlyLayoutTrimNavigationEntry() {
         var opened = false
         setScreen(
             state = SettingsUiState(),
-            onOpenBottomTrim = { opened = true },
+            onOpenLayoutTrim = { opened = true },
         )
 
         composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("精简底栏"))
-        composeRule.onNodeWithTag("settings:bottom-nav").assertExists()
-        composeRule.onNodeWithText("精简底栏").assertExists()
-        composeRule.onNodeWithTag("settings:bottom-nav").performClick()
-        assert(opened)
-    }
-
-    @Test
-    fun showsHealthNavigationEntry() {
-        var opened = false
-        setScreen(
-            state = SettingsUiState(),
-            onOpenHealth = { opened = true },
-        )
-
-        composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("健康页面精简"))
-        composeRule.onNodeWithTag("settings:health-nav").assertExists()
-        composeRule.onNodeWithText("健康页面精简").assertExists()
-        composeRule.onNodeWithTag("settings:health-nav").performClick()
-        assert(opened)
-    }
-
-    @Test
-    fun showsSportNavigationEntry() {
-        var opened = false
-        setScreen(
-            state = SettingsUiState(),
-            onOpenSport = { opened = true },
-        )
-
-        composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("运动页面精简"))
-        composeRule.onNodeWithTag("settings:sport-nav").assertExists()
-        composeRule.onNodeWithText("运动页面精简").assertExists()
-        composeRule.onNodeWithTag("settings:sport-nav").performClick()
-        assert(opened)
-    }
-
-    @Test
-    fun showsDeviceNavigationEntry() {
-        var opened = false
-        setScreen(
-            state = SettingsUiState(),
-            onOpenDevice = { opened = true },
-        )
-
-        composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("设备页面精简"))
-        composeRule.onNodeWithTag("settings:device-nav").assertExists()
-        composeRule.onNodeWithText("设备页面精简").assertExists()
-        composeRule.onNodeWithTag("settings:device-nav").performClick()
+            .performScrollToNode(hasText("布局精简"))
+        composeRule.onNodeWithTag("settings:layout-trim-nav").assertExists()
+        composeRule.onNodeWithText("布局精简").assertExists()
+        composeRule.onNodeWithText("精简底栏").assertDoesNotExist()
+        composeRule.onNodeWithText("健康页面精简").assertDoesNotExist()
+        composeRule.onNodeWithText("运动页面精简").assertDoesNotExist()
+        composeRule.onNodeWithText("设备页面精简").assertDoesNotExist()
+        composeRule.onNodeWithText("“我的”页面精简").assertDoesNotExist()
+        composeRule.onNodeWithTag("settings:layout-trim-nav").performClick()
         assert(opened)
     }
 
@@ -196,24 +166,20 @@ class SettingsScreenTest {
 
     private fun setScreen(
         state: SettingsUiState,
+        colorMode: AppColorMode = AppColorMode.SYSTEM,
         onSettingChange: (String, Boolean) -> Unit = { _, _ -> },
-        onOpenMineTrim: () -> Unit = {},
-        onOpenBottomTrim: () -> Unit = {},
-        onOpenHealth: () -> Unit = {},
-        onOpenSport: () -> Unit = {},
-        onOpenDevice: () -> Unit = {},
+        onColorModeChange: (AppColorMode) -> Unit = {},
+        onOpenLayoutTrim: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
     ) {
         composeRule.setContent {
             MiuixTheme(colors = lightColorScheme()) {
                 SettingsScreen(
                     state = state,
+                    colorMode = colorMode,
                     onSettingChange = onSettingChange,
-                    onOpenMineTrim = onOpenMineTrim,
-                    onOpenBottomTrim = onOpenBottomTrim,
-                    onOpenHealth = onOpenHealth,
-                    onOpenSport = onOpenSport,
-                    onOpenDevice = onOpenDevice,
+                    onColorModeChange = onColorModeChange,
+                    onOpenLayoutTrim = onOpenLayoutTrim,
                     onOpenAbout = onOpenAbout,
                 )
             }

@@ -1,6 +1,5 @@
 package love.nairain.huawei.app
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +48,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -75,7 +75,7 @@ private fun MiuixServiceStatusCard(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val darkTheme = isSystemInDarkTheme()
+    val darkTheme = LocalAppDarkTheme.current
     val dynamicColor = MiuixTheme.isDynamicColor
     val container = when {
         connected && dynamicColor -> MiuixTheme.colorScheme.secondaryContainer
@@ -173,6 +173,31 @@ private fun MiuixServiceStatusCard(
 }
 
 @Composable
+private fun ColorModeCard(
+    colorMode: AppColorMode,
+    onColorModeChange: (AppColorMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val modes = AppColorMode.entries
+    val labels = modes.map { stringResource(it.label) }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(0.dp),
+    ) {
+        OverlayDropdownPreference(
+            items = labels,
+            selectedIndex = modes.indexOf(colorMode),
+            title = stringResource(R.string.settings_color_mode),
+            modifier = Modifier.testTag("settings:color-mode"),
+            onSelectedIndexChange = { index ->
+                modes.getOrNull(index)?.let(onColorModeChange)
+            },
+        )
+    }
+}
+
+@Composable
 private fun GeneralSettingsCard(
     enabled: Boolean,
     hideLauncherIcon: Boolean,
@@ -249,12 +274,10 @@ private fun StatusCard(
 @Composable
 internal fun SettingsScreen(
     state: SettingsUiState,
+    colorMode: AppColorMode,
     onSettingChange: (String, Boolean) -> Unit,
-    onOpenMineTrim: () -> Unit = {},
-    onOpenBottomTrim: () -> Unit = {},
-    onOpenHealth: () -> Unit = {},
-    onOpenSport: () -> Unit = {},
-    onOpenDevice: () -> Unit = {},
+    onColorModeChange: (AppColorMode) -> Unit,
+    onOpenLayoutTrim: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     onRefreshStatus: () -> Unit = {},
     onClose: () -> Unit = {},
@@ -322,51 +345,20 @@ internal fun SettingsScreen(
                         .padding(bottom = 8.dp),
                 )
             }
-            item(key = "bottom_navigation") {
-                NavigationCard(
-                    title = stringResource(R.string.settings_bottom_nav_title),
-                    testTag = "settings:bottom-nav",
-                    onClick = onOpenBottomTrim,
+            item(key = "color_mode") {
+                ColorModeCard(
+                    colorMode = colorMode,
+                    onColorModeChange = onColorModeChange,
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),
                 )
             }
-            item(key = "health_navigation") {
+            item(key = "layout_trim_navigation") {
                 NavigationCard(
-                    title = stringResource(R.string.settings_health_nav_title),
-                    testTag = "settings:health-nav",
-                    onClick = onOpenHealth,
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
-                )
-            }
-            item(key = "sport_navigation") {
-                NavigationCard(
-                    title = stringResource(R.string.settings_sport_nav_title),
-                    testTag = "settings:sport-nav",
-                    onClick = onOpenSport,
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
-                )
-            }
-            item(key = "device_navigation") {
-                NavigationCard(
-                    title = stringResource(R.string.settings_device_nav_title),
-                    testTag = "settings:device-nav",
-                    onClick = onOpenDevice,
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
-                )
-            }
-            item(key = "mine_navigation") {
-                NavigationCard(
-                    title = stringResource(R.string.settings_mine_nav_title),
-                    testTag = "settings:mine-nav",
-                    onClick = onOpenMineTrim,
+                    title = stringResource(R.string.settings_layout_trim_title),
+                    testTag = "settings:layout-trim-nav",
+                    onClick = onOpenLayoutTrim,
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),

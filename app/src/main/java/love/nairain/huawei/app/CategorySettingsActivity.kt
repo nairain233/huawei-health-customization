@@ -6,7 +6,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -49,8 +48,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.darkColorScheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -66,9 +63,12 @@ class CategorySettingsActivity : ComponentActivity(), ModuleApplication.ServiceS
             SettingsCategory.valueOf(intent.getStringExtra(EXTRA_CATEGORY).orEmpty())
         }.getOrDefault(SettingsCategory.HEALTH)
         enableEdgeToEdge()
+        val moduleApplication = application as ModuleApplication
         setContent {
-            val colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
-            MiuixTheme(colors = colors) {
+            HuaweiTrimTheme(
+                colorMode = moduleApplication.colorMode,
+                window = window,
+            ) {
                 CategorySettingsScreen(
                     category = category,
                     settings = SettingsCatalog.settingsFor(category),
