@@ -5,10 +5,35 @@ import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SettingsSchemaV2Test {
+    @Test
+    fun groupedCatalogFlattensWithoutMissingOrDuplicateSettings() {
+        SettingsCategory.entries.forEach { category ->
+            val groupedSettings = SettingsCatalog.groupsFor(category).flatMap { it.settings }
+            assertEquals(SettingsCatalog.settingsFor(category), groupedSettings)
+            assertEquals(groupedSettings.size, groupedSettings.map { it.key }.distinct().size)
+        }
+    }
+
+    @Test
+    fun mineOrdersAndAssetsBelongToOtherGroup() {
+        val other = SettingsCatalog.mineGroups.single { it.id == "other" }
+        assertEquals(R.string.settings_group_other, other.title)
+        assertTrue(other.settings.any { it.key == SettingsKeys.MINE_ORDERS })
+        assertTrue(other.settings.any { it.key == SettingsKeys.MINE_ASSETS })
+    }
+
+    @Test
+    fun groupsWithoutNaturalLabelsKeepNullTitles() {
+        assertNull(SettingsCatalog.mineGroups.single { it.id == "account" }.title)
+        assertNull(SettingsCatalog.mineGroups.single { it.id == "social" }.title)
+        assertNull(SettingsCatalog.bottomGroups.single().title)
+    }
+
     @Test
     fun keysAreUniqueAndHideDefaultsAreFalse() {
         assertEquals(SettingsCatalog.all.size, SettingsCatalog.all.map { it.key }.distinct().size)

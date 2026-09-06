@@ -49,6 +49,18 @@
     <string name="settings_device_title">设备页面项目</string>
     <string name="settings_mine_title">“我的”页面项目</string>
     <string name="settings_bottom_title">底栏项目</string>
+    <string name="settings_group_page_top">页面顶部</string>
+    <string name="settings_group_quick_entries">快捷入口</string>
+    <string name="settings_group_health_cards">健康卡片</string>
+    <string name="settings_group_recommended_content">推荐内容</string>
+    <string name="settings_group_course_content">课程内容</string>
+    <string name="settings_group_device_notices">设备提示</string>
+    <string name="settings_group_my_devices">我的设备</string>
+    <string name="settings_group_recommendations_and_store">推荐与商城</string>
+    <string name="settings_group_health_achievements">健康与成就</string>
+    <string name="settings_group_sport">运动</string>
+    <string name="settings_group_other">其他</string>
+    <string name="settings_group_settings_support">设置与支持</string>
     <string name="settings_search">搜索</string>
     <string name="settings_more_menu">更多菜单</string>
 
