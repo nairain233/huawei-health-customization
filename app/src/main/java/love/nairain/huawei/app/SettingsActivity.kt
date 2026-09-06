@@ -1,7 +1,5 @@
 package love.nairain.huawei.app
 
-import android.content.ComponentName
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,9 +31,10 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
             ) {
                 SettingsScreen(
                     state = uiState,
-                    colorMode = moduleApplication.colorMode,
                     onSettingChange = ::updateSetting,
-                    onColorModeChange = moduleApplication::updateColorMode,
+                    onOpenThemeSettings = {
+                        startActivity(ThemeSettingsActivity.intent(this))
+                    },
                     onOpenLayoutTrim = {
                         startActivity(LayoutTrimActivity.intent(this))
                     },
@@ -89,13 +88,6 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
             isServiceConnected = true,
             values = values,
         )
-        values[SettingsKeys.HIDE_LAUNCHER_ICON]?.let { hidden ->
-            try {
-                setLauncherEnabled(!hidden)
-            } catch (_: RuntimeException) {
-                // 包管理器不可用不应阻断其他配置加载。
-            }
-        }
     }
 
     private fun updateSetting(key: String, checked: Boolean) {
@@ -105,33 +97,14 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
         uiState = uiState.copy(values = normalized)
 
         try {
-            if (SettingsKeys.HIDE_LAUNCHER_ICON == key) {
-                setLauncherEnabled(!checked)
-            }
             boundService.getRemotePreferences(SettingsKeys.GROUP).edit {
                 normalized.forEach { (settingKey, value) ->
                     if (previousValues[settingKey] != value) putBoolean(settingKey, value)
                 }
             }
         } catch (_: RuntimeException) {
-            if (SettingsKeys.HIDE_LAUNCHER_ICON == key) {
-                try {
-                    setLauncherEnabled(!(previousValues[key] ?: false))
-                } catch (_: RuntimeException) {
-                    // 回滚桌面入口失败时仍恢复页面状态。
-                }
-            }
             uiState = uiState.copy(values = previousValues)
         }
     }
 
-    private fun setLauncherEnabled(enabled: Boolean) {
-        val launcher = ComponentName(this, "$packageName.LauncherActivity")
-        packageManager.setComponentEnabledSetting(
-            launcher,
-            if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP,
-        )
-    }
 }

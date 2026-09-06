@@ -4,9 +4,12 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -14,7 +17,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import love.nairain.huawei.app.CategorySettingsScreen
-import love.nairain.huawei.app.AppColorMode
 import love.nairain.huawei.app.SettingsScreen
 import love.nairain.huawei.app.SettingsUiState
 import love.nairain.huawei.config.SettingsCatalog
@@ -39,29 +41,38 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("LSPosed 服务未连接").assertExists()
         composeRule.onNodeWithText("请在启用模块后重试").assertExists()
-        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true)
-            .get(0)
-            .assertIsNotEnabled()
+        composeRule.onAllNodes(
+            isToggleable() and hasAnyAncestor(hasTestTag("setting:${SettingsKeys.ENABLED}")),
+            useUnmergedTree = true,
+        ).apply {
+            assertCountEquals(1)
+            get(0).assertIsNotEnabled()
+        }
+        composeRule.onNodeWithTag("settings:color-mode", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.onNodeWithTag(
+            "setting:${SettingsKeys.HIDE_LAUNCHER_ICON}",
+            useUnmergedTree = true,
+        ).assertDoesNotExist()
+        composeRule.onNodeWithTag("settings:theme-nav").assertIsEnabled()
     }
 
     @Test
-    fun showsOnlyGeneralSwitchesAndDispatchesChanges() {
+    fun showsOnlyMasterSwitchAndDispatchesChange() {
         var changed: Pair<String, Boolean>? = null
         setScreen(
             state = SettingsUiState(
                 isServiceConnected = true,
                 values = mapOf(
                     SettingsKeys.ENABLED to false,
-                    SettingsKeys.HIDE_LAUNCHER_ICON to false,
                 ),
             ),
             onSettingChange = { key, value -> changed = key to value },
         )
 
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).apply {
-            assertCountEquals(2)
+            assertCountEquals(1)
             get(0).assertIsOff()
-            get(1).assertIsOff()
         }
         composeRule.onNodeWithTag("setting:${SettingsKeys.ENABLED}", useUnmergedTree = true)
             .performClick()
@@ -70,38 +81,37 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun showsConnectedStatusCard() {
-        setScreen(SettingsUiState(isServiceConnected = true))
-
-        composeRule.onNodeWithTag("settings:service-status").assertExists()
-        composeRule.onNodeWithText("正常运行中").assertExists()
-        composeRule.onNodeWithText("LSPosed 服务已连接").assertExists()
-    }
-
-    @Test
-    fun showsUsableColorModeAboveLayoutTrimAndDispatchesSelection() {
-        var selectedMode: AppColorMode? = null
+    fun showsThemeNavigationBeforeLayoutTrimAndDispatchesClick() {
+        var opened = false
         setScreen(
             state = SettingsUiState(isServiceConnected = false),
-            colorMode = AppColorMode.SYSTEM,
-            onColorModeChange = { selectedMode = it },
+            onOpenThemeSettings = { opened = true },
         )
 
         composeRule.onNodeWithTag("settings:list")
             .performScrollToNode(hasText("布局精简"))
-        val colorModeNode = composeRule.onNodeWithTag("settings:color-mode")
-            .assertIsEnabled()
+        val themeNode = composeRule.onNodeWithTag("settings:theme-nav").assertIsEnabled()
         val layoutTrimNode = composeRule.onNodeWithTag("settings:layout-trim-nav")
         assertTrue(
-            colorModeNode.fetchSemanticsNode().boundsInRoot.top <
+            themeNode.fetchSemanticsNode().boundsInRoot.top <
                 layoutTrimNode.fetchSemanticsNode().boundsInRoot.top,
         )
-        composeRule.onNodeWithText("跟随系统").assertExists()
+        composeRule.onNodeWithText("主题设置").assertExists()
+        composeRule.onNodeWithText("色彩模式").assertDoesNotExist()
+        composeRule.onNodeWithText("隐藏桌面图标").assertDoesNotExist()
 
-        colorModeNode.performClick()
-        composeRule.onNodeWithText("深色模式").performClick()
+        themeNode.performClick()
 
-        assertEquals(AppColorMode.DARK, selectedMode)
+        assertTrue(opened)
+    }
+
+    @Test
+    fun showsConnectedStatusCard() {
+        setScreen(SettingsUiState(isServiceConnected = true))
+
+        composeRule.onNodeWithTag("settings:service-status").assertExists()
+        composeRule.onNodeWithText("配置读写正常").assertExists()
+        composeRule.onNodeWithText("LSPosed 服务已连接").assertExists()
     }
 
     @Test
@@ -159,16 +169,15 @@ class SettingsScreenTest {
         }
 
         composeRule.onNodeWithContentDescription("返回").assertExists()
-        composeRule.onNodeWithText("健康页面项目").assertExists()
+        composeRule.onAllNodesWithText("健康页面项目").assertCountEquals(2)
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true)
             .assertCountEquals(SettingsCatalog.health.size)
     }
 
     private fun setScreen(
         state: SettingsUiState,
-        colorMode: AppColorMode = AppColorMode.SYSTEM,
         onSettingChange: (String, Boolean) -> Unit = { _, _ -> },
-        onColorModeChange: (AppColorMode) -> Unit = {},
+        onOpenThemeSettings: () -> Unit = {},
         onOpenLayoutTrim: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
     ) {
@@ -176,9 +185,8 @@ class SettingsScreenTest {
             MiuixTheme(colors = lightColorScheme()) {
                 SettingsScreen(
                     state = state,
-                    colorMode = colorMode,
                     onSettingChange = onSettingChange,
-                    onColorModeChange = onColorModeChange,
+                    onOpenThemeSettings = onOpenThemeSettings,
                     onOpenLayoutTrim = onOpenLayoutTrim,
                     onOpenAbout = onOpenAbout,
                 )
