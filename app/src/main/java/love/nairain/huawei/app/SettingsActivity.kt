@@ -6,7 +6,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,11 +13,7 @@ import androidx.core.content.edit
 import io.github.libxposed.service.XposedService
 import love.nairain.huawei.R
 import love.nairain.huawei.config.SettingsCatalog
-import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
-import top.yukonga.miuix.kmp.theme.darkColorScheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 模块设置界面：只管理配置，不承载 Hook 逻辑。
@@ -30,26 +25,19 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val moduleApplication = application as ModuleApplication
         setContent {
-            val colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
-            MiuixTheme(colors = colors) {
+            HuaweiTrimTheme(
+                colorMode = moduleApplication.colorMode,
+                window = window,
+            ) {
                 SettingsScreen(
                     state = uiState,
+                    colorMode = moduleApplication.colorMode,
                     onSettingChange = ::updateSetting,
-                    onOpenMineTrim = {
-                        openCategory(SettingsCategory.MINE)
-                    },
-                    onOpenBottomTrim = {
-                        openCategory(SettingsCategory.BOTTOM)
-                    },
-                    onOpenHealth = {
-                        openCategory(SettingsCategory.HEALTH)
-                    },
-                    onOpenSport = {
-                        openCategory(SettingsCategory.SPORT)
-                    },
-                    onOpenDevice = {
-                        openCategory(SettingsCategory.DEVICE)
+                    onColorModeChange = moduleApplication::updateColorMode,
+                    onOpenLayoutTrim = {
+                        startActivity(LayoutTrimActivity.intent(this))
                     },
                     onOpenAbout = {
                         startActivity(AboutActivity.intent(this))
@@ -59,7 +47,7 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
                 )
             }
         }
-        (application as ModuleApplication).addServiceStateListener(this)
+        moduleApplication.addServiceStateListener(this)
     }
 
     override fun onDestroy() {
@@ -135,10 +123,6 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
             }
             uiState = uiState.copy(values = previousValues)
         }
-    }
-
-    private fun openCategory(category: SettingsCategory) {
-        startActivity(CategorySettingsActivity.intent(this, category))
     }
 
     private fun setLauncherEnabled(enabled: Boolean) {

@@ -9,8 +9,13 @@
     <string name="settings_status_save_error">保存失败，配置未更改</string>
     <string name="settings_enabled">启用界面精简</string>
     <string name="settings_hide_launcher_icon">隐藏桌面图标</string>
+    <string name="settings_color_mode">色彩模式</string>
+    <string name="settings_color_mode_system">跟随系统</string>
+    <string name="settings_color_mode_light">浅色模式</string>
+    <string name="settings_color_mode_dark">深色模式</string>
     <string name="settings_restart_notice">修改后需彻底重启华为运动健康两次</string>
 
+    <string name="settings_layout_trim_title">布局精简</string>
     <string name="settings_health_nav_title">健康页面精简</string>
     <string name="settings_sport_nav_title">运动页面精简</string>
     <string name="settings_device_nav_title">设备页面精简</string>

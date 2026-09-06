@@ -2,6 +2,9 @@ package love.nairain.huawei.app
 
 import android.app.Application
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import java.util.concurrent.CopyOnWriteArraySet
@@ -11,10 +14,19 @@ import java.util.concurrent.CopyOnWriteArraySet
  */
 class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
     private val listeners = CopyOnWriteArraySet<ServiceStateListener>()
+    internal var colorMode by mutableStateOf(AppColorMode.SYSTEM)
+        private set
 
     override fun onCreate() {
         super.onCreate()
+        colorMode = AppAppearancePreferences.read(this)
         XposedServiceHelper.registerListener(this)
+    }
+
+    internal fun updateColorMode(newColorMode: AppColorMode) {
+        if (colorMode == newColorMode) return
+        AppAppearancePreferences.write(this, newColorMode)
+        colorMode = newColorMode
     }
 
     override fun onServiceBind(boundService: XposedService) {
