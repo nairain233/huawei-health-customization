@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <queries>
+        <package android:name="com.huawei.health" />
+    </queries>
+
     <application
         android:name=".app.ModuleApplication"
         android:icon="@mipmap/ic_launcher"
@@ -22,6 +26,9 @@
             android:exported="false" />
         <activity
             android:name=".app.LayoutTrimActivity"
+            android:exported="false" />
+        <activity
+            android:name=".app.ServiceBlockActivity"
             android:exported="false" />
         <activity
             android:name=".app.ThemeSettingsActivity"

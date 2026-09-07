@@ -8,6 +8,8 @@ import android.os.Build
 import io.github.libxposed.api.XposedInterface
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsKeys
+import love.nairain.huawei.config.ServiceBlockConfig
+import love.nairain.huawei.hook.feature.ServiceBlockFeature
 import love.nairain.huawei.hook.feature.BottomTabFeature
 import love.nairain.huawei.hook.feature.DevicePageFeature
 import love.nairain.huawei.hook.feature.HealthPageFeature
@@ -56,11 +58,11 @@ internal object HookCoordinator {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 application.packageManager.getPackageInfo(
                     application.packageName,
-                    PackageManager.PackageInfoFlags.of(0),
+                    PackageManager.PackageInfoFlags.of((PackageManager.GET_SERVICES or PackageManager.MATCH_DISABLED_COMPONENTS).toLong()),
                 )
             } else {
                 @Suppress("DEPRECATION")
-                application.packageManager.getPackageInfo(application.packageName, 0)
+                application.packageManager.getPackageInfo(application.packageName, PackageManager.GET_SERVICES or PackageManager.MATCH_DISABLED_COMPONENTS)
             }
         }.getOrNull()
         val versionName = packageInfo?.versionName
@@ -69,6 +71,17 @@ internal object HookCoordinator {
             logger.warn("Unsupported Huawei Health version; hooks skipped")
             return
         }
+        val serviceConfig = try {
+            ServiceBlockConfig.read(framework.getRemotePreferences(SettingsKeys.GROUP))
+        } catch (error: RuntimeException) {
+            logger.warn("Service configuration unavailable: ${error.javaClass.simpleName}; services allowed")
+            ServiceBlockConfig()
+        }
+        val declaredServices = packageInfo?.services.orEmpty().mapNotNull {
+            ServiceBlockConfig.componentName(it.packageName, it.name)
+        }.toSet()
+        ServiceBlockFeature.install(framework, serviceConfig, declaredServices, logger)
+
         val points = HuaweiHealthHookPoints.V17_0_7_310
         if (!points.isComplete()) {
             logger.warn("Huawei Health symbol table incomplete; hooks skipped")
