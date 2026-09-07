@@ -145,4 +145,24 @@
     <string name="settings_tab_mine">我的</string>
     <string name="back">返回</string>
     <string name="close">关闭</string>
+    <string name="service_block_title">后台服务精简</string>
+    <string name="service_block_enabled">启用服务屏蔽</string>
+    <string name="service_block_only_selected">仅看已屏蔽</string>
+    <string name="service_block_clear">取消全部屏蔽</string>
+    <string name="service_block_refresh">刷新服务与配置</string>
+    <string name="service_block_search">搜索服务类名或进程</string>
+    <string name="service_block_notice">仅屏蔽华为运动健康主进程主动发起的显式服务启动与绑定（含前台服务）。不会立即停止已运行服务，也不阻止系统、其他应用或子进程唤起。\n所选服务可能影响通知、设备连接和同步，取消屏蔽并重启可恢复放行。\n修改后需彻底重启华为运动健康两次；与界面精简开关独立。</string>
+    <string name="service_block_loading">正在读取服务…</string>
+    <string name="service_block_not_installed">未安装华为运动健康，或当前用户下不可见。</string>
+    <string name="service_block_unsupported">当前版本不支持服务屏蔽，仅支持 17.0.7.310。可查看服务、关闭总开关或删除旧规则。</string>
+    <string name="service_block_load_error">服务列表加载失败，请刷新重试。</string>
+    <string name="service_block_disconnected">模块配置服务未连接，暂时无法编辑。</string>
+    <string name="service_block_save_uncertain">保存失败且无法确认旧配置已恢复，已暂停编辑。请恢复模块配置服务连接后刷新核对。</string>
+    <string name="service_block_empty">没有符合条件的服务。</string>
+    <string name="service_block_missing">当前版本未发现，不参与屏蔽；可取消此规则。</string>
+    <string name="service_block_details">进程：%1$s\n已导出：%2$s · 系统启用：%3$s</string>
+    <string name="service_block_count">已选屏蔽 %1$d 项 · 当前显示 %2$d 项</string>
+    <string name="service_block_yes">是</string>
+    <string name="service_block_no">否</string>
+    <string name="service_block_item_toggle">屏蔽</string>
 </resources>

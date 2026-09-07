@@ -41,6 +41,9 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
                     onOpenAbout = {
                         startActivity(AboutActivity.intent(this))
                     },
+                    onOpenServiceBlock = {
+                        startActivity(android.content.Intent(this, ServiceBlockActivity::class.java))
+                    },
                     onRefreshStatus = { refresh(ModuleApplication.service) },
                     onClose = { finish() },
                 )

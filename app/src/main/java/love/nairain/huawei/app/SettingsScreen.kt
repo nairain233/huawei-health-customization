@@ -242,6 +242,7 @@ internal fun SettingsScreen(
     onSettingChange: (String, Boolean) -> Unit,
     onOpenThemeSettings: () -> Unit = {},
     onOpenLayoutTrim: () -> Unit = {},
+    onOpenServiceBlock: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     onRefreshStatus: () -> Unit = {},
     onClose: () -> Unit = {},
@@ -323,6 +324,14 @@ internal fun SettingsScreen(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),
+                )
+            }
+            item(key = "service_block_navigation") {
+                NavigationCard(
+                    title = stringResource(R.string.service_block_title),
+                    testTag = "settings:service-block-nav",
+                    onClick = onOpenServiceBlock,
+                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 )
             }
             item(key = "about_navigation") {
