@@ -41,7 +41,7 @@ internal data class ServiceCatalog(
                 } && info.applicationInfo?.enabled != false
                 ServiceItem(component, service.processName.orEmpty(), service.exported, enabled)
             }.distinctBy { it.component }.sortedBy { it.className }
-            val supported = HookInstallPolicy.acceptsVersion(info.versionName, info.longVersionCode)
+            val supported = true // 由目标进程校验系统入口，不按宿主版本限制选择。
             return ServiceCatalog(services, supported,
                 if (supported) null else love.nairain.huawei.R.string.service_block_unsupported)
         }
