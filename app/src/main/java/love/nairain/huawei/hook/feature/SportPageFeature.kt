@@ -35,7 +35,7 @@ class SportPageFeature : HookFeature {
     private fun installTopControls(context: HookContext): Int {
         val type = ReflectionTargets.type(context.classLoader, context.points.sportFragment) ?: return 0
         val method = ReflectionTargets.method(type, "onCreateView", 3) ?: return 0
-        context.framework.hook(method).setId("$id:top")
+        context.hooks.hook(method).setId("$id:top")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
@@ -48,7 +48,7 @@ class SportPageFeature : HookFeature {
             }
         var count = 1
         ReflectionTargets.method(type, "onResume", 0)?.let { resume ->
-            context.framework.hook(resume).setId("$id:resume")
+            context.hooks.hook(resume).setId("$id:resume")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -62,7 +62,7 @@ class SportPageFeature : HookFeature {
             count++
         }
         ReflectionTargets.method(type, "setUserVisibleHint", 1, Void.TYPE)?.let { visibility ->
-            context.framework.hook(visibility).setId("$id:visibility")
+            context.hooks.hook(visibility).setId("$id:visibility")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -85,6 +85,7 @@ class SportPageFeature : HookFeature {
             TOP_VIEWS,
             context.config,
         )
+        if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) return
         ViewSelectors.collapseContainersByText(
             root,
             QUICK_ENTRY_TITLES,
@@ -113,7 +114,7 @@ class SportPageFeature : HookFeature {
     private fun installSections(context: HookContext): Int {
         val type = ReflectionTargets.type(context.classLoader, context.points.sportTrigger) ?: return 0
         val method = ReflectionTargets.method(type, "setCacheBeansList", 1) ?: return 0
-        context.framework.hook(method).setId("$id:sections")
+        context.hooks.hook(method).setId("$id:sections")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val resPosId = ReflectionTargets.invokeNoArgs(chain.thisObject, "getResPosId") as? Int
@@ -122,7 +123,7 @@ class SportPageFeature : HookFeature {
                     val source = chain.args.firstOrNull() as? List<*>
                     if (source != null) {
                         args[0] = ListFilters.copyAndFilter(source.filterNotNull(), { section ->
-                            sectionKey(section)
+                            sectionKey(section, context)
                         }, context.config)
                     }
                 }
@@ -138,7 +139,7 @@ class SportPageFeature : HookFeature {
                 it.parameterTypes.getOrNull(0)?.name == "${context.points.sportColumnAdapter}\$e" &&
                 it.parameterTypes.getOrNull(1) == Int::class.javaPrimitiveType
         } ?: return 0
-        context.framework.hook(method).setId("$id:quick-entry-bind")
+        context.hooks.hook(method).setId("$id:quick-entry-bind")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
@@ -161,14 +162,15 @@ class SportPageFeature : HookFeature {
         }
     }
 
-    private fun sectionKey(section: Any): String? {
+    private fun sectionKey(section: Any, context: HookContext): String? {
         val info = ReflectionTargets.invokeNoArgs(section, "n")
         val resourceName = listOfNotNull(
             ReflectionTargets.invokeNoArgs(info ?: return null, "getResourceId") as? String,
             ReflectionTargets.invokeNoArgs(info, "getResourceName") as? String,
         ).joinToString("|")
         val provider = ReflectionTargets.invokeNoArgs(section, "c")?.javaClass?.name
-        val title = ViewSelectors.text(ReflectionTargets.invokeNoArgs(section, "q") as? View)
+        val title = if (love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode))
+            ViewSelectors.text(ReflectionTargets.invokeNoArgs(section, "q") as? View) else null
         return SportContentKeyResolver.resolve(resourceName, provider, title)
     }
 

@@ -3,11 +3,11 @@ package love.nairain.huawei.hook.resolver
 import love.nairain.huawei.config.SettingsKeys
 
 class RowKeyResolver {
-    fun resolve(resourceName: String?, resourceId: Int? = null): String? =
-        resourceName?.let(RESOURCE_NAMES::get) ?: resourceId?.let(RESOURCE_IDS::get)
+    fun resolve(resourceName: String?, resourceId: Int? = null, allowStaticIds: Boolean = true): String? =
+        resourceName?.let(RESOURCE_NAMES::get) ?: resourceId?.takeIf { allowStaticIds }?.let(RESOURCE_IDS::get)
 
     companion object {
-        private val RESOURCE_NAMES = mapOf(
+        val RESOURCE_NAMES = mapOf(
             "IDS_user_profile_achieve_my_reward" to SettingsKeys.MINE_MEDALS,
             "IDS_hwh_me_achieve_report" to SettingsKeys.MINE_ACHIEVEMENTS,
             "IDS_user_profile_health_show_my_data" to SettingsKeys.MINE_DATA,
@@ -62,7 +62,7 @@ class BottomTabKeyResolver {
     fun resolve(resourceName: String?): String? = resourceName?.let(RESOURCE_NAMES::get)
 
     companion object {
-        private val RESOURCE_NAMES = mapOf(
+        val RESOURCE_NAMES = mapOf(
             "IDS_hw_show_main_home_page_health" to SettingsKeys.BOTTOM_HEALTH,
             "IDS_hw_show_main_home_page_sport" to SettingsKeys.BOTTOM_SPORT,
             "IDS_hw_show_main_home_page_discover" to SettingsKeys.BOTTOM_MEMBER,

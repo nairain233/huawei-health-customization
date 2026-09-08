@@ -11,7 +11,7 @@ import org.junit.Test
 
 class HookOrchestrationTest {
     @Test
-    fun onlyAttachedTargetMainProcessExactVersionIsAccepted() {
+    fun onlyAttachedTargetMainProcessIsAcceptedAcrossVersions() {
         val valid = HookInstallPolicy.canInstallRuntime(
             true,
             "com.huawei.health",
@@ -24,10 +24,10 @@ class HookOrchestrationTest {
         assertFalse(HookInstallPolicy.canInstallRuntime(false, "com.huawei.health", "com.huawei.health", true, "17.0.7.310", 1700007310L))
         assertFalse(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health:remote", true, "17.0.7.310", 1700007310L))
         assertFalse(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", false, "17.0.7.310", 1700007310L))
-        assertFalse(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, null, 1700007310L))
-        assertFalse(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, "17.0.7.311", 1700007310L))
-        assertFalse(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, "17.0.7.310", 1700007311L))
-        assertFalse(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, "17.0.7.311", 1700007311L))
+        assertTrue(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, null, 1700007310L))
+        assertTrue(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, "17.0.7.311", 1700007310L))
+        assertTrue(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, "17.0.7.310", 1700007311L))
+        assertTrue(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health", true, "17.0.7.311", 1700007311L))
     }
 
     @Test

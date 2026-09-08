@@ -177,11 +177,12 @@ app/src/main/
 ## 实现概要
 
 - schema v2 统一使用 `hide.health.*`、`hide.sport.*`、`hide.device.*`、`hide.mine.*`、`hide.bottom.*`；保留 `enabled` 与 `hide_launcher_icon` 原值，旧 `row_*` / `tab_*` 不迁移也不读取。
-- `onPackageReady` 只安装 `Application.attach()` Hook；attach 完成后才读取真实版本和一次性配置快照，再安装页面功能。
+- `onPackageReady` 只安装 `Application.attach()` Hook；attach 完成后读取真实包信息和一次性配置快照。服务独立安装，布局经后台 DexKit 扫描或缓存复核后按能力安装。
 - 健康页按 `HomeCardAdapter` 副本、`CardConstructor.getCardId()` 和快捷入口标识过滤；运动页 Knit 过滤仅限 `SportTabPageResTrigger` 的 `resPosId=4040`；设备页按已核验资源名折叠；我的页按资源名及 `wrq/wrl/wrb/wsa` 模型过滤并清理空分组。
 - 底栏保留原始 Tab 索引，使用按 `HealthBottomView` 实例隔离的弱状态表，处理清空、重复布局和 RTL。
-- 不使用 DexKit，不扫描未知版本，不保存解析缓存，不持有 Activity、Fragment 或 View 的静态强引用。
-- 服务功能使用 `service_block.enabled` 和 `service_block.components`，保留 schema v2 布局配置；attach 完成并校验版本后独立安装，不依赖布局符号表。通过已核验的 ContextImpl 内部入口匹配显式组件，缺少声明的旧规则不生效，安装不完整时回滚并放行。
+- DexKit 扫描 base/split APK，结果按功能隔离并缓存。未知版本只启用唯一命中且签名、内容身份通过校验的功能；历史数字 ID/文案后备仅限已核验版本。不持有 Activity、Fragment 或 View 的静态强引用。
+- 首页展示扫描 m/n 与预约重扫；`scan.request` 由模块写入，目标下次启动后执行。报告通过验证 UID 的专用 Provider 回传，不修改用户开关。规则变化递增 `ScanProtocol.RULES`，详细依据见 [DexKit 适配说明](docs/DexKit适配说明.md)。
+- 服务功能使用 `service_block.enabled` 和 `service_block.components`，保留 schema v2 布局配置；attach 完成后独立安装，不依赖布局扫描或宿主版本白名单。通过已核验的 ContextImpl 内部入口匹配显式组件，缺少声明的旧规则不生效，安装不完整时回滚并放行。
 - 服务绑定状态按外层 Context 与 ServiceConnection 对象身份弱引用隔离，优先保留真实解绑；不记录 Intent 内容和宿主异常消息。设备验证边界见 [后台服务精简说明](docs/后台服务精简说明.md)。
 
 
