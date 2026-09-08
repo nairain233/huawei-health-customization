@@ -10,8 +10,12 @@ espressoCore = "3.7.0"
 kotlin = "2.4.10"
 miuix = "0.9.4-rc01"
 xposedApi = "102.0.0"
+dexkit = "2.2.0"
+jsonTest = "20260814"
 
 [libraries]
+dexkit = { group = "org.luckypray", name = "dexkit", version.ref = "dexkit" }
+json-test = { group = "org.json", name = "json", version.ref = "jsonTest" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "composeUi" }
