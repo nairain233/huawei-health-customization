@@ -1,0 +1,76 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and build release APK
+        run: bash ./gradlew testDebugUnitTest lintDebug assembleRelease --no-configuration-cache
+
+      - name: Sign and verify release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing signing secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
+          keystore="$RUNNER_TEMP/release.keystore"
+          trap 'rm -f -- "$keystore"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          build_tools="$ANDROID_HOME/build-tools/37.0.0"
+          mkdir -p "app/build/outputs/signed"
+          "$build_tools/zipalign" -P 16 -f 4 \
+            "app/build/outputs/apk/release/app-release-unsigned.apk" \
+            "$RUNNER_TEMP/app-release-aligned.apk"
+          "$build_tools/apksigner" sign \
+            --ks "$keystore" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --out "app/build/outputs/signed/huaweihook-release.apk" \
+            "$RUNNER_TEMP/app-release-aligned.apk"
+          "$build_tools/apksigner" verify "app/build/outputs/signed/huaweihook-release.apk"
+          "$build_tools/zipalign" -c -P 16 4 "app/build/outputs/signed/huaweihook-release.apk"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: huaweihook-release-${{ github.run_number }}
+          path: app/build/outputs/signed/huaweihook-release.apk
+          if-no-files-found: error
+          retention-days: 14
