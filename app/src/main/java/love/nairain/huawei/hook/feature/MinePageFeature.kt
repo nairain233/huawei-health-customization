@@ -36,7 +36,7 @@ class MinePageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, context.points.mineFragment) ?: return 0
         var count = 0
         ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
-            context.framework.hook(method).setId("$id:header:create")
+            context.hooks.hook(method).setId("$id:header:create")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -46,7 +46,7 @@ class MinePageFeature : HookFeature {
             count++
         }
         ReflectionTargets.method(type, "onResume", 0)?.let { method ->
-            context.framework.hook(method).setId("$id:header:resume")
+            context.hooks.hook(method).setId("$id:header:resume")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -62,7 +62,7 @@ class MinePageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, context.points.mineGridAdapter) ?: return 0
         var count = 0
         ReflectionTargets.constructor(type, 2)?.let { constructor ->
-            context.framework.hook(constructor).setId("$id:grid:init")
+            context.hooks.hook(constructor).setId("$id:grid:init")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     chain.proceed(filteredGridArguments(chain.args, 1, context))
@@ -70,7 +70,7 @@ class MinePageFeature : HookFeature {
             count++
         }
         ReflectionTargets.method(type, "c", 1)?.let { method ->
-            context.framework.hook(method).setId("$id:grid:refresh")
+            context.hooks.hook(method).setId("$id:grid:refresh")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     chain.proceed(filteredGridArguments(chain.args, 0, context))
@@ -84,7 +84,7 @@ class MinePageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, context.points.mineListManager) ?: return 0
         val methods = listOf("t", "l").mapNotNull { ReflectionTargets.method(type, it, 0, List::class.java) }
         methods.forEach { method ->
-            context.framework.hook(method).setId("$id:rows:${method.name}")
+            context.hooks.hook(method).setId("$id:rows:${method.name}")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -118,7 +118,7 @@ class MinePageFeature : HookFeature {
         val replacement = args.toTypedArray()
         val source = args.getOrNull(index) as? List<*> ?: return replacement
         replacement[index] = ListFilters.copyAndFilter(source.filterNotNull(), { model ->
-            GRID_TYPES[model.javaClass.simpleName]
+            ReflectionTargets.aliases["grid:${model.javaClass.name}"]
         }, context.config)
         return replacement
     }
@@ -129,7 +129,8 @@ class MinePageFeature : HookFeature {
         val name = runCatching {
             context.application.resources.getResourceEntryName(resourceId)
         }.getOrNull()
-        val key = rowResolver.resolve(name, resourceId)
+        val key = ReflectionTargets.aliases["content:$resourceId"] ?: rowResolver.resolve(name, resourceId,
+            love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode))
         if (key == null && name != null && loggedRows.add(name)) {
             context.logger.info("Mine row kept: unmapped resource=$name")
         }
@@ -143,12 +144,6 @@ class MinePageFeature : HookFeature {
             "account_center_customheadview" to SettingsKeys.MINE_ACCOUNT,
             "head_layout" to SettingsKeys.MINE_ACCOUNT,
             "vip_layout" to SettingsKeys.MINE_VIP,
-        )
-        val GRID_TYPES = mapOf(
-            "wrq" to SettingsKeys.MINE_GROUP,
-            "wrl" to SettingsKeys.MINE_FAMILY,
-            "wrb" to SettingsKeys.MINE_ANNUAL_GOAL,
-            "wsa" to SettingsKeys.MINE_REPORTS,
         )
     }
 }

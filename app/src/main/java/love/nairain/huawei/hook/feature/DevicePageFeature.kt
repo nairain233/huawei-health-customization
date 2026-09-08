@@ -33,7 +33,7 @@ class DevicePageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, className) ?: return 0
         var count = 0
         ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
-            context.framework.hook(method).setId("$id:create:$index")
+            context.hooks.hook(method).setId("$id:create:$index")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -43,7 +43,7 @@ class DevicePageFeature : HookFeature {
             count++
         }
         ReflectionTargets.method(type, "onResume", 0)?.let { method ->
-            context.framework.hook(method).setId("$id:resume:$index")
+            context.hooks.hook(method).setId("$id:resume:$index")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -53,7 +53,9 @@ class DevicePageFeature : HookFeature {
             count++
         }
         // 17.0.7.310 的营销资源刷新入口；每个入口独立安装，缺失时不影响生命周期 Hook。
-        val refreshMethods = if (index == 0) {
+        val refreshMethods = if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) {
+            emptyList()
+        } else if (index == 0) {
             ReflectionTargets.methods(type, "a", 1).filter {
                 List::class.java.isAssignableFrom(it.parameterTypes[0])
             }
@@ -63,7 +65,7 @@ class DevicePageFeature : HookFeature {
             }
         }
         refreshMethods.forEachIndexed { refreshIndex, method ->
-            context.framework.hook(method).setId("$id:refresh:$index:$refreshIndex")
+            context.hooks.hook(method).setId("$id:refresh:$index:$refreshIndex")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()

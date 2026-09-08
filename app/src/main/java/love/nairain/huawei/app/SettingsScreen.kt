@@ -59,6 +59,7 @@ internal data class SettingsUiState(
     val values: Map<String, Boolean> = emptyMap(),
     val statusMessage: String? = null,
     val statusIsError: Boolean = false,
+    val scan: ScanUiState = ScanUiState(),
 ) {
     fun valueOf(key: String): Boolean = values[key] ?: false
 }
@@ -246,6 +247,7 @@ internal fun SettingsScreen(
     onOpenAbout: () -> Unit = {},
     onRefreshStatus: () -> Unit = {},
     onClose: () -> Unit = {},
+    onRescan: () -> Unit = {},
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val layoutDirection = LocalLayoutDirection.current
@@ -295,6 +297,9 @@ internal fun SettingsScreen(
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),
                 )
+            }
+            item(key = "scan_status") {
+                ScanStatusCard(state.scan, onRescan, Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp))
             }
             item(key = "general_settings") {
                 GeneralSettingsCard(

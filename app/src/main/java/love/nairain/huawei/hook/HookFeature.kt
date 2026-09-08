@@ -14,7 +14,10 @@ data class HookContext(
     val config: Map<String, Boolean>,
     val points: HuaweiHealthHookPoints,
     val logger: ModuleLogger,
-)
+    val resolvedGroups: Set<String>? = null,
+) {
+    val hooks = TransactionalHooks(framework, logger)
+}
 
 sealed interface InstallResult {
     data class Installed(val hookCount: Int) : InstallResult
@@ -28,8 +31,9 @@ interface HookFeature {
     fun install(context: HookContext): InstallResult
 }
 
-internal inline fun HookContext.installIsolated(source: String, block: () -> Int): Int = try {
-    block()
+internal fun HookContext.installIsolated(source: String, block: () -> Int): Int = try {
+    if (resolvedGroups != null && source !in resolvedGroups &&
+        !(source.startsWith("bottom.tabs.") && "bottom.tabs" in resolvedGroups)) 0 else hooks.install(block)
 } catch (error: Throwable) {
     logger.warn("Hook source skipped: $source", error)
     0

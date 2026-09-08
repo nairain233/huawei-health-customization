@@ -23,11 +23,16 @@ class BottomTabFeature : HookFeature {
         if (!SettingsCatalog.hasHidden(SettingsCategory.BOTTOM, context.config)) {
             return InstallResult.Disabled
         }
-        val base = ReflectionTargets.type(context.classLoader, context.points.bottomBase)
-            ?: return InstallResult.Unsupported("bottom navigation base unavailable")
+        val count = context.installIsolated("bottom.tabs") { installNavigation(context) }
+        return if (count > 0) InstallResult.Installed(count)
+        else InstallResult.Unsupported("bottom methods unavailable")
+    }
+
+    private fun installNavigation(context: HookContext): Int {
+        val base = requireNotNull(ReflectionTargets.type(context.classLoader, context.points.bottomBase))
         val clear = ReflectionTargets.method(base, "a", 0, Void.TYPE)
         val add = ReflectionTargets.methods(base, "a", 3).firstOrNull { method ->
-            method.name == "a" && method.returnType == Boolean::class.javaPrimitiveType &&
+            method.returnType == Boolean::class.javaPrimitiveType &&
                 method.parameterTypes.contentEquals(
                     arrayOf(Int::class.javaPrimitiveType, Drawable::class.java, Boolean::class.javaPrimitiveType),
                 )
@@ -35,8 +40,9 @@ class BottomTabFeature : HookFeature {
         val layout = ReflectionTargets.method(base, "onLayout", 5, Void.TYPE)
 
         var count = 0
-        if (clear != null) count += context.installIsolated("$id.clear") {
-            context.framework.hook(clear).setId("$id:clear")
+        require(clear != null && add != null && layout != null)
+        count += run {
+            context.hooks.hook(clear).setId("$id:clear")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -47,8 +53,8 @@ class BottomTabFeature : HookFeature {
                 }
             1
         }
-        if (add != null) count += context.installIsolated("$id.add") {
-            context.framework.hook(add).setId("$id:add")
+        count += run {
+            context.hooks.hook(add).setId("$id:add")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -57,8 +63,8 @@ class BottomTabFeature : HookFeature {
                 }
             1
         }
-        if (layout != null) count += context.installIsolated("$id.layout") {
-            context.framework.hook(layout).setId("$id:layout")
+        count += run {
+            context.hooks.hook(layout).setId("$id:layout")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -67,8 +73,7 @@ class BottomTabFeature : HookFeature {
                 }
             1
         }
-        return if (count > 0) InstallResult.Installed(count)
-        else InstallResult.Unsupported("bottom methods unavailable")
+        return count
     }
 
     private fun recordTab(view: ViewGroup?, titleId: Int?, context: HookContext) {
@@ -76,28 +81,30 @@ class BottomTabFeature : HookFeature {
         val child = view.getChildAt(view.childCount - 1) ?: return
         val index = itemIndex(child) ?: return
         val resourceName = runCatching { view.resources.getResourceEntryName(titleId) }.getOrNull()
-        val key = resolver.resolve(resourceName) ?: return
+        val key = ReflectionTargets.aliases["content:$titleId"] ?: resolver.resolve(resourceName) ?: return
         val hidden = context.config[key] == true
         state.record(view, index, hidden)
-        if (hidden) setItemEnabled(view, index, false)
+        if (hidden) disableItem(view, index)
     }
 
     private fun applyLayout(view: ViewGroup?, context: HookContext) {
         if (view == null || !isMainView(view, context) || view.width <= 0 || view.height <= 0) return
         val hiddenIndexes = state.snapshot(view)
+        val verifiedVersion = love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)
+        if (!verifiedVersion && hiddenIndexes.isEmpty()) return
         val visible = ArrayList<View>()
         for (position in 0 until view.childCount) {
             val child = view.getChildAt(position) ?: continue
             val index = itemIndex(child) ?: continue
-            val key = BottomTabIndexResolver.resolve(index)
+            val key = if (verifiedVersion)
+                BottomTabIndexResolver.resolve(index) else null
             val hiddenByConfig = key != null && context.config[key] == true
-            state.record(view, index, hiddenByConfig)
+            if (key != null) state.record(view, index, hiddenByConfig)
             if (hiddenByConfig || index in hiddenIndexes) {
                 ViewTrimmer.collapse(child)
-                setItemEnabled(view, index, false)
+                disableItem(view, index)
             } else {
                 ViewTrimmer.restore(child)
-                setItemEnabled(view, index, true)
                 visible += child
             }
         }
@@ -129,13 +136,13 @@ class BottomTabFeature : HookFeature {
         child.javaClass.getMethod("getItemIndex").invoke(child) as? Int
     }.getOrNull()
 
-    private fun setItemEnabled(view: ViewGroup, index: Int, enabled: Boolean) {
+    private fun disableItem(view: ViewGroup, index: Int) {
         runCatching {
             view.javaClass.getMethod(
                 "setSelectItemEnabled",
                 Int::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
-            ).invoke(view, index, enabled)
+            ).invoke(view, index, false)
         }
     }
 

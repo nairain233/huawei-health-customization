@@ -26,6 +26,7 @@ class HealthPageFeature : HookFeature {
         count += context.installIsolated("health.top") { installTopControls(context) }
         count += context.installIsolated("health.top-cards") { installTopCardFilter(context) }
         count += context.installIsolated("health.health-cards") { installHealthCardFilter(context) }
+        count += context.installIsolated("health.edit-cards") { installEditCards(context) }
         count += context.installIsolated("health.quick-entries") { installQuickEntryFilter(context) }
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified health symbols unavailable")
@@ -35,7 +36,7 @@ class HealthPageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, context.points.homeFragment) ?: return 0
         var count = 0
         ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
-            context.framework.hook(method).setId("$id:top:create")
+            context.hooks.hook(method).setId("$id:top:create")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -45,7 +46,7 @@ class HealthPageFeature : HookFeature {
             count++
         }
         ReflectionTargets.method(type, "onResume", 0, Void.TYPE)?.let { method ->
-            context.framework.hook(method).setId("$id:top:resume")
+            context.hooks.hook(method).setId("$id:top:resume")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -62,7 +63,7 @@ class HealthPageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, context.points.homeAdapter) ?: return 0
         var count = 0
         ReflectionTargets.constructor(type, 2)?.let { constructor ->
-            context.framework.hook(constructor).setId("$id:adapter:init")
+            context.hooks.hook(constructor).setId("$id:adapter:init")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val args = filteredArguments(chain.args, 1, context) { item ->
@@ -75,7 +76,7 @@ class HealthPageFeature : HookFeature {
             count++
         }
         ReflectionTargets.method(type, "c", 1)?.let { method ->
-            context.framework.hook(method).setId("$id:adapter:refresh")
+            context.hooks.hook(method).setId("$id:adapter:refresh")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val args = filteredArguments(chain.args, 0, context) { item ->
@@ -94,7 +95,7 @@ class HealthPageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, context.points.functionSetHolder) ?: return 0
         var count = 0
         ReflectionTargets.method(type, "g", 0, Void.TYPE)?.let { method ->
-            context.framework.hook(method).setId("$id:health-cards:init")
+            context.hooks.hook(method).setId("$id:health-cards:init")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -106,7 +107,7 @@ class HealthPageFeature : HookFeature {
         ReflectionTargets.methods(type, "c", 1).firstOrNull {
             it.parameterTypes.singleOrNull()?.let(List::class.java::isAssignableFrom) == true
         }?.let { method ->
-            context.framework.hook(method).setId("$id:health-cards:refresh")
+            context.hooks.hook(method).setId("$id:health-cards:refresh")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val args = filteredArguments(chain.args, 0, context) { item ->
@@ -118,8 +119,13 @@ class HealthPageFeature : HookFeature {
                 }
             count++
         }
+        return count
+    }
+
+    private fun installEditCards(context: HookContext): Int {
+        val type = ReflectionTargets.type(context.classLoader, context.points.functionSetHolder) ?: return 0
         ReflectionTargets.method(type, "l", 0, Void.TYPE)?.let { method ->
-            context.framework.hook(method).setId("$id:edit-cards")
+            context.hooks.hook(method).setId("$id:edit-cards")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
@@ -129,9 +135,9 @@ class HealthPageFeature : HookFeature {
                     }
                     result
                 }
-            count++
+            return 1
         }
-        return count
+        return 0
     }
 
     private fun installQuickEntryFilter(context: HookContext): Int {
@@ -144,7 +150,7 @@ class HealthPageFeature : HookFeature {
         }.distinct()
         if (methods.isEmpty()) return 0
         methods.forEachIndexed { index, method ->
-            context.framework.hook(method).setId("$id:quick:$index")
+            context.hooks.hook(method).setId("$id:quick:$index")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     filterGridTemplate(chain.thisObject, context)
@@ -173,7 +179,10 @@ class HealthPageFeature : HookFeature {
         val list = ReflectionTargets.fieldValue(target, "k") as? MutableCollection<Any> ?: return
         val filtered = ListFilters.copyAndFilter(list.toList(), { item ->
             HealthContentKeyResolver.healthCard(
-                ReflectionTargets.invokeNoArgs(item, "getCardId") as? String,
+                ReflectionTargets.invokeNoArgs(item, "getCardId") as? String
+                    ?: ReflectionTargets.invokeNoArgs(item, "getCardConfig")?.let {
+                        ReflectionTargets.invokeNoArgs(it, "getCardId") as? String
+                    },
             )
         }, context.config)
         list.clear()
@@ -194,7 +203,8 @@ class HealthPageFeature : HookFeature {
             HealthContentKeyResolver.quickEntry(
                 ReflectionTargets.invokeNoArgs(item, "getDynamicDataId") as? String,
                 ReflectionTargets.invokeNoArgs(item, "getLinkValue") as? String,
-                ReflectionTargets.invokeNoArgs(item, "getTheme") as? String,
+                if (love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode))
+                    ReflectionTargets.invokeNoArgs(item, "getTheme") as? String else null,
             )
         }, context.config)
         replaceMatchingListField(template, list, filtered)

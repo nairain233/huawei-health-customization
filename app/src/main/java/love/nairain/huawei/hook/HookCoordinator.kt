@@ -17,6 +17,9 @@ import love.nairain.huawei.hook.feature.MinePageFeature
 import love.nairain.huawei.hook.feature.SportPageFeature
 import love.nairain.huawei.hook.symbols.HuaweiHealthHookPoints
 import love.nairain.huawei.hook.util.ModuleLogger
+import love.nairain.huawei.scan.ScanRuntime
+import love.nairain.huawei.scan.ScanProtocol
+import love.nairain.huawei.hook.resolver.ReflectionTargets
 
 /** 只安装 Application.attach；真实版本与配置均在 attach 完成后读取一次。 */
 internal object HookCoordinator {
@@ -67,8 +70,8 @@ internal object HookCoordinator {
         }.getOrNull()
         val versionName = packageInfo?.versionName
         val versionCode = packageInfo?.longVersionCode ?: 0L
-        if (!HookInstallPolicy.acceptsVersion(versionName, versionCode)) {
-            logger.warn("Unsupported Huawei Health version; hooks skipped")
+        if (packageInfo == null) {
+            logger.warn("Huawei Health package metadata unavailable; hooks skipped")
             return
         }
         val serviceConfig = try {
@@ -77,26 +80,33 @@ internal object HookCoordinator {
             logger.warn("Service configuration unavailable: ${error.javaClass.simpleName}; services allowed")
             ServiceBlockConfig()
         }
-        val declaredServices = packageInfo?.services.orEmpty().mapNotNull {
+        val declaredServices = packageInfo.services.orEmpty().mapNotNull {
             ServiceBlockConfig.componentName(it.packageName, it.name)
         }.toSet()
-        ServiceBlockFeature.install(framework, serviceConfig, declaredServices, logger)
-
-        val points = HuaweiHealthHookPoints.V17_0_7_310
-        if (!points.isComplete()) {
-            logger.warn("Huawei Health symbol table incomplete; hooks skipped")
-            return
-        }
+        val serviceStatus = ServiceBlockFeature.install(framework, serviceConfig, declaredServices, logger)
         val config = readConfig(framework, logger)
+        val request = try {
+            framework.getRemotePreferences(SettingsKeys.GROUP).getString(ScanProtocol.REQUEST, "").orEmpty()
+        } catch (error: RuntimeException) {
+            logger.warn("Scan request unavailable: ${error.javaClass.simpleName}")
+            ""
+        }
+        ScanRuntime.start(application, packageInfo, classLoader, request, serviceStatus, logger) { resolution ->
+        ReflectionTargets.aliases = resolution.aliases
+        ReflectionTargets.resolvedDescriptors = resolution.descriptors
+        val points = HuaweiHealthHookPoints.V17_0_7_310.copy(
+            versionName = versionName.orEmpty(), versionCode = versionCode, mineListManager = resolution.mineManager,
+        )
         val context = HookContext(
             framework = framework,
             classLoader = classLoader,
             application = application,
-            versionName = versionName!!,
+            versionName = versionName.orEmpty(),
             versionCode = versionCode,
-            config = config,
+            config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
             points = points,
             logger = logger,
+            resolvedGroups = resolution.capabilities.filterValues { keys -> keys.any { config[it] == true } }.keys,
         )
         HookRegistry(
             listOf(
@@ -107,6 +117,7 @@ internal object HookCoordinator {
                 BottomTabFeature(),
             ),
         ).installAll(context)
+        }
     }
 
     private fun readConfig(

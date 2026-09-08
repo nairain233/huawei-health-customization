@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <queries>
         <package android:name="com.huawei.health" />
@@ -12,6 +13,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.华为运动精简">
+        <!-- call() 校验 Binder UID，仅接收脱敏报告；不提供数据查询或配置写入。 -->
+        <provider
+            android:name=".scan.ScanReportProvider"
+            android:authorities="love.nairain.huawei.scan"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
         <activity
             android:name=".app.SettingsActivity"
             android:exported="true"

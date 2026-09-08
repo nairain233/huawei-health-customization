@@ -18,8 +18,8 @@ internal object ServiceBlockFeature {
         config: ServiceBlockConfig,
         declared: Set<String>,
         logger: ModuleLogger,
-    ) {
-        if (!config.enabled || config.components.intersect(declared).isEmpty()) return
+    ): String {
+        if (!config.enabled || config.components.intersect(declared).isEmpty()) return "disabled"
         val bindings = ServiceBindingState()
         val installation = ServiceHookInstallation()
         installation.install(onFailure = { error ->
@@ -76,5 +76,6 @@ internal object ServiceBlockFeature {
             }
         }
         if (installation.active) logger.info("Service blocking installed")
+        return if (installation.active) "installed" else "unsupported"
     }
 }
