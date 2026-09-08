@@ -14,6 +14,12 @@ internal data class OpenSourceLibrary(
 
 internal val openSourceLibraries: List<OpenSourceLibrary> = listOf(
     OpenSourceLibrary(
+        name = "DexKit",
+        author = "LuckyPray",
+        license = "LGPL-3.0",
+        url = "https://github.com/LuckyPray/DexKit",
+    ),
+    OpenSourceLibrary(
         name = "Miuix",
         author = "compose-miuix-ui",
         license = "Apache-2.0",

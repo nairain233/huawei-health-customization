@@ -41,6 +41,8 @@ extensions.configure<ApplicationExtension> {
     lint {
         // 构建插件升级需要单独验证，不作为源码质量告警处理。
         disable += "AndroidGradlePluginVersion"
+        // 固定依赖按独立升级任务验证，远端发布新版本不应使既有构建失败。
+        disable += "NewerVersionAvailable"
         warningsAsErrors = true
     }
 
@@ -53,6 +55,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.dexkit)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.compose.material.icons.extended)
@@ -62,8 +65,17 @@ dependencies {
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
     testImplementation(libs.junit)
+    testImplementation(libs.libxposed.api)
+    testImplementation(libs.json.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+// 可选的真实 APK 定位测试：桌面 native 库由验证环境提供，不打包进模块。
+tasks.withType<Test>().configureEach {
+    listOf("scan.native", "scan.apk", "scan.resources", "scan.output", "scan.fixture").forEach { key ->
+        systemProperty(key, providers.gradleProperty(key).getOrElse(""))
+    }
 }
