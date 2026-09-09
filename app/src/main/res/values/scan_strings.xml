@@ -1,21 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="scan_title">扫描结果</string>
+    <string name="scan_title">dexkit扫描</string>
     <string name="scan_not_started">尚未扫描，请启动运动健康</string>
     <string name="scan_running">扫描中</string>
     <string name="scan_complete">扫描完成</string>
+    <string name="scan_complete_all">扫描完成，已发现%1$d/%2$d，全部完成</string>
+    <string name="scan_complete_partial">扫描完成，已发现%1$d/%2$d，部分可能不可用</string>
     <string name="scan_failed">扫描失败，下次启动时重试</string>
     <string name="scan_expired">上次结果已过期，请重新启动运动健康</string>
     <string name="scan_uncertain">扫描状态待确认，请重新启动运动健康</string>
-    <string name="scan_matched">已匹配 %1$d/%2$d 项</string>
     <string name="scan_checked">已检查 %1$d/%2$d 项</string>
-    <string name="scan_version">运动健康版本：%1$s</string>
-    <string name="scan_time">结果更新时间：%1$s</string>
-    <string name="scan_service_installed">服务屏蔽：入口校验通过，已安装</string>
-    <string name="scan_service_unsupported">服务屏蔽：入口不支持，已放行</string>
-    <string name="scan_service_disabled">服务屏蔽：未启用或未选择有效组件</string>
-    <string name="scan_scheduled">已安排，下次启动运动健康时重新扫描。上方保留上次结果。</string>
-    <string name="scan_description">匹配不代表已启用。重新扫描会在运动健康进程重新启动时执行，切回后台应用不会触发。</string>
+    <string name="scan_scheduled">已安排，下次启动运动健康时扫描</string>
     <string name="scan_save_failed">预约保存失败，请重试</string>
     <string name="scan_saving">正在预约</string>
     <string name="scan_rescan">重新扫描</string>
