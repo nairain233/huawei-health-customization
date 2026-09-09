@@ -38,6 +38,7 @@ class SettingsScreenTest {
     @Test
     fun disablesSettingsWhenServiceIsDisconnected() {
         setScreen(SettingsUiState())
+        composeRule.onNodeWithTag("scan:card").assertDoesNotExist()
 
         composeRule.onNodeWithText("LSPosed 服务未连接").assertExists()
         composeRule.onNodeWithText("请在启用模块后重试").assertExists()

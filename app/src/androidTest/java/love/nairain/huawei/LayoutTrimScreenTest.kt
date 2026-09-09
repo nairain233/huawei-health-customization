@@ -6,6 +6,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasTestTag
+import love.nairain.huawei.app.ScanUiState
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import love.nairain.huawei.app.LayoutTrimScreen
 import org.junit.Assert.assertEquals
@@ -25,6 +28,7 @@ class LayoutTrimScreenTest {
     fun showsEntriesInOrderAndDispatchesClicks() {
         val opened = mutableListOf<String>()
         var closed = false
+        var rescans = 0
         composeRule.setContent {
             MiuixTheme(colors = lightColorScheme()) {
                 LayoutTrimScreen(
@@ -34,6 +38,8 @@ class LayoutTrimScreenTest {
                     onOpenDevice = { opened += "device" },
                     onOpenMineTrim = { opened += "mine" },
                     onClose = { closed = true },
+                    scanState = ScanUiState(writable = true),
+                    onRescan = { rescans++ },
                 )
             }
         }
@@ -55,6 +61,12 @@ class LayoutTrimScreenTest {
 
         tags.forEach { tag -> composeRule.onNodeWithTag(tag).performClick() }
         assertEquals(listOf("bottom", "health", "sport", "device", "mine"), opened)
+
+        composeRule.onNodeWithTag("settings:layout-trim").performScrollToNode(hasTestTag("scan:card"))
+        assertTrue(composeRule.onNodeWithTag("scan:card").fetchSemanticsNode().boundsInRoot.top >
+            composeRule.onNodeWithTag("layout-trim:mine-nav").fetchSemanticsNode().boundsInRoot.top)
+        composeRule.onNodeWithTag("scan:card").performClick()
+        assertEquals(1, rescans)
 
         composeRule.onNodeWithContentDescription("返回").performClick()
         assertTrue(closed)

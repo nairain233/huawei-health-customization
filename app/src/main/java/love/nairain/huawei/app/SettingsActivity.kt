@@ -19,10 +19,6 @@ import love.nairain.huawei.config.SettingsKeys
 class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateListener {
     private var uiState by mutableStateOf(SettingsUiState())
     private var service: XposedService? = null
-    private val scanController by lazy { ScanStatusController(this) { uiState = uiState.copy(scan = it) } }
-
-    override fun onStart() { super.onStart(); scanController.start() }
-    override fun onStop() { scanController.stop(); super.onStop() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,7 +46,6 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
                     },
                     onRefreshStatus = { refresh(ModuleApplication.service) },
                     onClose = { finish() },
-                    onRescan = { scanController.request() },
                 )
             }
         }
@@ -67,7 +62,6 @@ class SettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateList
     }
 
     private fun refresh(boundService: XposedService?) {
-        scanController.bind(boundService)
         service = boundService
         if (boundService == null) {
             uiState = uiState.copy(isServiceConnected = false)

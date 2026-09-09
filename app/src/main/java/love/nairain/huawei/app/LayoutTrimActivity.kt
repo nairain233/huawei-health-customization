@@ -20,6 +20,10 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import io.github.libxposed.service.XposedService
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -41,8 +45,27 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
-/** 汇总五类布局精简入口，不承载具体配置读写。 */
-class LayoutTrimActivity : ComponentActivity() {
+/** 汇总布局精简入口与布局适配状态。 */
+class LayoutTrimActivity : ComponentActivity(), ModuleApplication.ServiceStateListener {
+    private var scanState by mutableStateOf(ScanUiState())
+    private val scanController by lazy { ScanStatusController(this) { scanState = it } }
+
+    override fun onStart() {
+        super.onStart()
+        (application as ModuleApplication).addServiceStateListener(this)
+        scanController.start()
+    }
+
+    override fun onStop() {
+        scanController.stop()
+        (application as ModuleApplication).removeServiceStateListener(this)
+        super.onStop()
+    }
+
+    override fun onServiceStateChanged(service: XposedService?) {
+        scanController.bind(service)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -53,6 +76,8 @@ class LayoutTrimActivity : ComponentActivity() {
                 window = window,
             ) {
                 LayoutTrimScreen(
+                    scanState = scanState,
+                    onRescan = { scanController.request() },
                     onOpenBottomTrim = { openCategory(SettingsCategory.BOTTOM) },
                     onOpenHealth = { openCategory(SettingsCategory.HEALTH) },
                     onOpenSport = { openCategory(SettingsCategory.SPORT) },
@@ -81,6 +106,8 @@ internal fun LayoutTrimScreen(
     onOpenDevice: () -> Unit,
     onOpenMineTrim: () -> Unit,
     onClose: () -> Unit,
+    scanState: ScanUiState = ScanUiState(),
+    onRescan: () -> Unit = {},
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val layoutDirection = LocalLayoutDirection.current
@@ -153,6 +180,12 @@ internal fun LayoutTrimScreen(
                         modifier = Modifier.testTag("layout-trim:mine-nav"),
                     )
                 }
+            }
+            item(key = "scan_status") {
+                ScanStatusCard(
+                    scanState, onRescan,
+                    Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
             }
             item(key = "navigation_bar_spacer") {
                 Spacer(modifier = Modifier.navigationBarsPadding())
