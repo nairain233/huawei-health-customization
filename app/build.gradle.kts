@@ -42,7 +42,7 @@ extensions.configure<ApplicationExtension> {
         // 构建插件升级需要单独验证，不作为源码质量告警处理。
         disable += "AndroidGradlePluginVersion"
         // 固定依赖按独立升级任务验证，远端发布新版本不应使既有构建失败。
-        disable += "NewerVersionAvailable"
+        disable += "GradleDependency"
         warningsAsErrors = true
     }
 
