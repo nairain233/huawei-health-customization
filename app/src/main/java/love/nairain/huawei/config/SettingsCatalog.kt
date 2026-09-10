@@ -2,7 +2,6 @@ package love.nairain.huawei.config
 
 import android.content.SharedPreferences
 import androidx.annotation.StringRes
-import androidx.core.content.edit
 import love.nairain.huawei.R
 
 data class SettingDefinition(
@@ -224,15 +223,13 @@ object SettingsCatalog {
         },
     )
 
-    /** 只补 schema v2 新键；旧 row_* / tab_* 不迁移，两个通用键继续保留原值。 */
-    fun ensureDefaults(preferences: SharedPreferences) {
-        preferences.edit {
-            if (preferences.getInt(SettingsKeys.SCHEMA_VERSION, 0) != SettingsKeys.CURRENT_SCHEMA_VERSION) {
-                putInt(SettingsKeys.SCHEMA_VERSION, SettingsKeys.CURRENT_SCHEMA_VERSION)
-            }
-            all.filterNot { runCatching { preferences.contains(it.key) }.getOrDefault(false) }
-                .forEach { putBoolean(it.key, it.defaultValue) }
+    /** 只描述需要补齐的 schema v2 默认项，不在目录层直接写入配置。 */
+    fun missingDefaults(current: Map<String, *>): Map<String, Any> = buildMap {
+        if (current[SettingsKeys.SCHEMA_VERSION] != SettingsKeys.CURRENT_SCHEMA_VERSION) {
+            put(SettingsKeys.SCHEMA_VERSION, SettingsKeys.CURRENT_SCHEMA_VERSION)
         }
+        all.filterNot { current.containsKey(it.key) }
+            .forEach { put(it.key, it.defaultValue) }
     }
 
     fun normalizeBottomTabs(values: Map<String, Boolean>): Map<String, Boolean> {
@@ -243,8 +240,15 @@ object SettingsCatalog {
         return normalized.toMap()
     }
 
-    fun normalizeWrite(key: String, value: Boolean, current: Map<String, Boolean>): Map<String, Boolean> =
-        normalizeBottomTabs(current + (key to value))
+    fun normalize(values: Map<String, Boolean>): Map<String, Boolean> = normalizeBottomTabs(
+        defaults.mapValues { (key, defaultValue) -> values[key] ?: defaultValue },
+    )
+
+    fun normalizeWrite(key: String, value: Boolean, current: Map<String, Boolean>): Map<String, Boolean> {
+        val confirmed = normalize(current)
+        if (!defaults.containsKey(key)) return normalizeBottomTabs(confirmed)
+        return normalizeBottomTabs(confirmed + (key to value))
+    }
 
     fun hasHidden(category: SettingsCategory, values: Map<String, Boolean>): Boolean =
         values[SettingsKeys.ENABLED] == true && settingsFor(category).any { values[it.key] == true }

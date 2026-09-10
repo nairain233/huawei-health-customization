@@ -1,5 +1,6 @@
 package love.nairain.huawei
 
+import love.nairain.huawei.config.LayoutConfigStore
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
@@ -55,7 +56,7 @@ class SettingsSchemaV2Test {
                 "tab_home" to true,
             ),
         )
-        SettingsCatalog.ensureDefaults(preferences)
+        LayoutConfigStore().load(preferences)
         val values = SettingsCatalog.read(preferences)
         assertTrue(values.getValue(SettingsKeys.ENABLED))
         assertTrue(values.getValue(SettingsKeys.HIDE_LAUNCHER_ICON))
