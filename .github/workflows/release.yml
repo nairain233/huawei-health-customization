@@ -84,6 +84,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           body_path: release-notes.md
+          append_body: false
+          generate_release_notes: false
           files: app/build/outputs/signed/huaweihook-release.apk
           fail_on_unmatched_files: true
           overwrite_files: true
