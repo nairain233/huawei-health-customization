@@ -7,19 +7,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
+import love.nairain.huawei.config.SettingsKeys
 import java.util.concurrent.CopyOnWriteArraySet
+import java.util.concurrent.Executors
 
 /**
  * 模块应用：负责与 LSPosed 服务建立连接并通知设置界面。
  */
 class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
     private val listeners = CopyOnWriteArraySet<ServiceStateListener>()
+    internal lateinit var layoutSettingsCoordinator: LayoutSettingsCoordinator
+        private set
     internal var colorMode by mutableStateOf(AppColorMode.SYSTEM)
         private set
 
     override fun onCreate() {
         super.onCreate()
         colorMode = AppAppearancePreferences.read(this)
+        layoutSettingsCoordinator = LayoutSettingsCoordinator(
+            workerExecutor = Executors.newSingleThreadExecutor { runnable ->
+                Thread(runnable, "layout-config").apply { isDaemon = true }
+            },
+            mainExecutor = mainExecutor,
+        )
         XposedServiceHelper.registerListener(this)
     }
 
@@ -31,12 +41,16 @@ class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onServiceBind(boundService: XposedService) {
         service = boundService
+        layoutSettingsCoordinator.bind {
+            boundService.getRemotePreferences(SettingsKeys.GROUP)
+        }
         notifyListeners()
     }
 
     override fun onServiceDied(deadService: XposedService) {
         if (service === deadService) {
             service = null
+            layoutSettingsCoordinator.bind(null)
             notifyListeners()
         }
     }

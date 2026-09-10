@@ -3,10 +3,15 @@
     <string name="settings_title">华为运动精简</string>
     <string name="settings_status_connected">LSPosed 服务已连接</string>
     <string name="settings_status_connected_summary">配置读写正常</string>
+    <string name="settings_status_connected_unavailable_summary">配置暂不可用，请刷新重试</string>
     <string name="settings_status_disconnected">LSPosed 服务未连接</string>
     <string name="settings_status_disconnected_summary">请在启用模块后重试</string>
+    <string name="settings_status_loading">正在读取配置…</string>
+    <string name="settings_status_saving">正在保存配置，完成前保持当前值</string>
     <string name="settings_status_config_error">无法读取配置，设置暂不可用</string>
+    <string name="settings_status_defaults_not_persisted">默认配置未持久化，现有设置仍可编辑</string>
     <string name="settings_status_save_error">保存失败，配置未更改</string>
+    <string name="settings_status_state_uncertain">保存失败且无法确认旧配置已恢复，已暂停编辑；请等待服务重新连接后核对</string>
     <string name="settings_enabled">启用界面精简</string>
     <string name="settings_hide_launcher_icon">隐藏桌面图标</string>
     <string name="settings_theme_title">主题设置</string>
