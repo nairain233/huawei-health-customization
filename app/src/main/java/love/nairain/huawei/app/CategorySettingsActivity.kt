@@ -30,21 +30,17 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.content.edit
-import io.github.libxposed.service.XposedService
 import love.nairain.huawei.R
 import love.nairain.huawei.config.SettingGroup
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -54,9 +50,10 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 五类精简项共用的配置页与读写逻辑。 */
-class CategorySettingsActivity : ComponentActivity(), ModuleApplication.ServiceStateListener {
+class CategorySettingsActivity : ComponentActivity() {
     private var uiState by mutableStateOf(SettingsUiState())
-    private var service: XposedService? = null
+    private lateinit var coordinator: LayoutSettingsCoordinator
+    private val settingsListener = LayoutSettingsListener { newState -> uiState = newState }
     private lateinit var category: SettingsCategory
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +63,7 @@ class CategorySettingsActivity : ComponentActivity(), ModuleApplication.ServiceS
         }.getOrDefault(SettingsCategory.HEALTH)
         enableEdgeToEdge()
         val moduleApplication = application as ModuleApplication
+        coordinator = moduleApplication.layoutSettingsCoordinator
         setContent {
             HuaweiTrimTheme(
                 colorMode = moduleApplication.colorMode,
@@ -80,59 +78,20 @@ class CategorySettingsActivity : ComponentActivity(), ModuleApplication.ServiceS
                 )
             }
         }
-        (application as ModuleApplication).addServiceStateListener(this)
     }
 
-    override fun onDestroy() {
-        (application as ModuleApplication).removeServiceStateListener(this)
-        super.onDestroy()
+    override fun onStart() {
+        super.onStart()
+        coordinator.addListener(settingsListener)
     }
 
-    override fun onServiceStateChanged(service: XposedService?) {
-        runOnUiThread { refresh(service) }
-    }
-
-    private fun refresh(boundService: XposedService?) {
-        service = boundService
-        if (boundService == null) {
-            uiState = SettingsUiState(isServiceConnected = false)
-            return
-        }
-        val preferences = runCatching {
-            boundService.getRemotePreferences(SettingsKeys.GROUP)
-        }.getOrNull()
-        if (preferences == null) {
-            uiState = SettingsUiState(
-                statusMessage = getString(R.string.settings_status_config_error),
-                statusIsError = true,
-            )
-            return
-        }
-        runCatching { SettingsCatalog.ensureDefaults(preferences) }
-        uiState = SettingsUiState(
-            isServiceConnected = true,
-            values = SettingsCatalog.read(preferences),
-        )
+    override fun onStop() {
+        coordinator.removeListener(settingsListener)
+        super.onStop()
     }
 
     private fun updateSetting(key: String, checked: Boolean) {
-        val boundService = service ?: return
-        val previous = uiState.values
-        val normalized = SettingsCatalog.normalizeWrite(key, checked, previous)
-        uiState = uiState.copy(values = normalized, statusMessage = null)
-        try {
-            boundService.getRemotePreferences(SettingsKeys.GROUP).edit {
-                normalized.forEach { (settingKey, value) ->
-                    if (previous[settingKey] != value) putBoolean(settingKey, value)
-                }
-            }
-        } catch (_: RuntimeException) {
-            uiState = uiState.copy(
-                values = previous,
-                statusMessage = getString(R.string.settings_status_save_error),
-                statusIsError = true,
-            )
-        }
+        coordinator.save(key, checked)
     }
 
     companion object {
@@ -191,20 +150,13 @@ internal fun CategorySettingsScreen(
             overscrollEffect = null,
         ) {
             item(key = "notice") {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
-                    insideMargin = PaddingValues(16.dp),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.primary.copy(alpha = 0.2f),
-                        contentColor = MiuixTheme.colorScheme.primary,
-                    ),
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_restart_notice),
-                        color = MiuixTheme.colorScheme.primary,
+                state.notice?.let { notice ->
+                    SettingsNoticeCard(
+                        notice = notice,
+                        message = notice.message(),
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 8.dp),
                     )
                 }
             }
@@ -226,25 +178,12 @@ internal fun CategorySettingsScreen(
                                 SwitchPreference(
                                     title = stringResource(setting.title),
                                     checked = state.valueOf(setting.key),
-                                    enabled = state.isServiceConnected && state.valueOf(SettingsKeys.ENABLED),
+                                    enabled = state.writable && state.valueOf(SettingsKeys.ENABLED),
                                     onCheckedChange = { onSettingChange(setting.key, it) },
                                     modifier = Modifier.testTag("setting:${setting.key}"),
                                 )
                             }
                         }
-                    }
-                }
-            }
-            state.statusMessage?.let { message ->
-                item(key = "status") {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp)
-                            .padding(bottom = 12.dp),
-                        insideMargin = PaddingValues(16.dp),
-                    ) {
-                        Text(message, color = MiuixTheme.colorScheme.error)
                     }
                 }
             }

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -18,6 +19,8 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import love.nairain.huawei.app.CategorySettingsScreen
 import love.nairain.huawei.app.SettingsScreen
+import love.nairain.huawei.app.SettingsNotice
+import love.nairain.huawei.app.SettingsNoticeKind
 import love.nairain.huawei.app.SettingsUiState
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
@@ -64,7 +67,8 @@ class SettingsScreenTest {
         setScreen(
             state = SettingsUiState(
                 isServiceConnected = true,
-                values = mapOf(
+                isConfigAvailable = true,
+                confirmedValues = mapOf(
                     SettingsKeys.ENABLED to false,
                 ),
             ),
@@ -108,7 +112,12 @@ class SettingsScreenTest {
 
     @Test
     fun showsConnectedStatusCard() {
-        setScreen(SettingsUiState(isServiceConnected = true))
+        setScreen(
+            SettingsUiState(
+                isServiceConnected = true,
+                isConfigAvailable = true,
+            ),
+        )
 
         composeRule.onNodeWithTag("settings:service-status").assertExists()
         composeRule.onNodeWithText("配置读写正常").assertExists()
@@ -161,7 +170,8 @@ class SettingsScreenTest {
                     groups = SettingsCatalog.groupsFor(SettingsCategory.HEALTH),
                     state = SettingsUiState(
                         isServiceConnected = true,
-                        values = mapOf(SettingsKeys.ENABLED to true),
+                        isConfigAvailable = true,
+                        confirmedValues = mapOf(SettingsKeys.ENABLED to true),
                     ),
                     onSettingChange = { _, _ -> },
                     onClose = {},
@@ -173,6 +183,69 @@ class SettingsScreenTest {
         composeRule.onAllNodesWithText("健康页面项目").assertCountEquals(2)
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true)
             .assertCountEquals(SettingsCatalog.health.size)
+    }
+
+    @Test
+    fun connectedButUnavailableDoesNotClaimConfigurationIsHealthy() {
+        setScreen(
+            SettingsUiState(
+                isServiceConnected = true,
+                isConfigAvailable = false,
+                notice = SettingsNotice(SettingsNoticeKind.CONFIG_UNAVAILABLE),
+            ),
+        )
+
+        composeRule.onNodeWithText("LSPosed 服务已连接").assertExists()
+        composeRule.onNodeWithText("配置暂不可用，请刷新重试").assertExists()
+        composeRule.onNodeWithText("配置读写正常").assertDoesNotExist()
+        composeRule.onNodeWithText("无法读取配置，设置暂不可用").assertExists()
+    }
+
+    @Test
+    fun loadingAndSavingKeepConfirmedValueDisabled() {
+        setScreen(
+            SettingsUiState(
+                isServiceConnected = true,
+                isConfigAvailable = true,
+                isSaving = true,
+                confirmedValues = SettingsCatalog.defaults,
+                notice = SettingsNotice(SettingsNoticeKind.SAVING),
+            ),
+        )
+
+        composeRule.onNodeWithText("正在保存配置，完成前保持当前值").assertExists()
+        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0)
+            .assertIsNotEnabled()
+            .assertIsOff()
+    }
+
+    @Test
+    fun loadingShowsTextAndDisablesMasterSwitch() {
+        setScreen(
+            SettingsUiState(
+                isServiceConnected = true,
+                isLoading = true,
+                notice = SettingsNotice(SettingsNoticeKind.LOADING),
+            ),
+        )
+
+        composeRule.onAllNodesWithText("正在读取配置…").assertCountEquals(2)
+        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0).assertIsNotEnabled()
+    }
+
+    @Test
+    fun successfulSaveIsTheOnlyStateThatShowsNewValueAndRestartNotice() {
+        setScreen(
+            SettingsUiState(
+                isServiceConnected = true,
+                isConfigAvailable = true,
+                confirmedValues = SettingsCatalog.defaults + (SettingsKeys.ENABLED to true),
+                notice = SettingsNotice(SettingsNoticeKind.RESTART_REQUIRED),
+            ),
+        )
+
+        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0).assertIsOn()
+        composeRule.onNodeWithText("修改后需彻底重启华为运动健康两次").assertExists()
     }
 
     private fun setScreen(

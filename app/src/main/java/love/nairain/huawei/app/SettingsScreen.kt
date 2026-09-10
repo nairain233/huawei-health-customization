@@ -54,45 +54,38 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
-internal data class SettingsUiState(
-    val isServiceConnected: Boolean = false,
-    val values: Map<String, Boolean> = emptyMap(),
-    val statusMessage: String? = null,
-    val statusIsError: Boolean = false,
-) {
-    fun valueOf(key: String): Boolean = values[key] ?: false
-}
-
-private enum class StatusSeverity {
+internal enum class StatusSeverity {
     Info,
     Error,
 }
 
 @Composable
 private fun MiuixServiceStatusCard(
-    connected: Boolean,
+    state: SettingsUiState,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val connected = state.isServiceConnected
+    val configurationReady = connected && state.isConfigAvailable
     val darkTheme = LocalAppDarkTheme.current
     val dynamicColor = MiuixTheme.isDynamicColor
     val container = when {
-        connected && dynamicColor -> MiuixTheme.colorScheme.secondaryContainer
-        connected && darkTheme -> Color(0xFF1A3825)
-        connected -> Color(0xFFDFFAE4)
+        configurationReady && dynamicColor -> MiuixTheme.colorScheme.secondaryContainer
+        configurationReady && darkTheme -> Color(0xFF1A3825)
+        configurationReady -> Color(0xFFDFFAE4)
         dynamicColor -> MiuixTheme.colorScheme.errorContainer
         darkTheme -> Color(0xFF3A1E22)
         else -> Color(0xFFFFE4E1)
     }
     val iconTint = when {
-        connected && dynamicColor -> MiuixTheme.colorScheme.primary
-        connected -> Color(0xFF36D167)
+        configurationReady && dynamicColor -> MiuixTheme.colorScheme.primary
+        configurationReady -> Color(0xFF36D167)
         dynamicColor -> MiuixTheme.colorScheme.error
         darkTheme -> Color(0xFFFF8A80)
         else -> Color(0xFFD32F2F)
     }
     val contentColor = if (dynamicColor) {
-        if (connected) {
+        if (configurationReady) {
             MiuixTheme.colorScheme.onSecondaryContainer
         } else {
             MiuixTheme.colorScheme.onErrorContainer
@@ -127,7 +120,7 @@ private fun MiuixServiceStatusCard(
                 ) {
                     Icon(
                         modifier = Modifier.size(110.dp),
-                        imageVector = if (connected) {
+                        imageVector = if (configurationReady) {
                             Icons.Rounded.CheckCircleOutline
                         } else {
                             Icons.Rounded.ErrorOutline
@@ -157,8 +150,12 @@ private fun MiuixServiceStatusCard(
                         )
                         Text(
                             text = stringResource(
-                                if (connected) R.string.settings_status_connected_summary
-                                else R.string.settings_status_disconnected_summary,
+                                when {
+                                    !connected -> R.string.settings_status_disconnected_summary
+                                    state.isLoading -> R.string.settings_status_loading
+                                    state.isConfigAvailable -> R.string.settings_status_connected_summary
+                                    else -> R.string.settings_status_connected_unavailable_summary
+                                },
                             ),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium,
@@ -212,17 +209,20 @@ private fun NavigationCard(
 }
 
 @Composable
-private fun StatusCard(
+internal fun SettingsNoticeCard(
+    notice: SettingsNotice,
     message: String,
-    severity: StatusSeverity,
     modifier: Modifier = Modifier,
 ) {
+    val severity = notice.severity()
     val accent = when (severity) {
         StatusSeverity.Info -> MiuixTheme.colorScheme.primary
         StatusSeverity.Error -> MiuixTheme.colorScheme.error
     }
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("settings:notice:${notice.kind.name.lowercase()}"),
         insideMargin = PaddingValues(16.dp),
         colors = CardDefaults.defaultColors(
             color = accent.copy(alpha = 0.2f),
@@ -235,6 +235,31 @@ private fun StatusCard(
         )
     }
 }
+
+internal fun SettingsNotice.severity(): StatusSeverity = when (kind) {
+    SettingsNoticeKind.LOADING,
+    SettingsNoticeKind.SAVING,
+    SettingsNoticeKind.RESTART_REQUIRED,
+    -> StatusSeverity.Info
+    SettingsNoticeKind.DEFAULTS_NOT_PERSISTED,
+    SettingsNoticeKind.SAVE_FAILED,
+    SettingsNoticeKind.STATE_UNCERTAIN,
+    SettingsNoticeKind.CONFIG_UNAVAILABLE,
+    -> StatusSeverity.Error
+}
+
+@Composable
+internal fun SettingsNotice.message(): String = stringResource(
+    when (kind) {
+        SettingsNoticeKind.LOADING -> R.string.settings_status_loading
+        SettingsNoticeKind.SAVING -> R.string.settings_status_saving
+        SettingsNoticeKind.RESTART_REQUIRED -> R.string.settings_restart_notice
+        SettingsNoticeKind.DEFAULTS_NOT_PERSISTED -> R.string.settings_status_defaults_not_persisted
+        SettingsNoticeKind.SAVE_FAILED -> R.string.settings_status_save_error
+        SettingsNoticeKind.STATE_UNCERTAIN -> R.string.settings_status_state_uncertain
+        SettingsNoticeKind.CONFIG_UNAVAILABLE -> R.string.settings_status_config_error
+    },
+)
 
 @Composable
 internal fun SettingsScreen(
@@ -289,7 +314,7 @@ internal fun SettingsScreen(
         ) {
             item(key = "settings_status") {
                 MiuixServiceStatusCard(
-                    connected = state.isServiceConnected,
+                    state = state,
                     onRefresh = onRefreshStatus,
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
@@ -299,7 +324,7 @@ internal fun SettingsScreen(
             item(key = "general_settings") {
                 GeneralSettingsCard(
                     enabled = state.valueOf(SettingsKeys.ENABLED),
-                    configurationEnabled = state.isServiceConnected,
+                    configurationEnabled = state.writable,
                     onEnabledChange = { onSettingChange(SettingsKeys.ENABLED, it) },
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
@@ -344,16 +369,12 @@ internal fun SettingsScreen(
                         .padding(bottom = 8.dp),
                 )
             }
-            val statusMessage = state.statusMessage
-            if (statusMessage != null) {
+            val notice = state.notice
+            if (notice != null) {
                 item(key = "settings_status_message") {
-                    StatusCard(
-                        message = statusMessage,
-                        severity = if (state.statusIsError) {
-                            StatusSeverity.Error
-                        } else {
-                            StatusSeverity.Info
-                        },
+                    SettingsNoticeCard(
+                        notice = notice,
+                        message = notice.message(),
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 8.dp),
