@@ -42,7 +42,6 @@ class SettingsActivity : AppCompatActivity() {
                         startActivity(android.content.Intent(this, ServiceBlockActivity::class.java))
                     },
                     onRefreshStatus = coordinator::refresh,
-                    onClose = { finish() },
                 )
             }
         }

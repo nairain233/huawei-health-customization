@@ -40,13 +40,10 @@ import love.nairain.huawei.config.SettingsKeys
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -270,7 +267,6 @@ internal fun SettingsScreen(
     onOpenServiceBlock: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     onRefreshStatus: () -> Unit = {},
-    onClose: () -> Unit = {},
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val layoutDirection = LocalLayoutDirection.current
@@ -285,14 +281,6 @@ internal fun SettingsScreen(
                 color = MiuixTheme.colorScheme.surface,
                 scrollBehavior = scrollBehavior,
                 title = stringResource(R.string.settings_title),
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Close,
-                            contentDescription = stringResource(R.string.close),
-                        )
-                    }
-                },
             )
         },
     ) { paddingValues ->
