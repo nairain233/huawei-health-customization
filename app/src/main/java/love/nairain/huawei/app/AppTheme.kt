@@ -11,6 +11,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.core.content.edit
+import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowCompat
 import love.nairain.huawei.R
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -37,6 +38,26 @@ internal enum class AppColorMode(
     companion object {
         fun fromPreferenceValue(value: String?): AppColorMode =
             entries.firstOrNull { it.preferenceValue == value } ?: SYSTEM
+    }
+}
+
+/** 模块配置应用自身的界面语言，不参与目标应用 Hook 配置。 */
+internal enum class AppLanguage(
+    val languageTag: String,
+    @StringRes val label: Int,
+) {
+    SYSTEM("", R.string.settings_language_system),
+    SIMPLIFIED_CHINESE("zh-CN", R.string.settings_language_simplified_chinese),
+    ENGLISH("en", R.string.settings_language_english),
+    ;
+
+    fun toLocaleList(): LocaleListCompat = LocaleListCompat.forLanguageTags(languageTag)
+
+    companion object {
+        fun fromLocaleList(locales: LocaleListCompat): AppLanguage {
+            val languageTags = locales.toLanguageTags()
+            return entries.firstOrNull { it.languageTag == languageTags } ?: SYSTEM
+        }
     }
 }
 

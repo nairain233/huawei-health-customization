@@ -3,9 +3,9 @@ package love.nairain.huawei.app
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -50,7 +50,7 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 五类精简项共用的配置页与读写逻辑。 */
-class CategorySettingsActivity : ComponentActivity() {
+class CategorySettingsActivity : AppCompatActivity() {
     private var uiState by mutableStateOf(SettingsUiState())
     private lateinit var coordinator: LayoutSettingsCoordinator
     private val settingsListener = LayoutSettingsListener { newState -> uiState = newState }

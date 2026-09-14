@@ -5,9 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -50,7 +51,7 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 管理仅影响模块应用自身的主题与桌面入口设置。 */
-class ThemeSettingsActivity : ComponentActivity() {
+class ThemeSettingsActivity : AppCompatActivity() {
     private var hideLauncherIcon by mutableStateOf(false)
     private var statusMessage by mutableStateOf<String?>(null)
 
@@ -66,9 +67,15 @@ class ThemeSettingsActivity : ComponentActivity() {
             ) {
                 ThemeSettingsScreen(
                     colorMode = moduleApplication.colorMode,
+                    appLanguage = AppLanguage.fromLocaleList(
+                        AppCompatDelegate.getApplicationLocales(),
+                    ),
                     hideLauncherIcon = hideLauncherIcon,
                     statusMessage = statusMessage,
                     onColorModeChange = moduleApplication::updateColorMode,
+                    onLanguageChange = { language ->
+                        AppCompatDelegate.setApplicationLocales(language.toLocaleList())
+                    },
                     onHideLauncherIconChange = ::updateLauncherIcon,
                     onClose = ::finish,
                 )
@@ -123,14 +130,18 @@ class ThemeSettingsActivity : ComponentActivity() {
 @Composable
 internal fun ThemeSettingsScreen(
     colorMode: AppColorMode,
+    appLanguage: AppLanguage,
     hideLauncherIcon: Boolean,
     statusMessage: String? = null,
     onColorModeChange: (AppColorMode) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
     onHideLauncherIconChange: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
     val modes = AppColorMode.entries
     val labels = modes.map { stringResource(it.label) }
+    val languages = AppLanguage.entries
+    val languageLabels = languages.map { stringResource(it.label) }
     val scrollBehavior = MiuixScrollBehavior()
     val layoutDirection = LocalLayoutDirection.current
     val safeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
@@ -184,6 +195,15 @@ internal fun ThemeSettingsScreen(
                         modifier = Modifier.testTag("settings:color-mode"),
                         onSelectedIndexChange = { index ->
                             modes.getOrNull(index)?.let(onColorModeChange)
+                        },
+                    )
+                    OverlayDropdownPreference(
+                        items = languageLabels,
+                        selectedIndex = languages.indexOf(appLanguage),
+                        title = stringResource(R.string.settings_language),
+                        modifier = Modifier.testTag("settings:language"),
+                        onSelectedIndexChange = { index ->
+                            languages.getOrNull(index)?.let(onLanguageChange)
                         },
                     )
                     SwitchPreference(

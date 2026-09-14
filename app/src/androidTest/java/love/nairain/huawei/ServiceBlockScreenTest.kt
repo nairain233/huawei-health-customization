@@ -87,7 +87,7 @@ class ServiceBlockScreenTest {
         composeRule.onNodeWithTag("service-block:enabled").performClick()
         composeRule.onNode(isToggleable() and hasAnyAncestor(hasTestTag("service-block:enabled")), true).assertIsOff()
         composeRule.onNodeWithTag("service-block:list").performScrollToNode(
-            androidx.compose.ui.test.hasText("保存失败，配置未更改"),
+            androidx.compose.ui.test.hasText(resourceString(R.string.settings_status_save_error)),
         )
     }
 }

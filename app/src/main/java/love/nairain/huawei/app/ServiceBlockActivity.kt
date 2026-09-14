@@ -2,9 +2,9 @@ package love.nairain.huawei.app
 
 import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,7 +28,7 @@ internal data class ServiceBlockUiState(
 }
 
 /** 只负责目录展示与配置，包查询、同步提交均放在单一工作线程。 */
-class ServiceBlockActivity : ComponentActivity(), ModuleApplication.ServiceStateListener {
+class ServiceBlockActivity : AppCompatActivity(), ModuleApplication.ServiceStateListener {
     private var state by mutableStateOf(ServiceBlockUiState())
     private val worker = Executors.newSingleThreadExecutor()
     private var service: XposedService? = null

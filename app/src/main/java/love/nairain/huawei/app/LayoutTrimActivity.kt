@@ -3,9 +3,9 @@ package love.nairain.huawei.app
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,7 +46,7 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 汇总布局精简入口与布局适配状态。 */
-class LayoutTrimActivity : ComponentActivity(), ModuleApplication.ServiceStateListener {
+class LayoutTrimActivity : AppCompatActivity(), ModuleApplication.ServiceStateListener {
     private var scanState by mutableStateOf(ScanUiState())
     private val scanController by lazy { ScanStatusController(this) { scanState = it } }
 

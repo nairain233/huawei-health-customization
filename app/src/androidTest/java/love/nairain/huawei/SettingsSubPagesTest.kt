@@ -80,7 +80,7 @@ class SettingsSubPagesTest {
         )
 
         composeRule.onNodeWithTag("settings-group:mine:other").assertExists()
-        composeRule.onNodeWithText("其他").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_group_other)).assertExists()
     }
 
     @Test
@@ -124,10 +124,12 @@ class SettingsSubPagesTest {
     @Test
     fun categoryShowsFailureNoticesAsTextAndUncertainStateIsDisabled() {
         val notices = listOf(
-            SettingsNoticeKind.DEFAULTS_NOT_PERSISTED to "默认配置未持久化，现有设置仍可编辑",
-            SettingsNoticeKind.SAVE_FAILED to "保存失败，配置未更改",
+            SettingsNoticeKind.DEFAULTS_NOT_PERSISTED to
+                resourceString(R.string.settings_status_defaults_not_persisted),
+            SettingsNoticeKind.SAVE_FAILED to
+                resourceString(R.string.settings_status_save_error),
             SettingsNoticeKind.STATE_UNCERTAIN to
-                "保存失败且无法确认旧配置已恢复，已暂停编辑；请等待服务重新连接后核对",
+                resourceString(R.string.settings_status_state_uncertain),
         )
         var state by mutableStateOf(SettingsUiState(
             isServiceConnected = true,

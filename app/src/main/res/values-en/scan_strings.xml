@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scan_title">DexKit scan</string>
+    <string name="scan_not_started">Not scanned yet. Start Huawei Health to begin</string>
+    <string name="scan_running">Scanning</string>
+    <string name="scan_complete">Scan complete</string>
+    <string name="scan_complete_all">Scan complete. Found %1$d/%2$d; all items are available</string>
+    <string name="scan_complete_partial">Scan complete. Found %1$d/%2$d; some items may be unavailable</string>
+    <string name="scan_failed">Scan failed. It will retry on the next launch</string>
+    <string name="scan_expired">The previous result has expired. Restart Huawei Health</string>
+    <string name="scan_uncertain">Scan status is uncertain. Restart Huawei Health</string>
+    <string name="scan_checked">Scan progress: %1$d/%2$d</string>
+    <string name="scan_scheduled">Scheduled to scan the next time Huawei Health starts</string>
+    <string name="scan_save_failed">Unable to schedule the scan. Try again</string>
+    <string name="scan_saving">Scheduling</string>
+    <string name="scan_rescan">Scan again</string>
+</resources>

@@ -38,6 +38,9 @@ extensions.configure<ApplicationExtension> {
         compose = true
         buildConfig = true
     }
+    androidResources {
+        generateLocaleConfig = true
+    }
     lint {
         // 构建插件升级需要单独验证，不作为源码质量告警处理。
         disable += "AndroidGradlePluginVersion"
@@ -57,6 +60,7 @@ kotlin {
 dependencies {
     implementation(libs.dexkit)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.miuix.ui)

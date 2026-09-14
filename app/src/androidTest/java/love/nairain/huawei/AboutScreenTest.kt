@@ -24,18 +24,18 @@ class AboutScreenTest {
     fun showsModuleRepositoryAndOpenSourceInformation() {
         setScreen()
 
-        composeRule.onNodeWithText("华为运动精简").assertExists()
-        composeRule.onNodeWithText("版本 v1.0-test").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.app_name)).assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.about_version, "1.0-test")).assertExists()
 
         composeRule.onNodeWithTag("about:list")
-            .performScrollToNode(hasText("项目仓库"))
+            .performScrollToNode(hasText(resourceString(R.string.about_repository)))
         composeRule.onNodeWithTag("about:repository").assertExists()
         composeRule.onNodeWithText("Huawei-Health-Customization").assertExists()
 
         composeRule.onNodeWithTag("about:list")
-            .performScrollToNode(hasText("发布频道"))
-        composeRule.onNodeWithText("发布频道").assertExists()
-        composeRule.onNodeWithText("作者").assertExists()
+            .performScrollToNode(hasText(resourceString(R.string.about_link_telegram)))
+        composeRule.onNodeWithText(resourceString(R.string.about_link_telegram)).assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.about_link_author)).assertExists()
 
         composeRule.onNodeWithTag("about:list")
             .performScrollToNode(hasText("Miuix"))
@@ -53,7 +53,7 @@ class AboutScreenTest {
         var closed = false
         setScreen(onClose = { closed = true })
 
-        composeRule.onNodeWithContentDescription("返回").performClick()
+        composeRule.onNodeWithContentDescription(resourceString(R.string.back)).performClick()
 
         assert(closed)
     }
