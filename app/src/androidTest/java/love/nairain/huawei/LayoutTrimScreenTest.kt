@@ -44,8 +44,9 @@ class LayoutTrimScreenTest {
             }
         }
 
-        composeRule.onAllNodesWithText("布局精简").assertCountEquals(2)
-        composeRule.onNodeWithContentDescription("返回").assertExists()
+        composeRule.onAllNodesWithText(resourceString(R.string.settings_layout_trim_title))
+            .assertCountEquals(2)
+        composeRule.onNodeWithContentDescription(resourceString(R.string.back)).assertExists()
 
         val tags = listOf(
             "layout-trim:bottom-nav",
@@ -68,7 +69,7 @@ class LayoutTrimScreenTest {
         composeRule.onNodeWithTag("scan:card").performClick()
         assertEquals(1, rescans)
 
-        composeRule.onNodeWithContentDescription("返回").performClick()
+        composeRule.onNodeWithContentDescription(resourceString(R.string.back)).performClick()
         assertTrue(closed)
     }
 }

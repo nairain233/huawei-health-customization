@@ -19,6 +19,10 @@
     <string name="settings_color_mode_system">跟随系统</string>
     <string name="settings_color_mode_light">浅色模式</string>
     <string name="settings_color_mode_dark">深色模式</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_language_simplified_chinese">简体中文</string>
+    <string name="settings_language_english">English</string>
     <string name="settings_restart_notice">修改后需彻底重启华为运动健康两次</string>
     <string name="settings_launcher_icon_save_error">无法更新桌面图标状态</string>
 
@@ -33,7 +37,7 @@
     <string name="about_header_description">精简华为运动健康界面布局</string>
     <string name="about_version">版本 v%1$s</string>
     <string name="about_section_project">项目介绍</string>
-    <string name="about_project_intro">自定义华为运动健康指定界面区块的模块。当前仅支持 17.0.7.310 版本。</string>
+    <string name="about_project_intro">华为运动健康自定义布局的模块</string>
     <string name="about_section_links">项目链接</string>
     <string name="about_repository">项目仓库</string>
     <string name="about_repository_url">Huawei-Health-Customization</string>

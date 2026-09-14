@@ -1,7 +1,9 @@
 package love.nairain.huawei
 
+import androidx.core.os.LocaleListCompat
 import love.nairain.huawei.app.AppAppearancePreferences
 import love.nairain.huawei.app.AppColorMode
+import love.nairain.huawei.app.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -51,5 +53,24 @@ class AppThemeTest {
         assertTrue(AppColorMode.SYSTEM.isDark(systemInDarkTheme = true))
         assertFalse(AppColorMode.LIGHT.isDark(systemInDarkTheme = true))
         assertTrue(AppColorMode.DARK.isDark(systemInDarkTheme = false))
+    }
+
+    @Test
+    fun mapsSupportedApplicationLocalesAndFallsBackToSystem() {
+        AppLanguage.entries.forEach { language ->
+            assertEquals(
+                language,
+                AppLanguage.fromLocaleList(language.toLocaleList()),
+            )
+        }
+
+        assertEquals(
+            AppLanguage.SYSTEM,
+            AppLanguage.fromLocaleList(LocaleListCompat.forLanguageTags("fr")),
+        )
+        assertEquals(
+            AppLanguage.SYSTEM,
+            AppLanguage.fromLocaleList(LocaleListCompat.forLanguageTags("en,zh-CN")),
+        )
     }
 }

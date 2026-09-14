@@ -1,9 +1,9 @@
 package love.nairain.huawei.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,7 +11,7 @@ import androidx.compose.runtime.setValue
 /**
  * 模块设置界面：只管理配置，不承载 Hook 逻辑。
  */
-class SettingsActivity : ComponentActivity() {
+class SettingsActivity : AppCompatActivity() {
     private var uiState by mutableStateOf(SettingsUiState())
     private lateinit var coordinator: LayoutSettingsCoordinator
     private val settingsListener = LayoutSettingsListener { newState -> uiState = newState }
