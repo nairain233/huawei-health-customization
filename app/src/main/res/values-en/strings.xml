@@ -27,11 +27,11 @@
     <string name="settings_launcher_icon_save_error">Unable to update the launcher icon state</string>
 
     <string name="settings_layout_trim_title">Layout customization</string>
-    <string name="settings_health_nav_title">Customize Health page</string>
-    <string name="settings_sport_nav_title">Customize Exercise page</string>
-    <string name="settings_device_nav_title">Customize Devices page</string>
-    <string name="settings_mine_nav_title">Customize Me page</string>
-    <string name="settings_bottom_nav_title">Customize bottom bar</string>
+    <string name="settings_health_nav_title">Health page</string>
+    <string name="settings_sport_nav_title">Exercise page</string>
+    <string name="settings_device_nav_title">Devices page</string>
+    <string name="settings_mine_nav_title">Me page</string>
+    <string name="settings_bottom_nav_title">Bottom bar</string>
 
     <string name="about_title">About</string>
     <string name="about_header_description">Customize the Huawei Health interface</string>
