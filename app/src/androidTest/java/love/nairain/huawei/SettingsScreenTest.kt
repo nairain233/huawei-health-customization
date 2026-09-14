@@ -43,8 +43,10 @@ class SettingsScreenTest {
         setScreen(SettingsUiState())
         composeRule.onNodeWithTag("scan:card").assertDoesNotExist()
 
-        composeRule.onNodeWithText("LSPosed 服务未连接").assertExists()
-        composeRule.onNodeWithText("请在启用模块后重试").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_disconnected))
+            .assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_disconnected_summary))
+            .assertExists()
         composeRule.onAllNodes(
             isToggleable() and hasAnyAncestor(hasTestTag("setting:${SettingsKeys.ENABLED}")),
             useUnmergedTree = true,
@@ -94,16 +96,18 @@ class SettingsScreenTest {
         )
 
         composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("布局精简"))
+            .performScrollToNode(hasText(resourceString(R.string.settings_layout_trim_title)))
         val themeNode = composeRule.onNodeWithTag("settings:theme-nav").assertIsEnabled()
         val layoutTrimNode = composeRule.onNodeWithTag("settings:layout-trim-nav")
         assertTrue(
             themeNode.fetchSemanticsNode().boundsInRoot.top <
                 layoutTrimNode.fetchSemanticsNode().boundsInRoot.top,
         )
-        composeRule.onNodeWithText("主题设置").assertExists()
-        composeRule.onNodeWithText("色彩模式").assertDoesNotExist()
-        composeRule.onNodeWithText("隐藏桌面图标").assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_theme_title)).assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_color_mode)).assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_language)).assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_hide_launcher_icon))
+            .assertDoesNotExist()
 
         themeNode.performClick()
 
@@ -120,8 +124,9 @@ class SettingsScreenTest {
         )
 
         composeRule.onNodeWithTag("settings:service-status").assertExists()
-        composeRule.onNodeWithText("配置读写正常").assertExists()
-        composeRule.onNodeWithText("LSPosed 服务已连接").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_connected_summary))
+            .assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_connected)).assertExists()
     }
 
     @Test
@@ -133,14 +138,19 @@ class SettingsScreenTest {
         )
 
         composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("布局精简"))
+            .performScrollToNode(hasText(resourceString(R.string.settings_layout_trim_title)))
         composeRule.onNodeWithTag("settings:layout-trim-nav").assertExists()
-        composeRule.onNodeWithText("布局精简").assertExists()
-        composeRule.onNodeWithText("精简底栏").assertDoesNotExist()
-        composeRule.onNodeWithText("健康页面精简").assertDoesNotExist()
-        composeRule.onNodeWithText("运动页面精简").assertDoesNotExist()
-        composeRule.onNodeWithText("设备页面精简").assertDoesNotExist()
-        composeRule.onNodeWithText("“我的”页面精简").assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_layout_trim_title)).assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_bottom_nav_title))
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_health_nav_title))
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_sport_nav_title))
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_device_nav_title))
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_mine_nav_title))
+            .assertDoesNotExist()
         composeRule.onNodeWithTag("settings:layout-trim-nav").performClick()
         assert(opened)
     }
@@ -154,7 +164,7 @@ class SettingsScreenTest {
         )
 
         composeRule.onNodeWithTag("settings:list")
-            .performScrollToNode(hasText("关于"))
+            .performScrollToNode(hasText(resourceString(R.string.about_title)))
         composeRule.onNodeWithTag("settings:about-nav").assertExists()
         composeRule.onNodeWithText("模块介绍、项目仓库与开源引用").assertDoesNotExist()
         composeRule.onNodeWithTag("settings:about-nav").performClick()
@@ -179,8 +189,9 @@ class SettingsScreenTest {
             }
         }
 
-        composeRule.onNodeWithContentDescription("返回").assertExists()
-        composeRule.onAllNodesWithText("健康页面项目").assertCountEquals(2)
+        composeRule.onNodeWithContentDescription(resourceString(R.string.back)).assertExists()
+        composeRule.onAllNodesWithText(resourceString(R.string.settings_health_title))
+            .assertCountEquals(2)
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true)
             .assertCountEquals(SettingsCatalog.health.size)
     }
@@ -195,10 +206,14 @@ class SettingsScreenTest {
             ),
         )
 
-        composeRule.onNodeWithText("LSPosed 服务已连接").assertExists()
-        composeRule.onNodeWithText("配置暂不可用，请刷新重试").assertExists()
-        composeRule.onNodeWithText("配置读写正常").assertDoesNotExist()
-        composeRule.onNodeWithText("无法读取配置，设置暂不可用").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_connected)).assertExists()
+        composeRule.onNodeWithText(
+            resourceString(R.string.settings_status_connected_unavailable_summary),
+        ).assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_connected_summary))
+            .assertDoesNotExist()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_config_error))
+            .assertExists()
     }
 
     @Test
@@ -213,7 +228,7 @@ class SettingsScreenTest {
             ),
         )
 
-        composeRule.onNodeWithText("正在保存配置，完成前保持当前值").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_status_saving)).assertExists()
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0)
             .assertIsNotEnabled()
             .assertIsOff()
@@ -229,7 +244,8 @@ class SettingsScreenTest {
             ),
         )
 
-        composeRule.onAllNodesWithText("正在读取配置…").assertCountEquals(2)
+        composeRule.onAllNodesWithText(resourceString(R.string.settings_status_loading))
+            .assertCountEquals(2)
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0).assertIsNotEnabled()
     }
 
@@ -245,7 +261,7 @@ class SettingsScreenTest {
         )
 
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0).assertIsOn()
-        composeRule.onNodeWithText("修改后需彻底重启华为运动健康两次").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_restart_notice)).assertExists()
     }
 
     private fun setScreen(

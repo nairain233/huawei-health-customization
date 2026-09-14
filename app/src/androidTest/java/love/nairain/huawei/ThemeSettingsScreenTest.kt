@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import love.nairain.huawei.app.AppColorMode
+import love.nairain.huawei.app.AppLanguage
 import love.nairain.huawei.app.ThemeSettingsScreen
 import love.nairain.huawei.config.SettingsKeys
 import org.junit.Assert.assertEquals
@@ -28,51 +29,65 @@ class ThemeSettingsScreenTest {
     @Test
     fun showsThemeControlsInOrderAndDispatchesChanges() {
         var selectedMode: AppColorMode? = null
+        var selectedLanguage: AppLanguage? = null
         var hidden: Boolean? = null
         setScreen(
             onColorModeChange = { selectedMode = it },
+            onLanguageChange = { selectedLanguage = it },
             onHideLauncherIconChange = { hidden = it },
         )
 
-        composeRule.onAllNodesWithText("主题设置").assertCountEquals(2)
+        composeRule.onAllNodesWithText(resourceString(R.string.settings_theme_title))
+            .assertCountEquals(2)
         composeRule.onNodeWithTag("settings:theme-card", useUnmergedTree = true).assertExists()
         val colorModeNode = composeRule.onNodeWithTag("settings:color-mode").assertIsEnabled()
+        val languageNode = composeRule.onNodeWithTag("settings:language").assertIsEnabled()
         val launcherNode = composeRule.onNodeWithTag(
             "setting:${SettingsKeys.HIDE_LAUNCHER_ICON}",
             useUnmergedTree = true,
         ).assertIsEnabled()
         assertTrue(
             colorModeNode.fetchSemanticsNode().boundsInRoot.top <
+                languageNode.fetchSemanticsNode().boundsInRoot.top,
+        )
+        assertTrue(
+            languageNode.fetchSemanticsNode().boundsInRoot.top <
                 launcherNode.fetchSemanticsNode().boundsInRoot.top,
         )
 
         colorModeNode.performClick()
-        composeRule.onNodeWithText("深色模式").performClick()
+        composeRule.onNodeWithText(resourceString(R.string.settings_color_mode_dark)).performClick()
+        languageNode.performClick()
+        composeRule.onNodeWithText(resourceString(R.string.settings_language_english)).performClick()
         launcherNode.performClick()
 
         assertEquals(AppColorMode.DARK, selectedMode)
+        assertEquals(AppLanguage.ENGLISH, selectedLanguage)
         assertEquals(true, hidden)
     }
 
     @Test
     fun showsLocalErrorAndDispatchesBack() {
         var closed = false
+        val errorMessage = resourceString(R.string.settings_launcher_icon_save_error)
         setScreen(
-            statusMessage = "无法更新桌面图标状态",
+            statusMessage = errorMessage,
             onClose = { closed = true },
         )
 
-        composeRule.onNodeWithText("无法更新桌面图标状态").assertExists()
-        composeRule.onNodeWithContentDescription("返回").performClick()
+        composeRule.onNodeWithText(errorMessage).assertExists()
+        composeRule.onNodeWithContentDescription(resourceString(R.string.back)).performClick()
 
         assertTrue(closed)
     }
 
     private fun setScreen(
         colorMode: AppColorMode = AppColorMode.SYSTEM,
+        appLanguage: AppLanguage = AppLanguage.SYSTEM,
         hideLauncherIcon: Boolean = false,
         statusMessage: String? = null,
         onColorModeChange: (AppColorMode) -> Unit = {},
+        onLanguageChange: (AppLanguage) -> Unit = {},
         onHideLauncherIconChange: (Boolean) -> Unit = {},
         onClose: () -> Unit = {},
     ) {
@@ -80,9 +95,11 @@ class ThemeSettingsScreenTest {
             MiuixTheme(colors = lightColorScheme()) {
                 ThemeSettingsScreen(
                     colorMode = colorMode,
+                    appLanguage = appLanguage,
                     hideLauncherIcon = hideLauncherIcon,
                     statusMessage = statusMessage,
                     onColorModeChange = onColorModeChange,
+                    onLanguageChange = onLanguageChange,
                     onHideLauncherIconChange = onHideLauncherIconChange,
                     onClose = onClose,
                 )

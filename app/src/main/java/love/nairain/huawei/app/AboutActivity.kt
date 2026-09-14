@@ -5,9 +5,9 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -57,7 +57,7 @@ private const val REPOSITORY_URL = "https://github.com/nairain233/huawei-health-
 /**
  * 模块关于页：展示静态项目信息，不依赖 LSPosed 服务。
  */
-class AboutActivity : ComponentActivity() {
+class AboutActivity : AppCompatActivity() {
     companion object {
         fun intent(context: Context): Intent = Intent(context, AboutActivity::class.java)
     }
