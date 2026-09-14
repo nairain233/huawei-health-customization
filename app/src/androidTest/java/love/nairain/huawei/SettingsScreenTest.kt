@@ -39,6 +39,25 @@ class SettingsScreenTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun homeTitleIsLeftAlignedWithoutCloseButton() {
+        setScreen(SettingsUiState())
+
+        composeRule.onNodeWithContentDescription(resourceString(R.string.close))
+            .assertDoesNotExist()
+
+        val titleNodes = composeRule
+            .onAllNodesWithText(resourceString(R.string.settings_title))
+            .fetchSemanticsNodes()
+        assertEquals(2, titleNodes.size)
+
+        val expandedTitle = titleNodes.maxBy { it.boundsInRoot.top }
+        val contentBounds = composeRule.onNodeWithTag("settings:list")
+            .fetchSemanticsNode()
+            .boundsInRoot
+        assertTrue(expandedTitle.boundsInRoot.left < contentBounds.width / 3f)
+    }
+
+    @Test
     fun disablesSettingsWhenServiceIsDisconnected() {
         setScreen(SettingsUiState())
         composeRule.onNodeWithTag("scan:card").assertDoesNotExist()
