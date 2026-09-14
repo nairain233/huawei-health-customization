@@ -16,8 +16,8 @@ internal val openSourceLibraries: List<OpenSourceLibrary> = listOf(
     OpenSourceLibrary(
         name = "DexKit",
         author = "LuckyPray",
-        license = "LGPL-3.0",
-        url = "https://github.com/LuckyPray/DexKit",
+        license = "Apache-2.0",
+        url = "https://github.com/LuckyPray/DexKit/blob/2.2.0/LICENSE",
     ),
     OpenSourceLibrary(
         name = "Miuix",
