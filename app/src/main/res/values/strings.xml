@@ -27,11 +27,11 @@
     <string name="settings_launcher_icon_save_error">无法更新桌面图标状态</string>
 
     <string name="settings_layout_trim_title">布局精简</string>
-    <string name="settings_health_nav_title">健康页面精简</string>
-    <string name="settings_sport_nav_title">运动页面精简</string>
-    <string name="settings_device_nav_title">设备页面精简</string>
-    <string name="settings_mine_nav_title">“我的”页面精简</string>
-    <string name="settings_bottom_nav_title">精简底栏</string>
+    <string name="settings_health_nav_title">健康页面</string>
+    <string name="settings_sport_nav_title">运动页面</string>
+    <string name="settings_device_nav_title">设备页面</string>
+    <string name="settings_mine_nav_title">“我的”页面</string>
+    <string name="settings_bottom_nav_title">底栏</string>
 
     <string name="about_title">关于</string>
     <string name="about_header_description">精简华为运动健康界面布局</string>
