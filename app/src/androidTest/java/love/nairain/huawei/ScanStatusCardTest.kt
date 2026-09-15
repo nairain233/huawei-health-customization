@@ -45,6 +45,31 @@ class ScanStatusCardTest {
         assertEquals(1, calls)
     }
 
+    @Test fun savingAndRestoredFailureHaveCorrectActions() {
+        val state = androidx.compose.runtime.mutableStateOf(ScanUiState(writable = true, saving = true))
+        compose.setContent { MiuixTheme { ScanStatusCard(state.value, {}) } }
+        compose.onNodeWithTag("scan:card").assertIsNotEnabled()
+        compose.onNodeWithText(resourceString(R.string.scan_saving), useUnmergedTree = true).assertExists()
+        compose.runOnIdle { state.value = ScanUiState(writable = true, saveFailed = true) }
+        compose.onNodeWithTag("scan:card").assertIsEnabled()
+        compose.onNodeWithText(resourceString(R.string.scan_save_failed), useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("scan:pending", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun uncertainRequestDisablesActionUntilConfirmedReconnectState() {
+        val state = androidx.compose.runtime.mutableStateOf(ScanUiState(writable = true, requestUncertain = true))
+        compose.setContent { MiuixTheme { ScanStatusCard(state.value, {}) } }
+        compose.onNodeWithTag("scan:card").assertIsNotEnabled()
+        compose.onNodeWithTag("scan:request-uncertain", useUnmergedTree = true)
+            .assertTextEquals(resourceString(R.string.scan_request_uncertain))
+        compose.onNodeWithTag("scan:pending", useUnmergedTree = true).assertDoesNotExist()
+        compose.runOnIdle { state.value = ScanUiState(writable = false) }
+        compose.onNodeWithTag("scan:card").assertIsNotEnabled()
+        compose.runOnIdle { state.value = ScanUiState(writable = true) }
+        compose.onNodeWithTag("scan:card").assertIsEnabled()
+        compose.onNodeWithTag("scan:request-uncertain", useUnmergedTree = true).assertDoesNotExist()
+    }
+
     @Test fun completeShowsAllDiscoveredAndHasNoSeparateButton() {
         val report = ScanReport("a".repeat(64), "17.0.7.310", 1700007310, 1, "", "11111111-1111-1111-1111-111111111111", 1,
             phase = "complete", checked = ScanProtocol.keys, matched = ScanProtocol.keys)

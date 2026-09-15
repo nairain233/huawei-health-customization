@@ -61,10 +61,10 @@ class ScanProtocolTest {
                 }
             }
         }
-        assertFalse(ScanRequests.save(failing, "new"))
+        assertEquals(ScanRequestOutcome.UNCERTAIN, ScanRequests.save(failing, "new"))
         assertEquals("old", base.getString(ScanProtocol.REQUEST, ""))
         assertTrue(base.getBoolean(SettingsKeys.ENABLED, false))
-        assertTrue(ScanRequests.save(base, "new"))
+        assertEquals(ScanRequestOutcome.SUCCESS, ScanRequests.save(base, "new"))
         assertEquals("new", base.getString(ScanProtocol.REQUEST, ""))
     }
 
