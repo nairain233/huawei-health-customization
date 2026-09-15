@@ -25,9 +25,10 @@ internal data class ScanUiState(
     val writable: Boolean = false,
     val saving: Boolean = false,
     val saveFailed: Boolean = false,
+    val requestUncertain: Boolean = false,
 ) {
     val scanning: Boolean get() = report?.phase == "running" && !uncertain && !expired
-    val canRequest: Boolean get() = writable && !pending && !saving && !scanning
+    val canRequest: Boolean get() = writable && !pending && !saving && !scanning && !requestUncertain
 }
 
 @Composable
@@ -68,6 +69,8 @@ internal fun ScanStatusCard(state: ScanUiState, onRescan: () -> Unit, modifier: 
             }
             if (state.pending) Text(stringResource(R.string.scan_scheduled), Modifier.testTag("scan:pending"))
             if (state.saveFailed) Text(stringResource(R.string.scan_save_failed))
+            if (state.requestUncertain) Text(stringResource(R.string.scan_request_uncertain),
+                Modifier.testTag("scan:request-uncertain"))
             if (state.saving) Text(stringResource(R.string.scan_saving))
         }
     }

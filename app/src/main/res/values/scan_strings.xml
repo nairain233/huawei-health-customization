@@ -13,5 +13,6 @@
     <string name="scan_scheduled">已安排，下次启动运动健康时扫描</string>
     <string name="scan_save_failed">预约保存失败，请重试</string>
     <string name="scan_saving">正在预约</string>
+    <string name="scan_request_uncertain">无法确认预约是否已保存，已暂停预约。请等待模块服务重新连接后重试</string>
     <string name="scan_rescan">重新扫描</string>
 </resources>
