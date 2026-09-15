@@ -13,5 +13,6 @@
     <string name="scan_scheduled">Scheduled to scan the next time Huawei Health starts</string>
     <string name="scan_save_failed">Unable to schedule the scan. Try again</string>
     <string name="scan_saving">Scheduling</string>
+    <string name="scan_request_uncertain">The schedule could not be confirmed. Scheduling is paused until the module service reconnects</string>
     <string name="scan_rescan">Scan again</string>
 </resources>
