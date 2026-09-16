@@ -29,6 +29,9 @@ class ApkScanTest {
             val output = System.getProperty("scan.output").orEmpty()
             if (output.isNotEmpty()) File(output).writeText(result.encode())
             assertEquals("基准 APK 的所有必要条件应命中", ScanProtocol.keys, result.matched)
+            assertTrue(SettingsKeys.HEALTH_QUICK_ENTRIES in result.matched)
+            assertTrue(SettingsKeys.MINE_MARKETING in result.matched)
+            assertTrue("mine.marketing" in result.groups)
             assertTrue("必须覆盖复用恢复入口", "sport.quick-entry-bind" in result.groups)
 
             val generic = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, {}, false).scan { _, _ -> }

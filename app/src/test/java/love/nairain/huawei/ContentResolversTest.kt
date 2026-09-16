@@ -7,6 +7,7 @@ import love.nairain.huawei.hook.resolver.DeviceContentKeyResolver
 import love.nairain.huawei.hook.resolver.HealthContentKeyResolver
 import love.nairain.huawei.hook.resolver.RowKeyResolver
 import love.nairain.huawei.hook.resolver.SportContentKeyResolver
+import love.nairain.huawei.hook.resolver.MineMarketingContentResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -15,12 +16,8 @@ class ContentResolversTest {
     @Test
     fun mapsVerifiedHealthIdentifiersAndKeepsUnknown() {
         assertEquals(SettingsKeys.HEALTH_ACTIVITY_RINGS, HealthContentKeyResolver.topCard("SCUI_TwoModelCardData"))
+        assertEquals(SettingsKeys.HEALTH_QUICK_ENTRIES, HealthContentKeyResolver.topCard("FunctionMenuCardData"))
         assertEquals(SettingsKeys.HEALTH_CARD_GLUCOSE, HealthContentKeyResolver.healthCard("BLOODSUGAR_CARD_KEY_NEW"))
-        assertEquals(
-            SettingsKeys.HEALTH_SLEEP_MUSIC,
-            HealthContentKeyResolver.quickEntry(null, "huaweischeme://x?pageTypeId=7", "未知"),
-        )
-        assertEquals(SettingsKeys.HEALTH_AI_MUSIC, HealthContentKeyResolver.quickEntry(null, null, "AI音乐空间"))
         assertNull(HealthContentKeyResolver.topCard("new-server-card"))
     }
 
@@ -64,5 +61,20 @@ class ContentResolversTest {
             DeviceContentKeyResolver.resolve("hwappbarpattern_layout_ok_icon"),
         )
         assertNull(DeviceContentKeyResolver.resolve("new_server_device_block"))
+    }
+
+    @Test
+    fun mineMarketingFilterRemovesOnlyVerifiedPositionIdsWhenEnabled() {
+        val source = linkedMapOf<Any, String>(
+            MineMarketingContentResolver.NEW_PRODUCT_POSITION_ID to "new product",
+            MineMarketingContentResolver.NEW_USER_BENEFIT_POSITION_ID to "new user benefit",
+            7777 to "unknown",
+        )
+
+        assertEquals(source, MineMarketingContentResolver.filter(source, enabled = false))
+        assertEquals(
+            mapOf(7777 to "unknown"),
+            MineMarketingContentResolver.filter(source, enabled = true),
+        )
     }
 }

@@ -15,7 +15,7 @@ class ApkIdentityTest {
         assertEquals(old, ApkIdentity.fingerprint("v1", 1, 10, files.reversed()))
         assertNotEquals(old, ApkIdentity.fingerprint("v2", 2, 10, files))
         assertNotEquals(old, ApkIdentity.fingerprint("v1", 1, 11, files))
-        assertNotEquals(old, ApkIdentity.fingerprint("v1", 1, 10, files, rules = 2))
+        assertNotEquals(old, ApkIdentity.fingerprint("v1", 1, 10, files, rules = 1))
         assertNotEquals(old, ApkIdentity.fingerprint("v1", 1, 10, listOf(base)))
         split.writeText("other")
         assertNotEquals(old, ApkIdentity.fingerprint("v1", 1, 10, files))

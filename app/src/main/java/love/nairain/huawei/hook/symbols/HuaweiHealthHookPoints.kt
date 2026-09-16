@@ -7,7 +7,6 @@ data class HuaweiHealthHookPoints(
     val homeFragment: String,
     val homeAdapter: String,
     val functionSetHolder: String,
-    val functionMenuData: String,
     val sportFragment: String,
     val sportTrigger: String,
     val sportColumnAdapter: String,
@@ -15,25 +14,10 @@ data class HuaweiHealthHookPoints(
     val mineFragment: String,
     val mineListManager: String,
     val mineGridAdapter: String,
+    val mineMarketingCallback: String,
     val bottomBase: String,
     val bottomView: String,
 ) {
-    fun isComplete(): Boolean = listOf(
-        versionName,
-        homeFragment,
-        homeAdapter,
-        functionSetHolder,
-        functionMenuData,
-        sportFragment,
-        sportTrigger,
-        sportColumnAdapter,
-        mineFragment,
-        mineListManager,
-        mineGridAdapter,
-        bottomBase,
-        bottomView,
-    ).all(String::isNotBlank) && deviceFragments.size == 2 && versionCode > 0
-
     companion object {
         val V17_0_7_310 = HuaweiHealthHookPoints(
             versionName = "17.0.7.310",
@@ -41,7 +25,6 @@ data class HuaweiHealthHookPoints(
             homeFragment = "com.huawei.ui.homehealth.HomeFragment",
             homeAdapter = "com.huawei.ui.homehealth.adapter.HomeCardAdapter",
             functionSetHolder = "com.huawei.ui.homehealth.functionsetcard.FunctionSetCardViewHolder",
-            functionMenuData = "com.huawei.ui.homehealth.FunctionMenuCardData",
             sportFragment = "com.huawei.ui.homehealth.runcard.trackfragments.SportEntranceFragment",
             sportTrigger = "com.huawei.ui.homehealth.runcard.trackfragments.SportTabPageResTrigger",
             sportColumnAdapter = "com.huawei.health.marketing.views.ColumnLayoutAdapter",
@@ -52,6 +35,7 @@ data class HuaweiHealthHookPoints(
             mineFragment = "com.huawei.ui.main.stories.userprofile.activity.PersonalCenterFragment",
             mineListManager = "wst",
             mineGridAdapter = "com.huawei.ui.main.stories.userprofile.activity.PersonalGridAdapter",
+            mineMarketingCallback = "com.huawei.ui.main.stories.userprofile.activity.PersonalCenterRecyclerViewAdapter\$c\$4",
             bottomBase = "com.huawei.uikit.phone.hwbottomnavigationview.widget.HwBottomNavigationView",
             bottomView = "com.huawei.ui.commonui.scrollview.HealthBottomView",
         )

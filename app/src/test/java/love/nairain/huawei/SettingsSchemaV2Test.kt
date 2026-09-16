@@ -29,6 +29,14 @@ class SettingsSchemaV2Test {
     }
 
     @Test
+    fun mineMarketingSettingDefaultsOffInItsOwnGroup() {
+        val marketing = SettingsCatalog.mineGroups.single { it.id == "marketing" }
+        assertEquals(R.string.settings_group_marketing_content, marketing.title)
+        assertEquals(listOf(SettingsKeys.MINE_MARKETING), marketing.settings.map { it.key })
+        assertFalse(SettingsCatalog.defaults.getValue(SettingsKeys.MINE_MARKETING))
+    }
+
+    @Test
     fun groupsWithoutNaturalLabelsKeepNullTitles() {
         assertNull(SettingsCatalog.mineGroups.single { it.id == "account" }.title)
         assertNull(SettingsCatalog.mineGroups.single { it.id == "social" }.title)
@@ -44,6 +52,35 @@ class SettingsSchemaV2Test {
         assertTrue(SettingsCatalog.device.all { it.key.startsWith("hide.device.") })
         assertTrue(SettingsCatalog.mine.all { it.key.startsWith("hide.mine.") })
         assertTrue(SettingsCatalog.bottom.all { it.key.startsWith("hide.bottom.") })
+    }
+
+    @Test
+    fun healthQuickEntriesUseOneWholeCardSetting() {
+        val quickEntries = SettingsCatalog.healthGroups.single { it.id == "quick-entries" }.settings
+
+        assertEquals(listOf(SettingsKeys.HEALTH_QUICK_ENTRIES), quickEntries.map { it.key })
+        assertFalse(SettingsCatalog.defaults.containsKey("hide.health.ai_music"))
+        assertFalse(SettingsCatalog.defaults.containsKey("hide.health.management"))
+        assertFalse(SettingsCatalog.defaults.containsKey("hide.health.weight_loss"))
+        assertFalse(SettingsCatalog.defaults.containsKey("hide.health.smart_training"))
+        assertFalse(SettingsCatalog.defaults.containsKey("hide.health.sleep_music"))
+    }
+
+    @Test
+    fun removedQuickEntryValuesAreNotMigrated() {
+        val preferences = InMemoryPreferences(
+            mapOf(
+                "hide.health.ai_music" to true,
+                "hide.health.management" to true,
+                "hide.health.weight_loss" to true,
+                "hide.health.smart_training" to true,
+                "hide.health.sleep_music" to true,
+            ),
+        )
+
+        val values = SettingsCatalog.read(preferences)
+
+        assertFalse(values.getValue(SettingsKeys.HEALTH_QUICK_ENTRIES))
     }
 
     @Test
