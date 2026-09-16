@@ -178,7 +178,7 @@ app/src/main/
 
 - schema v2 统一使用 `hide.health.*`、`hide.sport.*`、`hide.device.*`、`hide.mine.*`、`hide.bottom.*`；保留 `enabled` 与 `hide_launcher_icon` 原值，旧 `row_*` / `tab_*` 不迁移也不读取。
 - `onPackageReady` 只安装 `Application.attach()` Hook；attach 完成后读取真实包信息和一次性配置快照。服务独立安装，布局经后台 DexKit 扫描或缓存复核后按能力安装。
-- 健康页按 `HomeCardAdapter` 副本和 `FunctionMenuCardData` 顶层卡片标识过滤；快捷入口关闭时整张卡片移除，不解析其中的单个入口。运动页 Knit 过滤仅限 `SportTabPageResTrigger` 的 `resPosId=4040`；设备页按已核验资源名折叠；我的页按资源名及 `wrq/wrl/wrb/wsa` 模型过滤并清理空分组；营销卡片仅在 `PersonalCenterRecyclerViewAdapter$c$4` 的 `d(Map)` 回调中移除已核验的 4168/9013。
+- 健康页按 `HomeCardAdapter` 副本和 `FunctionMenuCardData`/`HealthQuickEntryCardData` 顶层卡片标识过滤；快捷入口关闭时整张卡片移除，不解析其中的单个入口。运动页 Knit 过滤仅限 `SportTabPageResTrigger` 的 `resPosId=4040`；设备页按已核验资源名折叠；我的页按资源名及 `wrq/wrl/wrb/wsa` 模型过滤并清理空分组；营销卡片仅在 `PersonalCenterRecyclerViewAdapter$c$4` 的 `d(Map)` 回调中移除已核验的 4168/9013。
 - 底栏保留原始 Tab 索引，使用按 `HealthBottomView` 实例隔离的弱状态表，处理清空、重复布局和 RTL。
 - DexKit 扫描 base/split APK，结果按功能隔离并缓存；当前规则版本 3 共检查 65 个布局开关，保留 `mine.marketing` 独立能力组并移除健康卡片精简能力。未知版本只启用唯一命中且签名、内容身份通过校验的功能；历史数字 ID/文案后备仅限已核验版本。不持有 Activity、Fragment 或 View 的静态强引用。
 - 首页展示扫描 m/n 与预约重扫；`scan.request` 由模块写入，目标下次启动后执行。报告通过验证 UID 的专用 Provider 回传，不修改用户开关。规则变化递增 `ScanProtocol.RULES`，详细依据见 [DexKit 适配说明](docs/DexKit适配说明.md)。

@@ -82,6 +82,7 @@ object HealthContentKeyResolver {
         "OperaMsgCardData" to SettingsKeys.HEALTH_TIPS,
         "SCUI_DialogCardData" to SettingsKeys.HEALTH_TIPS,
         "FunctionMenuCardData" to SettingsKeys.HEALTH_QUICK_ENTRIES,
+        "HealthQuickEntryCardData" to SettingsKeys.HEALTH_QUICK_ENTRIES,
     )
     fun topCard(cardName: String?): String? = cardName?.let(topCards::get)
 }

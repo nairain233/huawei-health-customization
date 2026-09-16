@@ -15,7 +15,7 @@
 | 功能组 | 主要依据 | 未通过时 |
 | --- | --- | --- |
 | 健康顶部 | HomeFragment 生命周期、health_tab_titlebar、CustomTitleBar 两个可见性入口 | 保留对应控件 |
-| 顶部卡片 | HomeCardAdapter 构造/列表刷新、getCardName 字符串与签名，包括 FunctionMenuCardData | 保留或移除对应整张卡片 |
+| 顶部卡片 | HomeCardAdapter 构造/列表刷新、getCardName 字符串与签名，包括 FunctionMenuCardData、HealthQuickEntryCardData | 保留或移除对应整张卡片 |
 | 编辑卡片 | 基准版本已核验的 l() 与 LinearLayout 字段 m | 未知版本暂不启用 |
 | 运动顶部 | SportEntranceFragment 生命周期和对应资源名称 | 缺少资源的项目保留 |
 | 运动区块 | SportTabPageResTrigger 的继承入口、4040 常量证据与运行时范围检查、SectionBean 类型化访问器 | 无法确认的项目保留；仅依赖标题的项目限基准版本 |
