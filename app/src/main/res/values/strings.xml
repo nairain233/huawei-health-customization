@@ -77,11 +77,7 @@
 
     <string name="settings_health_search">搜索</string>
     <string name="settings_health_activity_rings">活动三环</string>
-    <string name="settings_health_ai_music">AI 音乐空间</string>
-    <string name="settings_health_management">健康管理</string>
-    <string name="settings_health_weight_loss">智能减重</string>
-    <string name="settings_health_smart_training">智能训练</string>
-    <string name="settings_health_sleep_music">助眠音乐</string>
+    <string name="settings_health_quick_entries">快捷入口</string>
     <string name="settings_health_card_sport">运动记录卡片</string>
     <string name="settings_health_card_heart">心脏健康卡片</string>
     <string name="settings_health_card_sleep">睡眠卡片</string>
@@ -126,19 +122,21 @@
     <string name="settings_mine_messages">消息入口</string>
     <string name="settings_mine_account">账号资料</string>
     <string name="settings_mine_vip">会员卡</string>
+    <string name="settings_group_marketing_content">营销内容</string>
+    <string name="settings_mine_marketing">我的页营销卡片</string>
     <string name="settings_mine_group">我的群组</string>
     <string name="settings_mine_family">家庭空间</string>
     <string name="settings_mine_annual_goal">年度目标</string>
     <string name="settings_mine_reports">周月年报</string>
     <string name="settings_mine_medals">勋章</string>
-    <string name="settings_mine_achievements">成就 / 成就报告</string>
+    <string name="settings_mine_achievements">我的成就</string>
     <string name="settings_mine_data">我的数据</string>
     <string name="settings_mine_courses">课程与计划</string>
     <string name="settings_mine_activities">我的活动</string>
     <string name="settings_mine_routes">我的路线</string>
     <string name="settings_mine_profile">个人资料</string>
     <string name="settings_orders">我的订单</string>
-    <string name="settings_assets">资产 / 奖赏</string>
+    <string name="settings_assets">我的资产</string>
     <string name="settings_mine_ihealth">iHealth Labs</string>
     <string name="settings_settings">设置</string>
     <string name="settings_privacy">隐私管理</string>

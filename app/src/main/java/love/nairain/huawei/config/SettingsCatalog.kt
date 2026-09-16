@@ -40,11 +40,7 @@ object SettingsCatalog {
         group(
             id = "quick-entries",
             title = R.string.settings_group_quick_entries,
-            SettingsKeys.HEALTH_AI_MUSIC to R.string.settings_health_ai_music,
-            SettingsKeys.HEALTH_MANAGEMENT to R.string.settings_health_management,
-            SettingsKeys.HEALTH_WEIGHT_LOSS to R.string.settings_health_weight_loss,
-            SettingsKeys.HEALTH_SMART_TRAINING to R.string.settings_health_smart_training,
-            SettingsKeys.HEALTH_SLEEP_MUSIC to R.string.settings_health_sleep_music,
+            SettingsKeys.HEALTH_QUICK_ENTRIES to R.string.settings_health_quick_entries,
         ),
         group(
             id = "health-cards",
@@ -143,6 +139,11 @@ object SettingsCatalog {
             SettingsKeys.MINE_MESSAGES to R.string.settings_mine_messages,
             SettingsKeys.MINE_ACCOUNT to R.string.settings_mine_account,
             SettingsKeys.MINE_VIP to R.string.settings_mine_vip,
+        ),
+        group(
+            id = "marketing",
+            title = R.string.settings_group_marketing_content,
+            SettingsKeys.MINE_MARKETING to R.string.settings_mine_marketing,
         ),
         group(
             id = "social",

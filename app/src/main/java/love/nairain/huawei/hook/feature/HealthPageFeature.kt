@@ -27,7 +27,6 @@ class HealthPageFeature : HookFeature {
         count += context.installIsolated("health.top-cards") { installTopCardFilter(context) }
         count += context.installIsolated("health.health-cards") { installHealthCardFilter(context) }
         count += context.installIsolated("health.edit-cards") { installEditCards(context) }
-        count += context.installIsolated("health.quick-entries") { installQuickEntryFilter(context) }
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified health symbols unavailable")
     }
@@ -140,26 +139,6 @@ class HealthPageFeature : HookFeature {
         return 0
     }
 
-    private fun installQuickEntryFilter(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.functionMenuData) ?: return 0
-        val methods = buildList {
-            addAll(ReflectionTargets.methods(type, "m", 0).filter { it.returnType == Void.TYPE })
-            addAll(ReflectionTargets.methods(type, "a", 1).filter {
-                it.returnType == Void.TYPE && it.parameterTypes.singleOrNull() == String::class.java
-            })
-        }.distinct()
-        if (methods.isEmpty()) return 0
-        methods.forEachIndexed { index, method ->
-            context.hooks.hook(method).setId("$id:quick:$index")
-                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .intercept { chain ->
-                    filterGridTemplate(chain.thisObject, context)
-                    chain.proceed()
-                }
-        }
-        return methods.size
-    }
-
     private fun applyTopControls(root: View, context: HookContext) {
         val titleBar = ViewSelectors.findByResourceName(
             root,
@@ -196,20 +175,6 @@ class HealthPageFeature : HookFeature {
         }
     }
 
-    private fun filterGridTemplate(target: Any, context: HookContext) {
-        val template = ReflectionTargets.fieldValue(target, "o") ?: return
-        val list = ReflectionTargets.invokeNoArgs(template, "getGridContents") as? List<*> ?: return
-        val filtered = ListFilters.copyAndFilter(list.filterNotNull(), { item ->
-            HealthContentKeyResolver.quickEntry(
-                ReflectionTargets.invokeNoArgs(item, "getDynamicDataId") as? String,
-                ReflectionTargets.invokeNoArgs(item, "getLinkValue") as? String,
-                if (love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode))
-                    ReflectionTargets.invokeNoArgs(item, "getTheme") as? String else null,
-            )
-        }, context.config)
-        replaceMatchingListField(template, list, filtered)
-    }
-
     private fun filteredArguments(
         args: List<Any>,
         index: Int,
@@ -220,22 +185,6 @@ class HealthPageFeature : HookFeature {
         val source = args.getOrNull(index) as? List<*> ?: return replacement
         replacement[index] = ListFilters.copyAndFilter(source.filterNotNull(), keyOf, context.config)
         return replacement
-    }
-
-    private fun replaceMatchingListField(target: Any, original: List<*>, replacement: List<*>) {
-        var current: Class<*>? = target.javaClass
-        while (current != null) {
-            current.declaredFields.firstOrNull { field ->
-                List::class.java.isAssignableFrom(field.type) && runCatching {
-                    field.isAccessible = true
-                    field.get(target) === original
-                }.getOrDefault(false)
-            }?.let { field ->
-                runCatching { field.set(target, ArrayList(replacement)) }
-                return
-            }
-            current = current.superclass
-        }
     }
 
 }
