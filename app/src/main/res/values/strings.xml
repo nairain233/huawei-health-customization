@@ -37,7 +37,7 @@
     <string name="about_header_description">精简华为运动健康界面布局</string>
     <string name="about_version">版本 v%1$s</string>
     <string name="about_section_project">项目介绍</string>
-    <string name="about_project_intro">华为运动健康自定义布局的模块</string>
+    <string name="about_project_intro">一款用于精简华为运动健康的模块，支持按需调整，并可选择性屏蔽目标应用主动发起的后台服务调用。</string>
     <string name="about_section_links">项目链接</string>
     <string name="about_repository">项目仓库</string>
     <string name="about_repository_url">Huawei-Health-Customization</string>

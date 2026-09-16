@@ -26,6 +26,9 @@ class AboutScreenTest {
 
         composeRule.onNodeWithText(resourceString(R.string.app_name)).assertExists()
         composeRule.onNodeWithText(resourceString(R.string.about_version, "1.0-test")).assertExists()
+        composeRule.onNodeWithTag("about:list")
+            .performScrollToNode(hasText(resourceString(R.string.about_project_intro)))
+        composeRule.onNodeWithText(resourceString(R.string.about_project_intro)).assertExists()
 
         composeRule.onNodeWithTag("about:list")
             .performScrollToNode(hasText(resourceString(R.string.about_repository)))

@@ -37,7 +37,7 @@
     <string name="about_header_description">Customize the Huawei Health interface</string>
     <string name="about_version">Version v%1$s</string>
     <string name="about_section_project">Project</string>
-    <string name="about_project_intro">A module for customizing the Huawei Health layout</string>
+    <string name="about_project_intro">An module for customizing Huawei Health. It provides on-demand controls for the layouts, plus optional blocking of explicitly selected service calls. </string>
     <string name="about_section_links">Links</string>
     <string name="about_repository">Project repository</string>
     <string name="about_repository_url">Huawei-Health-Customization</string>
