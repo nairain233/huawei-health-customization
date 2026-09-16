@@ -38,14 +38,10 @@ object SettingsCatalog {
             SettingsKeys.HEALTH_MORE to R.string.settings_more_menu,
         ),
         group(
-            id = "quick-entries",
-            title = R.string.settings_group_quick_entries,
-            SettingsKeys.HEALTH_QUICK_ENTRIES to R.string.settings_health_quick_entries,
-        ),
-        group(
             id = "health-cards",
             title = R.string.settings_group_health_cards,
             SettingsKeys.HEALTH_ACTIVITY_RINGS to R.string.settings_health_activity_rings,
+            SettingsKeys.HEALTH_QUICK_ENTRIES to R.string.settings_health_quick_entries,
             SettingsKeys.HEALTH_EDIT_CARDS to R.string.settings_health_edit_cards,
         ),
         group(
