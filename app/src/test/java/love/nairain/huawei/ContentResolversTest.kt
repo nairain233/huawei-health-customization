@@ -5,6 +5,7 @@ import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.resolver.BottomTabKeyResolver
 import love.nairain.huawei.hook.resolver.DeviceContentKeyResolver
 import love.nairain.huawei.hook.resolver.HealthContentKeyResolver
+import love.nairain.huawei.hook.resolver.ListFilters
 import love.nairain.huawei.hook.resolver.RowKeyResolver
 import love.nairain.huawei.hook.resolver.SportContentKeyResolver
 import love.nairain.huawei.hook.resolver.MineMarketingContentResolver
@@ -17,7 +18,24 @@ class ContentResolversTest {
     fun mapsVerifiedHealthIdentifiersAndKeepsUnknown() {
         assertEquals(SettingsKeys.HEALTH_ACTIVITY_RINGS, HealthContentKeyResolver.topCard("SCUI_TwoModelCardData"))
         assertEquals(SettingsKeys.HEALTH_QUICK_ENTRIES, HealthContentKeyResolver.topCard("FunctionMenuCardData"))
+        assertEquals(SettingsKeys.HEALTH_QUICK_ENTRIES, HealthContentKeyResolver.topCard("HealthQuickEntryCardData"))
         assertNull(HealthContentKeyResolver.topCard("new-server-card"))
+    }
+
+    @Test
+    fun filtersLegacyAndModernQuickCardsAsOneFeature() {
+        val source = listOf("FunctionMenuCardData", "HealthQuickEntryCardData", "new-server-card")
+
+        assertEquals(
+            listOf("new-server-card"),
+            ListFilters.copyAndFilter(source, HealthContentKeyResolver::topCard,
+                mapOf(SettingsKeys.HEALTH_QUICK_ENTRIES to true)),
+        )
+        assertEquals(
+            source,
+            ListFilters.copyAndFilter(source, HealthContentKeyResolver::topCard,
+                mapOf(SettingsKeys.HEALTH_QUICK_ENTRIES to false)),
+        )
     }
 
     @Test
