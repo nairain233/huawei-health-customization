@@ -84,18 +84,20 @@ class SettingsSubPagesTest {
     }
 
     @Test
-    fun showsMineMarketingSettingOffByDefault() {
+    fun showsMineCardGroupsAndMarketingSettingOffByDefault() {
         setCategoryScreen(
             SettingsCategory.MINE,
             SettingsUiState(
                 isServiceConnected = true,
                 isConfigAvailable = true,
-                confirmedValues = mapOf(SettingsKeys.ENABLED to true),
+                confirmedValues = SettingsCatalog.defaults + (SettingsKeys.ENABLED to true),
             ),
         )
 
-        composeRule.onNodeWithTag("settings-group:mine:marketing").assertExists()
-        composeRule.onNodeWithText(resourceString(R.string.settings_group_marketing_content)).assertExists()
+        composeRule.onNodeWithTag("settings-group:mine:cards-primary").assertExists()
+        composeRule.onNodeWithTag("settings-group:mine:cards-secondary").assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_group_cards)).assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.settings_group_data)).assertExists()
         composeRule.onNodeWithTag("setting:${SettingsKeys.MINE_MARKETING}", useUnmergedTree = true)
             .assertIsOff()
     }

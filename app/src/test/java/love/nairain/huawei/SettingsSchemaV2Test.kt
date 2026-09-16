@@ -21,25 +21,47 @@ class SettingsSchemaV2Test {
     }
 
     @Test
-    fun mineOrdersAndAssetsBelongToOtherGroup() {
+    fun mineGroupsMatchRequestedOrderAndMembership() {
+        val primary = SettingsCatalog.mineGroups.single { it.id == "cards-primary" }
+        assertEquals(R.string.settings_group_cards, primary.title)
+        assertEquals(
+            listOf(
+                SettingsKeys.MINE_GROUP,
+                SettingsKeys.MINE_FAMILY,
+                SettingsKeys.MINE_ANNUAL_GOAL,
+                SettingsKeys.MINE_REPORTS,
+                SettingsKeys.MINE_MEDALS,
+                SettingsKeys.MINE_MARKETING,
+            ),
+            primary.settings.map { it.key },
+        )
+
+        val secondary = SettingsCatalog.mineGroups.single { it.id == "cards-secondary" }
+        assertEquals(R.string.settings_group_data, secondary.title)
+        assertEquals(
+            listOf(
+                SettingsKeys.MINE_ACHIEVEMENTS,
+                SettingsKeys.MINE_DATA,
+                SettingsKeys.MINE_COURSES,
+                SettingsKeys.MINE_ACTIVITIES,
+                SettingsKeys.MINE_ROUTES,
+                SettingsKeys.MINE_PROFILE,
+            ),
+            secondary.settings.map { it.key },
+        )
+
         val other = SettingsCatalog.mineGroups.single { it.id == "other" }
         assertEquals(R.string.settings_group_other, other.title)
-        assertTrue(other.settings.any { it.key == SettingsKeys.MINE_ORDERS })
-        assertTrue(other.settings.any { it.key == SettingsKeys.MINE_ASSETS })
-    }
-
-    @Test
-    fun mineMarketingSettingDefaultsOffInItsOwnGroup() {
-        val marketing = SettingsCatalog.mineGroups.single { it.id == "marketing" }
-        assertEquals(R.string.settings_group_marketing_content, marketing.title)
-        assertEquals(listOf(SettingsKeys.MINE_MARKETING), marketing.settings.map { it.key })
+        assertEquals(
+            listOf(SettingsKeys.MINE_ORDERS, SettingsKeys.MINE_ASSETS, SettingsKeys.MINE_IHEALTH),
+            other.settings.map { it.key },
+        )
         assertFalse(SettingsCatalog.defaults.getValue(SettingsKeys.MINE_MARKETING))
     }
 
     @Test
     fun groupsWithoutNaturalLabelsKeepNullTitles() {
         assertNull(SettingsCatalog.mineGroups.single { it.id == "account" }.title)
-        assertNull(SettingsCatalog.mineGroups.single { it.id == "social" }.title)
         assertNull(SettingsCatalog.bottomGroups.single().title)
     }
 
