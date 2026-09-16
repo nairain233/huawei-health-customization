@@ -77,10 +77,22 @@ class SettingsSchemaV2Test {
     }
 
     @Test
-    fun healthQuickEntriesUseOneWholeCardSetting() {
-        val quickEntries = SettingsCatalog.healthGroups.single { it.id == "quick-entries" }.settings
+    fun healthCardGroupKeepsRequestedOrderAndQuickEntriesUseOneWholeCardSetting() {
+        val healthCards = SettingsCatalog.healthGroups.single { it.id == "health-cards" }
 
-        assertEquals(listOf(SettingsKeys.HEALTH_QUICK_ENTRIES), quickEntries.map { it.key })
+        assertEquals(
+            listOf("top", "health-cards", "recommendations"),
+            SettingsCatalog.healthGroups.map { it.id },
+        )
+        assertEquals(R.string.settings_group_health_cards, healthCards.title)
+        assertEquals(
+            listOf(
+                SettingsKeys.HEALTH_ACTIVITY_RINGS,
+                SettingsKeys.HEALTH_QUICK_ENTRIES,
+                SettingsKeys.HEALTH_EDIT_CARDS,
+            ),
+            healthCards.settings.map { it.key },
+        )
         assertFalse(SettingsCatalog.defaults.containsKey("hide.health.ai_music"))
         assertFalse(SettingsCatalog.defaults.containsKey("hide.health.management"))
         assertFalse(SettingsCatalog.defaults.containsKey("hide.health.weight_loss"))
