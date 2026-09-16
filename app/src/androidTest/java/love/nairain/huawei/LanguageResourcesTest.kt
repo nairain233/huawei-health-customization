@@ -26,7 +26,7 @@ class LanguageResourcesTest {
         assertEquals("dexkit扫描", chinese.getString(R.string.scan_title))
         assertEquals("关于", chinese.getString(R.string.about_title))
         assertEquals(
-            "华为运动健康自定义布局的模块",
+            "一款用于自定义华为运动健康布局的 LSPosed 模块，支持按需调整健康、运动、设备、“我的”页面和底栏内容，并可选择性屏蔽目标应用主动发起的后台服务调用。各项功能可独立开关，配置或定位异常时会安全跳过，尽量保持原应用行为不变。",
             chinese.getString(R.string.about_project_intro),
         )
         assertEquals("营销内容", chinese.getString(R.string.settings_group_marketing_content))
@@ -46,7 +46,7 @@ class LanguageResourcesTest {
         assertEquals("DexKit scan", english.getString(R.string.scan_title))
         assertEquals("About", english.getString(R.string.about_title))
         assertEquals(
-            "A module for customizing the Huawei Health layout",
+            "An LSPosed module for customizing Huawei Health. It provides on-demand controls for the Health, Exercise, Devices, Me, and bottom-bar layouts, plus optional blocking of explicitly selected service calls. Each feature can be enabled independently; configuration or target-resolution failures are safely skipped to preserve the original app behavior as much as possible.",
             english.getString(R.string.about_project_intro),
         )
     }
