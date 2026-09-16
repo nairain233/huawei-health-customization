@@ -116,11 +116,11 @@ internal class LayoutScanner(
         descriptors += data.descriptor
     }
 
-    private fun usedField(method: MethodData, old: String, expected: String) {
-        val data = method.usingFields.map { it.field }.filter { it.className == method.className && it.typeName == expected }
+    private fun usedField(method: MethodData) {
+        val data = method.usingFields.map { it.field }.filter { it.className == method.className && it.typeName == "java.util.List" }
             .distinctBy { it.descriptor }.singleOrNull() ?: throw IllegalArgumentException("field_ambiguous")
         verifySymbol(data.descriptor)
-        aliases["${method.className}#$old#field"] = data.name
+        aliases["${method.className}#k#field"] = data.name
         descriptors += data.descriptor
     }
 
@@ -181,7 +181,14 @@ internal class LayoutScanner(
             method("com.huawei.ui.commonui.titlebar.CustomTitleBar", "setRightSoftkeyVisibility", "void", listOf("int"))
             method("com.huawei.ui.commonui.titlebar.CustomTitleBar", "setRightButtonVisibility", "void", listOf("int"))
         }
-        val top = setOf(K.HEALTH_ACTIVITY_RINGS, K.HEALTH_TODAY, K.HEALTH_INSIGHTS, K.HEALTH_HEADLINES, K.HEALTH_TIPS)
+        val top = setOf(
+            K.HEALTH_ACTIVITY_RINGS,
+            K.HEALTH_QUICK_ENTRIES,
+            K.HEALTH_TODAY,
+            K.HEALTH_INSIGHTS,
+            K.HEALTH_HEADLINES,
+            K.HEALTH_TIPS,
+        )
         run("health.top-cards", top) {
             val adapter = type(points.homeAdapter)
             val constructor = adapter.methods.filter { it.name == "<init>" && it.paramTypeNames == listOf("android.content.Context", "java.util.List") }.singleOrNull()
@@ -194,14 +201,21 @@ internal class LayoutScanner(
             require(refresh.usingFields.isNotEmpty())
             aliases["${points.homeAdapter}#c#1"] = refresh.name
             descriptors += refresh.descriptor
-            listOf("SCUI_TwoModelCardData", "OperationCardData", "HealthInsightsCardData", "HealthHeadLinesCardData", "OperaMsgCardData").forEach {
+            listOf(
+                "SCUI_TwoModelCardData",
+                "OperationCardData",
+                "HealthInsightsCardData",
+                "HealthHeadLinesCardData",
+                "OperaMsgCardData",
+                "FunctionMenuCardData",
+            ).forEach {
                 method(null, "getCardName", "java.lang.String", emptyList(), it)
             }
         }
         val cards = category(SettingsCategory.HEALTH).filter { it.startsWith("hide.health.card.") }.toSet()
         run("health.health-cards", cards) {
             val init = method(points.functionSetHolder, "g", "void", emptyList(), "initCard mViewAdapter or cardConstructors is null")
-            usedField(init, "k", "java.util.List")
+            usedField(init)
             method(points.functionSetHolder, "c", "void", listOf("java.util.List"), "*")
             method("com.huawei.health.health.utils.functionsetcard.manager.constructor.CardConstructor", "getCardId", "java.lang.String", emptyList())
             method("com.huawei.health.health.utils.functionsetcard.reader.FunctionSetSubCardData", "getCardId", "java.lang.String", emptyList())
@@ -210,16 +224,6 @@ internal class LayoutScanner(
             require(known)
             method(points.functionSetHolder, "l", "void", emptyList())
             field(points.functionSetHolder, "m", "android.widget.LinearLayout")
-        }
-        val quick = category(SettingsCategory.HEALTH) - top - cards - setOf(K.HEALTH_SEARCH, K.HEALTH_MORE, K.HEALTH_EDIT_CARDS)
-        run("health.quick-entries", quick) {
-            val init = method(points.functionMenuData, "m", "void", emptyList(), "initViewHolder, mCurStatus:")
-            usedField(init, "o", "com.huawei.health.marketing.datatype.templates.GridTemplate")
-            method(points.functionMenuData, "a", "void", listOf("java.lang.String"), "updateView")
-            method("com.huawei.health.marketing.datatype.templates.GridTemplate", "getGridContents", "java.util.List", emptyList())
-            listOf("getDynamicDataId", "getLinkValue", "getTheme").forEach {
-                method("com.huawei.health.marketing.datatype.SingleGridContent", it, "java.lang.String", emptyList())
-            }
         }
         val sportTop = mapOf(K.SPORT_CATEGORY_BAR to "track_sport_tab", K.SPORT_SEARCH to "sport_search_icon",
             K.SPORT_MORE to "more_and_red_point", K.SPORT_BANNER to "view_sport_banner_root")
@@ -284,7 +288,17 @@ internal class LayoutScanner(
             val model = method(null, "getCardName", "java.lang.String", emptyList(), cardName)
             aliases["grid:${model.className}"] = key
         } }
-        (category(SettingsCategory.MINE) - headers.keys - grid).forEach { key -> run("mine.rows", setOf(key)) {
+        run("mine.marketing", setOf(K.MINE_MARKETING)) {
+            val callback = points.mineMarketingCallback
+            // JADX 将该方法还原为 onSuccess(Map)，实际 Dex 中是 d(Map)，并由 onSuccess(Object) 桥接。
+            val success = method(callback, "d", "void", listOf("java.util.Map"))
+            require(success.invokes.any {
+                it.name == "filterMarketingRules" &&
+                    it.returnTypeName == "java.util.Map" &&
+                    it.paramTypeNames == listOf("java.util.Map")
+            })
+        }
+        (category(SettingsCategory.MINE) - headers.keys - grid - setOf(K.MINE_MARKETING)).forEach { key -> run("mine.rows", setOf(key)) {
             val domestic = method(null, "t", "java.util.List", emptyList(), "initRecyclerList")
             val overseas = method(domestic.className, "l", "java.util.List", emptyList(), "initOverseaRecyclerList")
             require(domestic.className == overseas.className)

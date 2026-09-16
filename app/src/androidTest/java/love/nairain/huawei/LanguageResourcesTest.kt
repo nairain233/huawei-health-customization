@@ -29,6 +29,8 @@ class LanguageResourcesTest {
             "华为运动健康自定义布局的模块",
             chinese.getString(R.string.about_project_intro),
         )
+        assertEquals("营销内容", chinese.getString(R.string.settings_group_marketing_content))
+        assertEquals("我的页营销卡片", chinese.getString(R.string.settings_mine_marketing))
 
         assertEquals("Huawei Health Customization", english.getString(R.string.app_name))
         assertEquals("Language", english.getString(R.string.settings_language))
@@ -37,6 +39,8 @@ class LanguageResourcesTest {
         assertEquals("Exercise page items", english.getString(R.string.settings_sport_title))
         assertEquals("Devices page items", english.getString(R.string.settings_device_title))
         assertEquals("Me page items", english.getString(R.string.settings_mine_title))
+        assertEquals("Marketing content", english.getString(R.string.settings_group_marketing_content))
+        assertEquals("Me page marketing cards", english.getString(R.string.settings_mine_marketing))
         assertEquals("Bottom bar items", english.getString(R.string.settings_bottom_title))
         assertEquals("Background service customization", english.getString(R.string.service_block_title))
         assertEquals("DexKit scan", english.getString(R.string.scan_title))

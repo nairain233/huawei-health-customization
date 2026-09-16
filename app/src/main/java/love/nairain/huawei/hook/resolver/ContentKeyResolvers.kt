@@ -81,6 +81,7 @@ object HealthContentKeyResolver {
         "HealthHeadLinesCardData" to SettingsKeys.HEALTH_HEADLINES,
         "OperaMsgCardData" to SettingsKeys.HEALTH_TIPS,
         "SCUI_DialogCardData" to SettingsKeys.HEALTH_TIPS,
+        "FunctionMenuCardData" to SettingsKeys.HEALTH_QUICK_ENTRIES,
     )
     private val healthCards = mapOf(
         "SPORTS_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_SPORT,
@@ -94,30 +95,18 @@ object HealthContentKeyResolver {
         "TEMPERATURE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_TEMPERATURE,
         "PHYSIOLOGICAL_CYCLE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_CYCLE,
     )
-    private val menuTitles = mapOf(
-        "AI音乐空间" to SettingsKeys.HEALTH_AI_MUSIC,
-        "AI助眠音乐空间" to SettingsKeys.HEALTH_AI_MUSIC,
-        "健康管理" to SettingsKeys.HEALTH_MANAGEMENT,
-        "智能减重" to SettingsKeys.HEALTH_WEIGHT_LOSS,
-        "智能减脂" to SettingsKeys.HEALTH_WEIGHT_LOSS,
-        "智能训练" to SettingsKeys.HEALTH_SMART_TRAINING,
-        "助眠音乐" to SettingsKeys.HEALTH_SLEEP_MUSIC,
-    )
-
     fun topCard(cardName: String?): String? = cardName?.let(topCards::get)
     fun healthCard(cardId: String?): String? = cardId?.let(healthCards::get)
+}
 
-    fun quickEntry(dynamicDataId: String?, linkValue: String?, title: String?): String? {
-        val stable = listOfNotNull(dynamicDataId, linkValue).joinToString("|").lowercase()
-        return when {
-            "ai-sleep" in stable || "sleepmusic" in stable -> SettingsKeys.HEALTH_AI_MUSIC
-            "healthmanage" in stable || "health-management" in stable -> SettingsKeys.HEALTH_MANAGEMENT
-            "weight" in stable && "plan" in stable -> SettingsKeys.HEALTH_WEIGHT_LOSS
-            "training" in stable && "plan" in stable -> SettingsKeys.HEALTH_SMART_TRAINING
-            "pagetypeid=7" in stable -> SettingsKeys.HEALTH_SLEEP_MUSIC
-            else -> title?.let(menuTitles::get)
-        }
-    }
+object MineMarketingContentResolver {
+    const val NEW_PRODUCT_POSITION_ID = 4168
+    const val NEW_USER_BENEFIT_POSITION_ID = 9013
+
+    val hiddenPositionIds = setOf(NEW_PRODUCT_POSITION_ID, NEW_USER_BENEFIT_POSITION_ID)
+
+    fun filter(source: Map<*, *>, enabled: Boolean): Map<*, *> =
+        if (!enabled) source else source.filterKeys { it !in hiddenPositionIds }
 }
 
 object SportContentKeyResolver {

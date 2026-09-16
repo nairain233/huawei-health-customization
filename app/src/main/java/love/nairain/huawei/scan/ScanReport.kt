@@ -7,7 +7,7 @@ import love.nairain.huawei.config.SettingsCatalog
 /** 扫描协议与配置目录独立；匹配数不是开关数或 Hook 安装数。 */
 object ScanProtocol {
     const val VERSION = 1
-    const val RULES = 1
+    const val RULES = 2
     const val REQUEST = "scan.request"
     const val AUTHORITY = "love.nairain.huawei.scan"
     const val STORE = "scan_reports"
