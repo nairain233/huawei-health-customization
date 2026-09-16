@@ -83,20 +83,7 @@ object HealthContentKeyResolver {
         "SCUI_DialogCardData" to SettingsKeys.HEALTH_TIPS,
         "FunctionMenuCardData" to SettingsKeys.HEALTH_QUICK_ENTRIES,
     )
-    private val healthCards = mapOf(
-        "SPORTS_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_SPORT,
-        "HEARTRATE_CARD_KAY_NEW" to SettingsKeys.HEALTH_CARD_HEART,
-        "SLEEP_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_SLEEP,
-        "WEIGHT_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_WEIGHT,
-        "STRESS_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_STRESS,
-        "BLOODOXYGEN_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_SPO2,
-        "BLOODSUGAR_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_GLUCOSE,
-        "BLOODPRESSURE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_PRESSURE,
-        "TEMPERATURE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_TEMPERATURE,
-        "PHYSIOLOGICAL_CYCLE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_CYCLE,
-    )
     fun topCard(cardName: String?): String? = cardName?.let(topCards::get)
-    fun healthCard(cardId: String?): String? = cardId?.let(healthCards::get)
 }
 
 object MineMarketingContentResolver {

@@ -17,7 +17,6 @@ class ContentResolversTest {
     fun mapsVerifiedHealthIdentifiersAndKeepsUnknown() {
         assertEquals(SettingsKeys.HEALTH_ACTIVITY_RINGS, HealthContentKeyResolver.topCard("SCUI_TwoModelCardData"))
         assertEquals(SettingsKeys.HEALTH_QUICK_ENTRIES, HealthContentKeyResolver.topCard("FunctionMenuCardData"))
-        assertEquals(SettingsKeys.HEALTH_CARD_GLUCOSE, HealthContentKeyResolver.healthCard("BLOODSUGAR_CARD_KEY_NEW"))
         assertNull(HealthContentKeyResolver.topCard("new-server-card"))
     }
 
@@ -33,23 +32,6 @@ class ContentResolversTest {
         assertEquals(SettingsKeys.MINE_ABOUT, RowKeyResolver().resolve("2130841936", 0x7f021150))
         assertEquals(SettingsKeys.BOTTOM_MEMBER, BottomTabKeyResolver().resolve("IDS_vip"))
         assertNull(RowKeyResolver().resolve("new_dynamic_row"))
-    }
-
-    @Test
-    fun everyVerifiedHealthCardIdentifierIsMapped() {
-        val ids = mapOf(
-            "SPORTS_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_SPORT,
-            "HEARTRATE_CARD_KAY_NEW" to SettingsKeys.HEALTH_CARD_HEART,
-            "SLEEP_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_SLEEP,
-            "WEIGHT_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_WEIGHT,
-            "STRESS_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_STRESS,
-            "BLOODOXYGEN_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_SPO2,
-            "BLOODSUGAR_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_GLUCOSE,
-            "BLOODPRESSURE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_PRESSURE,
-            "TEMPERATURE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_TEMPERATURE,
-            "PHYSIOLOGICAL_CYCLE_CARD_KEY_NEW" to SettingsKeys.HEALTH_CARD_CYCLE,
-        )
-        ids.forEach { (id, key) -> assertEquals(key, HealthContentKeyResolver.healthCard(id)) }
     }
 
     @Test

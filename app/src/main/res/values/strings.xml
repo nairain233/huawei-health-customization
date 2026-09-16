@@ -78,16 +78,6 @@
     <string name="settings_health_search">搜索</string>
     <string name="settings_health_activity_rings">活动三环</string>
     <string name="settings_health_quick_entries">快捷入口</string>
-    <string name="settings_health_card_sport">运动记录卡片</string>
-    <string name="settings_health_card_heart">心脏健康卡片</string>
-    <string name="settings_health_card_sleep">睡眠卡片</string>
-    <string name="settings_health_card_weight">体重卡片</string>
-    <string name="settings_health_card_stress">情绪 / 压力卡片</string>
-    <string name="settings_health_card_spo2">血氧卡片</string>
-    <string name="settings_health_card_glucose">血糖卡片</string>
-    <string name="settings_health_card_pressure">血压卡片</string>
-    <string name="settings_health_card_temperature">体温卡片</string>
-    <string name="settings_health_card_cycle">生理周期卡片</string>
     <string name="settings_health_edit_cards">编辑卡片</string>
     <string name="settings_health_today">今日推荐</string>
     <string name="settings_health_insights">健康洞察</string>
@@ -95,7 +85,7 @@
     <string name="settings_health_tips">提示卡</string>
 
     <string name="settings_sport_category_bar">顶部分类栏</string>
-    <string name="settings_sport_banner">Banner</string>
+    <string name="settings_sport_banner">顶部轮播图</string>
     <string name="settings_sport_stretch">拉伸放松</string>
     <string name="settings_sport_traditional">古法养生</string>
     <string name="settings_sport_cycling">骑行课程</string>

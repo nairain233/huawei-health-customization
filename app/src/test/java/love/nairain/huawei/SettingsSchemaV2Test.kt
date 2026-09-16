@@ -106,6 +106,29 @@ class SettingsSchemaV2Test {
     }
 
     @Test
+    fun removedHealthCardValuesAreNotDeclaredOrRead() {
+        val removed = listOf(
+            "hide.health.card.sport",
+            "hide.health.card.heart",
+            "hide.health.card.sleep",
+            "hide.health.card.weight",
+            "hide.health.card.stress",
+            "hide.health.card.spo2",
+            "hide.health.card.glucose",
+            "hide.health.card.pressure",
+            "hide.health.card.temperature",
+            "hide.health.card.cycle",
+        )
+        val values = SettingsCatalog.read(InMemoryPreferences(removed.associateWith { true }))
+
+        assertTrue(SettingsCatalog.health.none { it.key.startsWith("hide.health.card.") })
+        removed.forEach { key ->
+            assertFalse(SettingsCatalog.defaults.containsKey(key))
+            assertFalse(values.containsKey(key))
+        }
+    }
+
+    @Test
     fun legacyRowsAndTabsAreIgnoredButGeneralValuesArePreserved() {
         val preferences = InMemoryPreferences(
             mapOf(
