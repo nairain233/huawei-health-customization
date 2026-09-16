@@ -200,6 +200,7 @@ internal class LayoutScanner(
                 "HealthHeadLinesCardData",
                 "OperaMsgCardData",
                 "FunctionMenuCardData",
+                "HealthQuickEntryCardData",
             ).forEach {
                 method(null, "getCardName", "java.lang.String", emptyList(), it)
             }
