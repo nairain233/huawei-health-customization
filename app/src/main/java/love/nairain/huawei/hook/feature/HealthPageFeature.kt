@@ -25,7 +25,6 @@ class HealthPageFeature : HookFeature {
         var count = 0
         count += context.installIsolated("health.top") { installTopControls(context) }
         count += context.installIsolated("health.top-cards") { installTopCardFilter(context) }
-        count += context.installIsolated("health.health-cards") { installHealthCardFilter(context) }
         count += context.installIsolated("health.edit-cards") { installEditCards(context) }
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified health symbols unavailable")
@@ -90,37 +89,6 @@ class HealthPageFeature : HookFeature {
         return count
     }
 
-    private fun installHealthCardFilter(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.functionSetHolder) ?: return 0
-        var count = 0
-        ReflectionTargets.method(type, "g", 0, Void.TYPE)?.let { method ->
-            context.hooks.hook(method).setId("$id:health-cards:init")
-                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .intercept { chain ->
-                    val result = chain.proceed()
-                    filterHolderCardList(chain.thisObject, context)
-                    result
-                }
-            count++
-        }
-        ReflectionTargets.methods(type, "c", 1).firstOrNull {
-            it.parameterTypes.singleOrNull()?.let(List::class.java::isAssignableFrom) == true
-        }?.let { method ->
-            context.hooks.hook(method).setId("$id:health-cards:refresh")
-                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .intercept { chain ->
-                    val args = filteredArguments(chain.args, 0, context) { item ->
-                        HealthContentKeyResolver.healthCard(
-                            ReflectionTargets.invokeNoArgs(item, "getCardId") as? String,
-                        )
-                    }
-                    chain.proceed(args)
-                }
-            count++
-        }
-        return count
-    }
-
     private fun installEditCards(context: HookContext): Int {
         val type = ReflectionTargets.type(context.classLoader, context.points.functionSetHolder) ?: return 0
         ReflectionTargets.method(type, "l", 0, Void.TYPE)?.let { method ->
@@ -151,21 +119,6 @@ class HealthPageFeature : HookFeature {
         if (context.config[SettingsKeys.HEALTH_MORE] == true) {
             hideControl(titleBar, "setRightButtonVisibility")
         }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun filterHolderCardList(target: Any, context: HookContext) {
-        val list = ReflectionTargets.fieldValue(target, "k") as? MutableCollection<Any> ?: return
-        val filtered = ListFilters.copyAndFilter(list.toList(), { item ->
-            HealthContentKeyResolver.healthCard(
-                ReflectionTargets.invokeNoArgs(item, "getCardId") as? String
-                    ?: ReflectionTargets.invokeNoArgs(item, "getCardConfig")?.let {
-                        ReflectionTargets.invokeNoArgs(it, "getCardId") as? String
-                    },
-            )
-        }, context.config)
-        list.clear()
-        list.addAll(filtered)
     }
 
     private fun hideControl(target: View, methodName: String) {

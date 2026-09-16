@@ -2,7 +2,7 @@
 
 ## 使用及统计
 
-仅作用于 `com.huawei.health` 首包主进程。attach 完成后读取一次配置快照，服务独立安装；后台线程校验 APK 内容身份、读取缓存或完整扫描，不在主线程做 Dex/磁盘工作。当前规则版本包含 75 个布局开关，成功条件为该项必要定位和内容识别均可用，与开关状态无关。
+仅作用于 `com.huawei.health` 首包主进程。attach 完成后读取一次配置快照，服务独立安装；后台线程校验 APK 内容身份、读取缓存或完整扫描，不在主线程做 Dex/磁盘工作。当前规则版本包含 65 个布局开关，成功条件为该项必要定位和内容识别均可用，与开关状态无关。
 
 设置首页显示已匹配 m/n、已检查 p/n、版本、更新时间及服务状态。尚未扫描、运行中、完成、失败、过期和状态待确认分开展示。两分钟前的运行中报告只作为待确认状态；它不能证明目标进程仍在运行。匹配统计不宣称 Hook 安装或设备回归成功。
 
@@ -16,7 +16,6 @@
 | --- | --- | --- |
 | 健康顶部 | HomeFragment 生命周期、health_tab_titlebar、CustomTitleBar 两个可见性入口 | 保留对应控件 |
 | 顶部卡片 | HomeCardAdapter 构造/列表刷新、getCardName 字符串与签名，包括 FunctionMenuCardData | 保留或移除对应整张卡片 |
-| 健康卡片 | initCard 日志、被访问的 List 字段、唯一 List 刷新入口、CardConstructor/FunctionSetSubCardData 标识访问器 | 保留该组 |
 | 编辑卡片 | 基准版本已核验的 l() 与 LinearLayout 字段 m | 未知版本暂不启用 |
 | 运动顶部 | SportEntranceFragment 生命周期和对应资源名称 | 缺少资源的项目保留 |
 | 运动区块 | SportTabPageResTrigger 的继承入口、4040 常量证据与运行时范围检查、SectionBean 类型化访问器 | 无法确认的项目保留；仅依赖标题的项目限基准版本 |
@@ -44,7 +43,7 @@
 
 `ApkScanTest` 可通过 Gradle 属性 `scan.native`、`scan.apk`、`scan.resources`（JADX public.xml）、`scan.output` 使用桌面 DexKit 对真实 APK 执行生产查询。未提供属性时明确跳过该测试。桌面 native 库仅用于开发验证，不打包进 APK。
 
-2026-09-08 的 44 项 JVM、`lintDebug`、`assembleDebug` 和 Compose 编译记录属于规则版本 1（78 项开关）；规则版本 2 改为 74 项并将健康快捷入口改为整卡定位；规则版本 3 增加 `mine.marketing` 后为 75 项。使用 17.0.7.310 基准 APK 的桌面 DexKit 扫描已验证新增回调唯一命中，并完成 75/75 项必要定位；`scan.fixture` 可指定由 `tools/scan-fixtures/ScanCollision.java` 经 javac/D8 生成的 DEX，验证重复内容候选不会误选。
+2026-09-08 的 44 项 JVM、`lintDebug`、`assembleDebug` 和 Compose 编译记录属于规则版本 1（78 项开关）；规则版本 2 改为 74 项并将健康快捷入口改为整卡定位；当前规则版本 3 移除健康卡片精简能力并保留 `mine.marketing`，共 65 项。使用 17.0.7.310 基准 APK 的桌面 DexKit 扫描需完成 65/65 项必要定位；`scan.fixture` 可指定由 `tools/scan-fixtures/ScanCollision.java` 经 javac/D8 生成的 DEX，验证重复内容候选不会误选。
 
 APK 已检查 API 102 入口、唯一运动健康作用域及四种 ABI 的 `libdexkit.so`。Compose 状态测试仅编译，Provider/RemotePreferences 跨进程通信、进程中断重试及真实页面恢复仍需设备验证；本次无可用设备，未将这些项目标记为通过。
 

@@ -116,14 +116,6 @@ internal class LayoutScanner(
         descriptors += data.descriptor
     }
 
-    private fun usedField(method: MethodData) {
-        val data = method.usingFields.map { it.field }.filter { it.className == method.className && it.typeName == "java.util.List" }
-            .distinctBy { it.descriptor }.singleOrNull() ?: throw IllegalArgumentException("field_ambiguous")
-        verifySymbol(data.descriptor)
-        aliases["${method.className}#k#field"] = data.name
-        descriptors += data.descriptor
-    }
-
     private fun lifecycle(owner: String) {
         type(owner)
         method(owner, "onCreateView", "android.view.View", listOf("android.view.LayoutInflater", "android.view.ViewGroup", "android.os.Bundle"))
@@ -211,14 +203,6 @@ internal class LayoutScanner(
             ).forEach {
                 method(null, "getCardName", "java.lang.String", emptyList(), it)
             }
-        }
-        val cards = category(SettingsCategory.HEALTH).filter { it.startsWith("hide.health.card.") }.toSet()
-        run("health.health-cards", cards) {
-            val init = method(points.functionSetHolder, "g", "void", emptyList(), "initCard mViewAdapter or cardConstructors is null")
-            usedField(init)
-            method(points.functionSetHolder, "c", "void", listOf("java.util.List"), "*")
-            method("com.huawei.health.health.utils.functionsetcard.manager.constructor.CardConstructor", "getCardId", "java.lang.String", emptyList())
-            method("com.huawei.health.health.utils.functionsetcard.reader.FunctionSetSubCardData", "getCardId", "java.lang.String", emptyList())
         }
         run("health.edit-cards", setOf(K.HEALTH_EDIT_CARDS)) {
             require(known)

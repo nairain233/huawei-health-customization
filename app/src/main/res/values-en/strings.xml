@@ -78,16 +78,6 @@
     <string name="settings_health_search">Search</string>
     <string name="settings_health_activity_rings">Activity rings</string>
     <string name="settings_health_quick_entries">Shortcuts</string>
-    <string name="settings_health_card_sport">Exercise records card</string>
-    <string name="settings_health_card_heart">Heart health card</string>
-    <string name="settings_health_card_sleep">Sleep card</string>
-    <string name="settings_health_card_weight">Weight card</string>
-    <string name="settings_health_card_stress">Emotions / Stress card</string>
-    <string name="settings_health_card_spo2">Blood oxygen card</string>
-    <string name="settings_health_card_glucose">Blood glucose card</string>
-    <string name="settings_health_card_pressure">Blood pressure card</string>
-    <string name="settings_health_card_temperature">Body temperature card</string>
-    <string name="settings_health_card_cycle">Menstrual cycle card</string>
     <string name="settings_health_edit_cards">Edit cards</string>
     <string name="settings_health_today">Today recommendations</string>
     <string name="settings_health_insights">Health insights</string>

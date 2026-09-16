@@ -178,12 +178,18 @@ app/src/main/
 
 - schema v2 统一使用 `hide.health.*`、`hide.sport.*`、`hide.device.*`、`hide.mine.*`、`hide.bottom.*`；保留 `enabled` 与 `hide_launcher_icon` 原值，旧 `row_*` / `tab_*` 不迁移也不读取。
 - `onPackageReady` 只安装 `Application.attach()` Hook；attach 完成后读取真实包信息和一次性配置快照。服务独立安装，布局经后台 DexKit 扫描或缓存复核后按能力安装。
-- 健康页按 `HomeCardAdapter` 副本、`CardConstructor.getCardId()` 和快捷入口标识过滤；运动页 Knit 过滤仅限 `SportTabPageResTrigger` 的 `resPosId=4040`；设备页按已核验资源名折叠；我的页按资源名及 `wrq/wrl/wrb/wsa` 模型过滤并清理空分组。
+- 健康页按 `HomeCardAdapter` 副本和 `FunctionMenuCardData` 顶层卡片标识过滤；快捷入口关闭时整张卡片移除，不解析其中的单个入口。运动页 Knit 过滤仅限 `SportTabPageResTrigger` 的 `resPosId=4040`；设备页按已核验资源名折叠；我的页按资源名及 `wrq/wrl/wrb/wsa` 模型过滤并清理空分组；营销卡片仅在 `PersonalCenterRecyclerViewAdapter$c$4` 的 `d(Map)` 回调中移除已核验的 4168/9013。
 - 底栏保留原始 Tab 索引，使用按 `HealthBottomView` 实例隔离的弱状态表，处理清空、重复布局和 RTL。
-- DexKit 扫描 base/split APK，结果按功能隔离并缓存。未知版本只启用唯一命中且签名、内容身份通过校验的功能；历史数字 ID/文案后备仅限已核验版本。不持有 Activity、Fragment 或 View 的静态强引用。
+- DexKit 扫描 base/split APK，结果按功能隔离并缓存；当前规则版本 3 共检查 65 个布局开关，保留 `mine.marketing` 独立能力组并移除健康卡片精简能力。未知版本只启用唯一命中且签名、内容身份通过校验的功能；历史数字 ID/文案后备仅限已核验版本。不持有 Activity、Fragment 或 View 的静态强引用。
 - 首页展示扫描 m/n 与预约重扫；`scan.request` 由模块写入，目标下次启动后执行。报告通过验证 UID 的专用 Provider 回传，不修改用户开关。规则变化递增 `ScanProtocol.RULES`，详细依据见 [DexKit 适配说明](docs/DexKit适配说明.md)。
 - 服务功能使用 `service_block.enabled` 和 `service_block.components`，保留 schema v2 布局配置；attach 完成后独立安装，不依赖布局扫描或宿主版本白名单。通过已核验的 ContextImpl 内部入口匹配显式组件，缺少声明的旧规则不生效，安装不完整时回滚并放行。
 - 服务绑定状态按外层 Context 与 ServiceConnection 对象身份弱引用隔离，优先保留真实解绑；不记录 Intent 内容和宿主异常消息。设备验证边界见 [后台服务精简说明](docs/后台服务精简说明.md)。
+- 配置应用的首页与五类布局页统一订阅 `LayoutSettingsCoordinator`：应用级单线程串行执行 `getRemotePreferences()`、读取、默认值补齐和写入，主线程只接收已确认状态。`LayoutConfigStore` 使用 `commit()` 确认写入，失败后按原值及原始存在状态执行第二次 `commit()` 回滚；回滚失败时当前服务绑定被标记为不确定，必须等待新的服务绑定后才能恢复编辑。页面保存期间不乐观切换，默认补齐失败但已恢复时允许继续编辑并显示文字提示。
+- 配置应用提供简体中文与 English 完整资源，默认跟随系统；“主题设置”中的语言下拉通过 AppCompat 应用语言 API 在 Android 9–最新版本持久化并立即刷新。语言只影响模块配置应用，不写入 RemotePreferences，也不改变宿主中文内容定位规则。
+- 第一阶段配置可靠性验证包含 63 项 JVM 测试（0 失败、1 项因缺少桌面 DexKit native 环境跳过）及 31 项 instrumentation 测试源码；AndroidTest APK 已构建。当前无设备或 AVD，设置页加载、保存、失败、重连、快速切换与持久化重启的运行时 UI 验证保留到第九阶段。
+- 第三阶段（2026-09-15）：`ScanStatusController` 用运行会话与绑定身份隔离任务，主线程独占 UI 状态；停止先使旧会话失效，再关闭执行器。两秒轮询保留，换绑主动刷新，过期结果及旧定时回调被丢弃；执行器拒绝任务不会向界面抛出异常。
+- 重扫预约从受理到完成保持单操作占用：排队任务可取消，已开始任务跨同一控制器的停止/启动保留占用。首次提交前再次校验会话，已发出的 IPC 不承诺撤销；提交及回滚使用同一 preferences。`ScanRequests.save()` 区分成功、失败已恢复和状态不确定，精确恢复原键存在状态并确认回滚提交结果。`requestUncertain` 独立于扫描超时，同一绑定下轮询/前后台切换不能清除，须新绑定成功读取后才能解锁。
+- 第三阶段最终 JVM 测试共 91 项（90 通过、0 失败、1 项 DexKit native 条件跳过），Lint、Debug/Release/AndroidTest APK 构建通过。2026-09-14 Android 12 / API 32 模拟器上曾运行全部 36 项 instrumentation 测试并通过；最终提交前守卫补充后已重新构建，新增 `ScanLifecycleTest` 使测试源码增至 37 项。收尾时无连接设备或可用 AVD，新增生命周期测试、最终版本设备重跑、可见渲染及真实 LSPosed 服务/延迟 IPC 验证仍留到第九阶段，详见 [优化计划](docs/优化计划.md)。
 
 
 ## 文档同步
