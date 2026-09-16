@@ -68,8 +68,8 @@
     <string name="settings_group_device_notices">设备提示</string>
     <string name="settings_group_my_devices">我的设备</string>
     <string name="settings_group_recommendations_and_store">推荐与商城</string>
-    <string name="settings_group_health_achievements">健康与成就</string>
-    <string name="settings_group_sport">运动</string>
+    <string name="settings_group_cards">卡片</string>
+    <string name="settings_group_data">数据</string>
     <string name="settings_group_other">其他</string>
     <string name="settings_group_settings_support">设置与支持</string>
     <string name="settings_search">搜索</string>
@@ -122,7 +122,6 @@
     <string name="settings_mine_messages">消息入口</string>
     <string name="settings_mine_account">账号资料</string>
     <string name="settings_mine_vip">会员卡</string>
-    <string name="settings_group_marketing_content">营销内容</string>
     <string name="settings_mine_marketing">我的页营销卡片</string>
     <string name="settings_mine_group">我的群组</string>
     <string name="settings_mine_family">家庭空间</string>

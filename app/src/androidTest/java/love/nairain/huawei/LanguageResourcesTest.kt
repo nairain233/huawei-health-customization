@@ -26,10 +26,11 @@ class LanguageResourcesTest {
         assertEquals("dexkit扫描", chinese.getString(R.string.scan_title))
         assertEquals("关于", chinese.getString(R.string.about_title))
         assertEquals(
-            "一款用于自定义华为运动健康布局的 LSPosed 模块，支持按需调整健康、运动、设备、“我的”页面和底栏内容，并可选择性屏蔽目标应用主动发起的后台服务调用。各项功能可独立开关，配置或定位异常时会安全跳过，尽量保持原应用行为不变。",
+            "一款用于精简华为运动健康的模块，支持按需调整，并可选择性屏蔽目标应用主动发起的后台服务调用。",
             chinese.getString(R.string.about_project_intro),
         )
-        assertEquals("营销内容", chinese.getString(R.string.settings_group_marketing_content))
+        assertEquals("卡片", chinese.getString(R.string.settings_group_cards))
+        assertEquals("数据", chinese.getString(R.string.settings_group_data))
         assertEquals("我的页营销卡片", chinese.getString(R.string.settings_mine_marketing))
 
         assertEquals("Huawei Health Customization", english.getString(R.string.app_name))
@@ -39,14 +40,15 @@ class LanguageResourcesTest {
         assertEquals("Exercise page items", english.getString(R.string.settings_sport_title))
         assertEquals("Devices page items", english.getString(R.string.settings_device_title))
         assertEquals("Me page items", english.getString(R.string.settings_mine_title))
-        assertEquals("Marketing content", english.getString(R.string.settings_group_marketing_content))
+        assertEquals("Cards", english.getString(R.string.settings_group_cards))
+        assertEquals("Data", english.getString(R.string.settings_group_data))
         assertEquals("Me page marketing cards", english.getString(R.string.settings_mine_marketing))
         assertEquals("Bottom bar items", english.getString(R.string.settings_bottom_title))
         assertEquals("Background service customization", english.getString(R.string.service_block_title))
         assertEquals("DexKit scan", english.getString(R.string.scan_title))
         assertEquals("About", english.getString(R.string.about_title))
         assertEquals(
-            "An LSPosed module for customizing Huawei Health. It provides on-demand controls for the Health, Exercise, Devices, Me, and bottom-bar layouts, plus optional blocking of explicitly selected service calls. Each feature can be enabled independently; configuration or target-resolution failures are safely skipped to preserve the original app behavior as much as possible.",
+            "An LSPosed module for customizing Huawei Health. It provides on-demand controls for the layouts, plus optional blocking of explicitly selected service calls.",
             english.getString(R.string.about_project_intro),
         )
     }
