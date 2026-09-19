@@ -122,7 +122,7 @@ Hook 目标解析与界面修改逻辑分离。解析器负责定位类、方法
 - libxposed API 必须使用 `compileOnly("io.github.libxposed:api:102.0.0")`，避免打包框架 API。
 - 仅在需要模块配置界面时引入 `io.github.libxposed:service:102.0.0`。
 - 新依赖必须解决当前明确需求，不为假设中的未来功能提前引入。
-- 优先沿用当前 Android Gradle Plugin、Java 11 和版本目录配置。
+- 优先沿用当前 Android Gradle Plugin、JVM 21 和版本目录配置。
 - 若决定使用 Kotlin，必须先完整配置 Kotlin Android 插件，不得依赖当前示例测试文件推断 Kotlin 已可用。
 
 ## 建议目录结构

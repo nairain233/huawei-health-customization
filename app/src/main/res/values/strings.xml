@@ -33,27 +33,19 @@
     <string name="settings_mine_nav_title">“我的”页面</string>
     <string name="settings_bottom_nav_title">底栏</string>
 
+    <string name="about_section_developer">开发者</string>
+    <string name="about_developer_name" translatable="false">夜雨 | Nairain</string>
+    <string name="about_developer_role" translatable="false">GitHub · Developer</string>
+    <string name="about_platform_github" translatable="false">GitHub</string>
+    <string name="about_platform_telegram" translatable="false">Telegram</string>
     <string name="about_title">关于</string>
-    <string name="about_header_description">精简华为运动健康界面布局</string>
-    <string name="about_version">版本 v%1$s</string>
-    <string name="about_section_project">项目介绍</string>
-    <string name="about_project_intro">一款用于精简华为运动健康的模块，支持按需调整，并可选择性屏蔽目标应用主动发起的后台服务调用。</string>
+    <string name="about_version">版本 v%1$s（%2$d）</string>
     <string name="about_section_links">项目链接</string>
     <string name="about_repository">项目仓库</string>
-    <string name="about_repository_url">Huawei-Health-Customization</string>
     <string name="about_link_telegram">发布频道</string>
-    <string name="about_link_telegram_summary">\@Rain_Cl</string>
-    <string name="about_link_author">作者</string>
-    <string name="about_link_author_summary">nairain</string>
-    <string name="about_open_source_section">开源鸣谢</string>
+    <string name="about_open_source_section">第三方库</string>
     <string name="about_lib_summary">%1$s · %2$s</string>
     <string name="about_link_failed">没有可以打开此链接的应用</string>
-    <string name="about_section_disclaimer">免责声明</string>
-    <string name="about_disclaimer_learning">应用内所有功能仅供学习交流与技术研究使用，请勿用于商业或违法用途</string>
-    <string name="about_disclaimer_free">本模块完全免费使用，不存在收费盈利</string>
-    <string name="about_disclaimer_resale">禁止售卖、倒卖或二次打包分发本模块</string>
-    <string name="about_disclaimer_liability">因使用本模块产生的后果，由使用者自行承担</string>
-    <string name="about_disclaimer_copyright">如有侵权问题，请联系邮箱：nairain233@gmail.com</string>
 
     <string name="settings_health_title">健康页面项目</string>
     <string name="settings_sport_title">运动页面项目</string>
