@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- blur 仅在 RuntimeShader 可用时使用，旧版直接使用主题 surface。 -->
+    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
+
     <queries>
         <package android:name="com.huawei.health" />
     </queries>
