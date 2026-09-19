@@ -25,10 +25,7 @@ class LanguageResourcesTest {
         assertEquals("后台服务精简", chinese.getString(R.string.service_block_title))
         assertEquals("dexkit扫描", chinese.getString(R.string.scan_title))
         assertEquals("关于", chinese.getString(R.string.about_title))
-        assertEquals(
-            "一款用于精简华为运动健康的模块，支持按需调整，并可选择性屏蔽目标应用主动发起的后台服务调用。",
-            chinese.getString(R.string.about_project_intro),
-        )
+        assertEquals("开发者", chinese.getString(R.string.about_section_developer))
         assertEquals("卡片", chinese.getString(R.string.settings_group_cards))
         assertEquals("数据", chinese.getString(R.string.settings_group_data))
         assertEquals("我的页营销卡片", chinese.getString(R.string.settings_mine_marketing))
@@ -42,15 +39,12 @@ class LanguageResourcesTest {
         assertEquals("Me page items", english.getString(R.string.settings_mine_title))
         assertEquals("Cards", english.getString(R.string.settings_group_cards))
         assertEquals("Data", english.getString(R.string.settings_group_data))
-        assertEquals("Me page marketing cards", english.getString(R.string.settings_mine_marketing))
+        assertEquals("Marketing cards", english.getString(R.string.settings_mine_marketing))
         assertEquals("Bottom bar items", english.getString(R.string.settings_bottom_title))
         assertEquals("Background service customization", english.getString(R.string.service_block_title))
         assertEquals("DexKit scan", english.getString(R.string.scan_title))
         assertEquals("About", english.getString(R.string.about_title))
-        assertEquals(
-            "An LSPosed module for customizing Huawei Health. It provides on-demand controls for the layouts, plus optional blocking of explicitly selected service calls.",
-            english.getString(R.string.about_project_intro),
-        )
+        assertEquals("Developer", english.getString(R.string.about_section_developer))
     }
 
     @Test

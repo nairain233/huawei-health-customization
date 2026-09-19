@@ -33,27 +33,15 @@
     <string name="settings_mine_nav_title">Me page</string>
     <string name="settings_bottom_nav_title">Bottom bar</string>
 
+    <string name="about_section_developer">Developer</string>
     <string name="about_title">About</string>
-    <string name="about_header_description">Customize the Huawei Health interface</string>
-    <string name="about_version">Version v%1$s</string>
-    <string name="about_section_project">Project</string>
-    <string name="about_project_intro">An LSPosed module for customizing Huawei Health. It provides on-demand controls for the layouts, plus optional blocking of explicitly selected service calls.</string>
+    <string name="about_version">Version v%1$s (%2$d)</string>
     <string name="about_section_links">Links</string>
     <string name="about_repository">Project repository</string>
-    <string name="about_repository_url">Huawei-Health-Customization</string>
     <string name="about_link_telegram">Release channel</string>
-    <string name="about_link_telegram_summary">\@Rain_Cl</string>
-    <string name="about_link_author">Author</string>
-    <string name="about_link_author_summary">nairain</string>
-    <string name="about_open_source_section">Open-source acknowledgements</string>
+    <string name="about_open_source_section">Third-party libraries</string>
     <string name="about_lib_summary">%1$s · %2$s</string>
     <string name="about_link_failed">No app can open this link</string>
-    <string name="about_section_disclaimer">Disclaimer</string>
-    <string name="about_disclaimer_learning">All features are provided only for learning, communication, and technical research. Do not use them for commercial or illegal purposes</string>
-    <string name="about_disclaimer_free">This module is completely free and is not sold for profit</string>
-    <string name="about_disclaimer_resale">Selling, reselling, or repackaging this module for distribution is prohibited</string>
-    <string name="about_disclaimer_liability">Users are responsible for any consequences of using this module</string>
-    <string name="about_disclaimer_copyright">For copyright concerns, contact nairain233@gmail.com</string>
 
     <string name="settings_health_title">Health page items</string>
     <string name="settings_sport_title">Exercise page items</string>
