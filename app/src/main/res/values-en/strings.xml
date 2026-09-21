@@ -149,4 +149,16 @@
     <string name="service_block_yes">Yes</string>
     <string name="service_block_no">No</string>
     <string name="service_block_item_toggle">Block</string>
+    <string name="service_block_debug_mode">Debug mode</string>
+    <string name="service_block_debug_mode_summary">Allows per-service rules; disabling it keeps existing rules but pauses them.</string>
+    <string name="service_block_notice_presets">Regular switches cover only services with confirmed purposes. Device, account, and cloud sync services are excluded by default.</string>
+    <string name="service_block_custom_paused">Existing custom service rules are preserved and resume when debug mode is enabled.</string>
+    <string name="service_preset_app_update">App and module updates</string>
+    <string name="service_preset_app_update_summary">Blocks background version checks and update tasks.</string>
+    <string name="service_preset_music_sync">Device music sync</string>
+    <string name="service_preset_music_sync_summary">Blocks device music list synchronization.</string>
+    <string name="service_preset_training_plan">Training plan delivery</string>
+    <string name="service_preset_training_plan_summary">Blocks sending training plans to devices.</string>
+    <string name="service_preset_watch_face">Watch face trials</string>
+    <string name="service_preset_watch_face_summary">Blocks watch face trial services.</string>
 </resources>
