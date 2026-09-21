@@ -83,7 +83,12 @@ internal object HookCoordinator {
         val declaredServices = packageInfo.services.orEmpty().mapNotNull {
             ServiceBlockConfig.componentName(it.packageName, it.name)
         }.toSet()
-        val serviceStatus = ServiceBlockFeature.install(framework, serviceConfig, declaredServices, logger)
+        val serviceStatus = ServiceBlockFeature.install(
+            framework,
+            serviceConfig.copy(components = serviceConfig.effectiveComponents(declaredServices)),
+            declaredServices,
+            logger,
+        )
         val config = readConfig(framework, logger)
         val request = try {
             framework.getRemotePreferences(SettingsKeys.GROUP).getString(ScanProtocol.REQUEST, "").orEmpty()

@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import love.nairain.huawei.app.ServiceItem
 import love.nairain.huawei.app.visibleServices
 import love.nairain.huawei.config.ServiceBlockConfig
+import love.nairain.huawei.config.ServicePreset
 import love.nairain.huawei.config.ServiceConfigStore
 import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.feature.ServiceBindingState
@@ -15,6 +16,16 @@ class ServiceBlockTest {
     private val pkg = "com.huawei.health"
     private val first = "$pkg/$pkg.FirstService"
     private val second = "$pkg/vendor.SecondService"
+
+    @Test fun presetsRespectDebugModeAndDeclaredServices() {
+        val update = ServicePreset.APP_UPDATE.components.first()
+        val config = ServiceBlockConfig(true, setOf(first), setOf(ServicePreset.APP_UPDATE.id), false)
+        assertTrue(update in config.effectiveComponents(setOf(update)))
+        assertFalse(first in config.effectiveComponents(setOf(first)))
+        val debug = config.copy(debugMode = true)
+        assertTrue(first in debug.effectiveComponents(setOf(first)))
+        assertTrue(update in debug.effectiveComponents(setOf(update)))
+    }
 
     @Test fun defaultsAndLayoutSwitchAreIndependent() {
         assertEquals(ServiceBlockConfig(), ServiceBlockConfig.read(InMemoryPreferences()))
