@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import love.nairain.huawei.R
 import love.nairain.huawei.config.ServiceBlockConfig
+import love.nairain.huawei.config.ServicePreset
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -92,18 +93,39 @@ internal fun ServiceBlockScreen(
                         onCheckedChange = { onConfigChange(state.config.copy(enabled = it)) },
                         modifier = Modifier.testTag("service-block:enabled"),
                     )
+                    ServicePreset.entries.forEach { preset ->
+                        SwitchPreference(
+                            title = stringResource(presetTitle(preset)),
+                            checked = preset.id in state.config.presets,
+                            enabled = state.writable && state.catalog.supported,
+                            onCheckedChange = { selected ->
+                                val next = if (selected) state.config.presets + preset.id else state.config.presets - preset.id
+                                onConfigChange(state.config.copy(presets = next))
+                            },
+                            modifier = Modifier.testTag("service-block:preset:${preset.id}"),
+                        )
+                    }
+                    SwitchPreference(
+                        title = stringResource(R.string.service_block_debug_mode),
+                        checked = state.config.debugMode,
+                        enabled = state.writable,
+                        onCheckedChange = { onConfigChange(state.config.copy(debugMode = it)) },
+                        modifier = Modifier.testTag("service-block:debug"),
+                    )
                     SwitchPreference(
                         title = stringResource(R.string.service_block_only_selected),
                         checked = blockedOnly,
                         onCheckedChange = { blockedOnly = it },
                         modifier = Modifier.testTag("service-block:filter"),
                     )
-                    ArrowPreference(
-                        title = stringResource(R.string.service_block_clear),
-                        enabled = state.writable && state.config.components.isNotEmpty(),
-                        onClick = { onConfigChange(state.config.copy(components = emptySet())) },
-                        modifier = Modifier.testTag("service-block:clear"),
-                    )
+                    if (state.config.debugMode) {
+                        ArrowPreference(
+                            title = stringResource(R.string.service_block_clear),
+                            enabled = state.writable && state.config.components.isNotEmpty(),
+                            onClick = { onConfigChange(state.config.copy(components = emptySet())) },
+                            modifier = Modifier.testTag("service-block:clear"),
+                        )
+                    }
                     ArrowPreference(
                         title = stringResource(R.string.service_block_refresh),
                         enabled = !state.loading && !state.saving,
@@ -111,7 +133,7 @@ internal fun ServiceBlockScreen(
                     )
                 }
             }
-            item("search") {
+            if (state.config.debugMode) item("search") {
                 TextField(
                     value = query,
                     onValueChange = { query = it },
@@ -122,7 +144,10 @@ internal fun ServiceBlockScreen(
             }
             item("notice") {
                 Card(modifier = cardModifier, insideMargin = PaddingValues(16.dp)) {
-                    Text(stringResource(R.string.service_block_notice))
+                    Text(stringResource(if (state.config.debugMode) R.string.service_block_notice else R.string.service_block_notice_presets))
+                    if (!state.config.debugMode && state.config.components.isNotEmpty()) {
+                        Text(stringResource(R.string.service_block_custom_paused))
+                    }
                 }
             }
             item("status") {
@@ -133,14 +158,14 @@ internal fun ServiceBlockScreen(
                     Text(stringResource(R.string.service_block_count, state.config.components.size, rows.size))
                 }
             }
-            if (!state.loading && rows.isEmpty()) {
+            if (state.config.debugMode && !state.loading && rows.isEmpty()) {
                 item("empty") {
                     Card(modifier = cardModifier, insideMargin = PaddingValues(16.dp)) {
                         Text(stringResource(R.string.service_block_empty))
                     }
                 }
             }
-            items(rows, key = { it.component }) { row ->
+            if (state.config.debugMode) items(rows, key = { it.component }) { row ->
                 val checked = row.component in state.config.components
                 Card(modifier = cardModifier, insideMargin = PaddingValues(0.dp)) {
                     Text(row.className, modifier = Modifier.padding(16.dp))
@@ -170,4 +195,18 @@ internal fun ServiceBlockScreen(
             item("bottom") { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
+}
+
+private fun presetTitle(preset: ServicePreset): Int = when (preset) {
+    ServicePreset.APP_UPDATE -> R.string.service_preset_app_update
+    ServicePreset.MUSIC_SYNC -> R.string.service_preset_music_sync
+    ServicePreset.TRAINING_PLAN -> R.string.service_preset_training_plan
+    ServicePreset.WATCH_FACE_TRIAL -> R.string.service_preset_watch_face
+}
+
+private fun presetSummary(preset: ServicePreset): Int = when (preset) {
+    ServicePreset.APP_UPDATE -> R.string.service_preset_app_update_summary
+    ServicePreset.MUSIC_SYNC -> R.string.service_preset_music_sync_summary
+    ServicePreset.TRAINING_PLAN -> R.string.service_preset_training_plan_summary
+    ServicePreset.WATCH_FACE_TRIAL -> R.string.service_preset_watch_face_summary
 }

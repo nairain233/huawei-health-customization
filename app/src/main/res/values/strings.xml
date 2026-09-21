@@ -153,4 +153,16 @@
     <string name="service_block_yes">是</string>
     <string name="service_block_no">否</string>
     <string name="service_block_item_toggle">屏蔽</string>
+    <string name="service_block_debug_mode">调试模式</string>
+    <string name="service_block_debug_mode_summary">开启后可按服务组件自定义屏蔽；关闭时保留规则但暂停生效。</string>
+    <string name="service_block_notice_presets">普通开关仅覆盖已确认用途的服务；设备连接、账号和云同步服务不会被此页默认屏蔽。</string>
+    <string name="service_block_custom_paused">已有自定义服务规则已保留，开启调试模式后才会恢复。</string>
+    <string name="service_preset_app_update">应用与模块更新</string>
+    <string name="service_preset_app_update_summary">屏蔽后台版本检查和更新任务。</string>
+    <string name="service_preset_music_sync">设备音乐同步</string>
+    <string name="service_preset_music_sync_summary">屏蔽设备音乐列表同步。</string>
+    <string name="service_preset_training_plan">训练计划下发</string>
+    <string name="service_preset_training_plan_summary">屏蔽训练计划向设备下发。</string>
+    <string name="service_preset_watch_face">表盘试用</string>
+    <string name="service_preset_watch_face_summary">屏蔽表盘试用服务。</string>
 </resources>
