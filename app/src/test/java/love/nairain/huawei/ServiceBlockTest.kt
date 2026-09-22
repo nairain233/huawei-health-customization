@@ -5,6 +5,7 @@ import love.nairain.huawei.app.ServiceItem
 import love.nairain.huawei.app.visibleServices
 import love.nairain.huawei.config.ServiceBlockConfig
 import love.nairain.huawei.config.ServicePreset
+import love.nairain.huawei.config.ServiceSection
 import love.nairain.huawei.config.ServiceConfigStore
 import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.feature.ServiceBindingState
@@ -16,6 +17,16 @@ class ServiceBlockTest {
     private val pkg = "com.huawei.health"
     private val first = "$pkg/$pkg.FirstService"
     private val second = "$pkg/vendor.SecondService"
+
+    @Test fun businessGroupsMergeAndKeepLegacyRulesNarrow() {
+        assertEquals(ServiceSection.LOW_COUPLING, ServicePreset.DEVICE_ASSIST.section)
+        assertEquals(3, ServicePreset.DEVICE_ASSIST.components.size)
+        assertEquals(setOf("com.huawei.health/com.huawei.hwdevice.mainprocess.service.SyncMusicService"),
+            ServicePreset.componentsFor("music_sync"))
+        val legacy = setOf("app_update")
+        assertTrue(ServicePreset.hasLegacySelection(legacy, ServicePreset.DEVICE_UPDATE))
+        assertEquals(setOf("legacy.app_update.app"), ServicePreset.changeSelection(legacy, ServicePreset.DEVICE_UPDATE, false))
+    }
 
     @Test fun presetsRespectDebugModeAndDeclaredServices() {
         val update = ServicePreset.APP_UPDATE.components.first()
