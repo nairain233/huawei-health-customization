@@ -16,10 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import love.nairain.huawei.R
 import love.nairain.huawei.config.ServiceBlockConfig
 import love.nairain.huawei.config.ServicePreset
+import love.nairain.huawei.config.ServiceSection
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -45,6 +46,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.LaunchedEffect
+import top.yukonga.miuix.kmp.window.WindowDialog
+
 @Composable
 internal fun ServiceBlockScreen(
     state: ServiceBlockUiState,
@@ -52,21 +57,32 @@ internal fun ServiceBlockScreen(
     onRefresh: () -> Unit,
     onClose: () -> Unit,
 ) {
+    var customRequested by rememberSaveable { mutableStateOf(false) }
+    var pendingId by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var blockedOnly by rememberSaveable { mutableStateOf(false) }
+    val custom = customRequested && state.config.debugMode
+    LaunchedEffect(state.config.debugMode, state.writable) {
+        if (!state.config.debugMode) customRequested = false
+        if (!state.writable) pendingId = null
+    }
+    BackHandler(enabled = custom) { customRequested = false }
+    val groupsSelected = ServicePreset.selectedComponents(state.config.presets)
+    val rows = visibleServices(state.catalog.services, state.config.components + groupsSelected, query, blockedOnly)
+    val declared = state.catalog.services.map { it.component }.toSet()
     val scrollBehavior = MiuixScrollBehavior()
     val direction = LocalLayoutDirection.current
     val safeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
-    val rows = visibleServices(state.catalog.services, state.config.components, query, blockedOnly)
-    val cardModifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp)
+    val card = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp)
+    val text = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
 
     Scaffold(topBar = {
         TopAppBar(
-            title = stringResource(R.string.service_block_title),
+            title = stringResource(if (custom) R.string.service_custom_title else R.string.service_block_title),
             color = MiuixTheme.colorScheme.surface,
             scrollBehavior = scrollBehavior,
             navigationIcon = {
-                IconButton(onClick = onClose) {
+                IconButton(onClick = { if (custom) customRequested = false else onClose() }) {
                     Icon(MiuixIcons.Regular.Back, contentDescription = stringResource(R.string.back))
                 }
             },
@@ -84,8 +100,8 @@ internal fun ServiceBlockScreen(
             ),
             overscrollEffect = null,
         ) {
-            item("controls") {
-                Card(modifier = cardModifier, insideMargin = PaddingValues(0.dp)) {
+            if (!custom) {
+                item("master") {
                     SwitchPreference(
                         title = stringResource(R.string.service_block_enabled),
                         checked = state.config.enabled,
@@ -93,120 +109,157 @@ internal fun ServiceBlockScreen(
                         onCheckedChange = { onConfigChange(state.config.copy(enabled = it)) },
                         modifier = Modifier.testTag("service-block:enabled"),
                     )
-                    ServicePreset.entries.forEach { preset ->
-                        SwitchPreference(
-                            title = stringResource(presetTitle(preset)),
-                            checked = preset.id in state.config.presets,
-                            enabled = state.writable && state.catalog.supported,
-                            onCheckedChange = { selected ->
-                                val next = if (selected) state.config.presets + preset.id else state.config.presets - preset.id
-                                onConfigChange(state.config.copy(presets = next))
-                            },
-                            modifier = Modifier.testTag("service-block:preset:${preset.id}"),
-                        )
+                }
+                ServiceSection.entries.forEach { section ->
+                    item(section.name) {
+                        Card(modifier = card.testTag("service-block:section:${section.name}"), insideMargin = PaddingValues(0.dp)) {
+                            Text(stringResource(if (section == ServiceSection.LOW_COUPLING)
+                                R.string.service_block_low_title else R.string.service_block_core_title), modifier = text)
+                            Text(stringResource(if (section == ServiceSection.CORE)
+                                R.string.service_core_notice else R.string.service_low_notice), modifier = text)
+                            ServicePreset.visible(section).forEach { group ->
+                                val selected = group.id in state.config.presets
+                                val legacy = ServicePreset.hasLegacySelection(state.config.presets, group)
+                                val available = group.components.any(declared::contains)
+                                SwitchPreference(
+                                    title = stringResource(group.title),
+                                    checked = selected,
+                                    enabled = state.writable && (selected || legacy || (available && state.catalog.supported)),
+                                    onCheckedChange = { enabled ->
+                                        if (enabled && section == ServiceSection.CORE) pendingId = group.id
+                                        else onConfigChange(state.config.copy(presets =
+                                            ServicePreset.changeSelection(state.config.presets, group, enabled)))
+                                    },
+                                    modifier = Modifier.testTag("service-block:preset:${group.id}"),
+                                )
+                                Text(stringResource(group.impact), modifier = text, style = MiuixTheme.textStyles.body2)
+                                if (!group.evidenceConfirmed || !available) {
+                                    Text(stringResource(if (!group.evidenceConfirmed) R.string.service_evidence_pending
+                                        else R.string.service_group_missing), modifier = text)
+                                }
+                                if (legacy && !selected) {
+                                    Text(stringResource(R.string.service_legacy_partial), modifier = text)
+                                    ArrowPreference(
+                                        title = stringResource(R.string.service_legacy_clear),
+                                        enabled = state.writable,
+                                        onClick = { onConfigChange(state.config.copy(presets =
+                                            ServicePreset.changeSelection(state.config.presets, group, false))) },
+                                        modifier = Modifier.testTag("service-block:legacy-clear:${group.id}"),
+                                    )
+                                }
+                            }
+                        }
                     }
-                    SwitchPreference(
-                        title = stringResource(R.string.service_block_debug_mode),
-                        checked = state.config.debugMode,
-                        enabled = state.writable,
-                        onCheckedChange = { onConfigChange(state.config.copy(debugMode = it)) },
-                        modifier = Modifier.testTag("service-block:debug"),
-                    )
+                }
+                item("debug") {
+                    Card(modifier = card.testTag("service-block:section:DEBUG"), insideMargin = PaddingValues(0.dp)) {
+                        SwitchPreference(
+                            title = stringResource(R.string.service_block_debug_mode),
+                            checked = state.config.debugMode,
+                            enabled = state.writable,
+                            onCheckedChange = { onConfigChange(state.config.copy(debugMode = it)) },
+                            modifier = Modifier.testTag("service-block:debug"),
+                        )
+                        Text(stringResource(R.string.service_block_debug_mode_summary), modifier = text)
+                        if (state.config.debugMode) {
+                            ArrowPreference(
+                                title = stringResource(R.string.service_custom_title),
+                                onClick = { customRequested = true },
+                                modifier = Modifier.testTag("service-block:custom-nav"),
+                            )
+                        } else if (state.config.components.isNotEmpty()) {
+                            Text(stringResource(R.string.service_block_custom_paused), modifier = text)
+                        }
+                    }
+                }
+            } else {
+                item("custom-controls") {
                     SwitchPreference(
                         title = stringResource(R.string.service_block_only_selected),
                         checked = blockedOnly,
                         onCheckedChange = { blockedOnly = it },
                         modifier = Modifier.testTag("service-block:filter"),
                     )
-                    if (state.config.debugMode) {
-                        ArrowPreference(
-                            title = stringResource(R.string.service_block_clear),
-                            enabled = state.writable && state.config.components.isNotEmpty(),
-                            onClick = { onConfigChange(state.config.copy(components = emptySet())) },
-                            modifier = Modifier.testTag("service-block:clear"),
-                        )
-                    }
                     ArrowPreference(
-                        title = stringResource(R.string.service_block_refresh),
-                        enabled = !state.loading && !state.saving,
-                        onClick = onRefresh,
+                        title = stringResource(R.string.service_custom_clear),
+                        enabled = state.writable && state.config.components.isNotEmpty(),
+                        onClick = { onConfigChange(state.config.copy(components = emptySet())) },
+                        modifier = Modifier.testTag("service-block:clear"),
+                    )
+                    TextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = stringResource(R.string.service_block_search),
+                        singleLine = true,
+                        modifier = card.testTag("service-block:search"),
                     )
                 }
-            }
-            if (state.config.debugMode) item("search") {
-                TextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = stringResource(R.string.service_block_search),
-                    singleLine = true,
-                    modifier = cardModifier.testTag("service-block:search"),
-                )
-            }
-            item("notice") {
-                Card(modifier = cardModifier, insideMargin = PaddingValues(16.dp)) {
-                    Text(stringResource(if (state.config.debugMode) R.string.service_block_notice else R.string.service_block_notice_presets))
-                    if (!state.config.debugMode && state.config.components.isNotEmpty()) {
-                        Text(stringResource(R.string.service_block_custom_paused))
+                if (!state.loading && rows.isEmpty()) {
+                    item("empty") { Text(stringResource(R.string.service_block_empty), modifier = text) }
+                }
+                items(rows, key = { it.component }) { row ->
+                    val selected = row.component in state.config.components
+                    val owner = ServicePreset.entries.firstOrNull { row.component in it.components }
+                    Card(modifier = card, insideMargin = PaddingValues(0.dp)) {
+                        Text(row.className, modifier = text)
+                        Text(if (owner != null) stringResource(owner.title) else stringResource(R.string.service_unclassified), modifier = text)
+                        Text(if (row.missing) stringResource(R.string.service_block_missing) else stringResource(
+                            R.string.service_block_details, row.process,
+                            stringResource(if (row.exported) R.string.service_block_yes else R.string.service_block_no),
+                            stringResource(if (row.enabled) R.string.service_block_yes else R.string.service_block_no),
+                        ), modifier = text, style = MiuixTheme.textStyles.body2)
+                        if (row.component in groupsSelected) {
+                            Text(stringResource(R.string.service_group_selected), modifier = text)
+                        }
+                        SwitchPreference(
+                            title = stringResource(R.string.service_custom_toggle),
+                            checked = selected,
+                            enabled = state.writable && (selected || (state.catalog.supported && !row.missing)),
+                            onCheckedChange = { enabled ->
+                                onConfigChange(state.config.copy(components = if (enabled)
+                                    state.config.components + row.component else state.config.components - row.component))
+                            },
+                            modifier = Modifier.testTag("service-block:${row.component}"),
+                        )
                     }
                 }
             }
             item("status") {
-                Card(modifier = cardModifier, insideMargin = PaddingValues(16.dp)) {
-                    if (state.loading) Text(stringResource(R.string.service_block_loading))
-                    state.catalog.status?.let { Text(stringResource(it)) }
-                    state.message?.let { Text(stringResource(it)) }
-                    Text(stringResource(R.string.service_block_count, state.config.components.size, rows.size))
-                }
-            }
-            if (state.config.debugMode && !state.loading && rows.isEmpty()) {
-                item("empty") {
-                    Card(modifier = cardModifier, insideMargin = PaddingValues(16.dp)) {
-                        Text(stringResource(R.string.service_block_empty))
-                    }
-                }
-            }
-            if (state.config.debugMode) items(rows, key = { it.component }) { row ->
-                val checked = row.component in state.config.components
-                Card(modifier = cardModifier, insideMargin = PaddingValues(0.dp)) {
-                    Text(row.className, modifier = Modifier.padding(16.dp))
-                    Text(
-                        text = if (row.missing) stringResource(R.string.service_block_missing)
-                        else stringResource(
-                            R.string.service_block_details, row.process,
-                            stringResource(if (row.exported) R.string.service_block_yes else R.string.service_block_no),
-                            stringResource(if (row.enabled) R.string.service_block_yes else R.string.service_block_no),
-                        ),
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        style = MiuixTheme.textStyles.body2,
-                    )
-                    SwitchPreference(
-                        title = stringResource(R.string.service_block_item_toggle),
-                        checked = checked,
-                        enabled = state.writable && (checked || (state.catalog.supported && !row.missing)),
-                        onCheckedChange = { selected ->
-                            onConfigChange(state.config.copy(components = if (selected) {
-                                state.config.components + row.component
-                            } else state.config.components - row.component))
-                        },
-                        modifier = Modifier.testTag("service-block:${row.component}"),
-                    )
-                }
+                if (state.loading) Text(stringResource(R.string.service_block_loading), modifier = text)
+                state.catalog.status?.let { Text(stringResource(it), modifier = text) }
+                state.message?.let { Text(stringResource(it), modifier = text) }
+                Text(stringResource(R.string.service_effective_count, state.config.effectiveComponents(declared).size), modifier = text)
+                ArrowPreference(
+                    title = stringResource(R.string.service_block_refresh),
+                    enabled = !state.loading && !state.saving,
+                    onClick = onRefresh,
+                )
+                Text(stringResource(R.string.service_block_notice), modifier = text)
             }
             item("bottom") { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
-}
 
-private fun presetTitle(preset: ServicePreset): Int = when (preset) {
-    ServicePreset.APP_UPDATE -> R.string.service_preset_app_update
-    ServicePreset.MUSIC_SYNC -> R.string.service_preset_music_sync
-    ServicePreset.TRAINING_PLAN -> R.string.service_preset_training_plan
-    ServicePreset.WATCH_FACE_TRIAL -> R.string.service_preset_watch_face
-}
-
-private fun presetSummary(preset: ServicePreset): Int = when (preset) {
-    ServicePreset.APP_UPDATE -> R.string.service_preset_app_update_summary
-    ServicePreset.MUSIC_SYNC -> R.string.service_preset_music_sync_summary
-    ServicePreset.TRAINING_PLAN -> R.string.service_preset_training_plan_summary
-    ServicePreset.WATCH_FACE_TRIAL -> R.string.service_preset_watch_face_summary
+    val pending = pendingId?.let(ServicePreset::fromId)
+    WindowDialog(
+        show = pending != null && state.writable && !custom,
+        title = pending?.let { stringResource(it.title) },
+        summary = pending?.let { stringResource(it.impact) },
+        onDismissRequest = { pendingId = null },
+    ) {
+        ArrowPreference(
+            title = stringResource(R.string.service_confirm_block),
+            enabled = state.writable,
+            onClick = {
+                if (pending != null && state.writable) {
+                    onConfigChange(state.config.copy(presets =
+                        ServicePreset.changeSelection(state.config.presets, pending, true)))
+                }
+                pendingId = null
+            },
+            modifier = Modifier.testTag("service-block:confirm"),
+        )
+        ArrowPreference(title = stringResource(R.string.service_cancel), onClick = { pendingId = null },
+            modifier = Modifier.testTag("service-block:cancel"))
+    }
 }

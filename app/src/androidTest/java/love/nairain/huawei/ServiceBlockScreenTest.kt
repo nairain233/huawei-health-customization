@@ -36,7 +36,7 @@ class ServiceBlockScreenTest {
         var opened = false
         composeRule.setContent {
             MiuixTheme(colors = lightColorScheme()) {
-                SettingsScreen(SettingsUiState(), { _, _ -> }, onOpenServiceBlock = { opened = true })
+                SettingsScreen(SettingsUiState(), onSettingChange = { _, _ -> }, onOpenServiceBlock = { opened = true })
             }
         }
         composeRule.onNodeWithTag("settings:list").performScrollToNode(hasTestTag("settings:service-block-nav"))
@@ -55,12 +55,15 @@ class ServiceBlockScreenTest {
             }
         }
         composeRule.onNodeWithTag("service-block:enabled").performClick()
+        composeRule.onNodeWithTag("service-block:debug").performClick()
+        composeRule.onNodeWithTag("service-block:list").performScrollToNode(hasTestTag("service-block:custom-nav"))
+        composeRule.onNodeWithTag("service-block:custom-nav").performClick()
         composeRule.onNodeWithTag("service-block:list").performScrollToNode(hasTestTag("service-block:search"))
         composeRule.onNodeWithTag("service-block:search").performTextInput("SYNC")
         composeRule.onNodeWithTag("service-block:list").performScrollToNode(hasTestTag("service-block:$component"))
         composeRule.onNodeWithTag("service-block:$component").performClick()
         composeRule.runOnIdle {
-            assertEquals(ServiceBlockConfig(true, setOf(component)), state.value.config)
+            assertEquals(ServiceBlockConfig(true, setOf(component), emptySet(), true), state.value.config)
         }
         composeRule.onNodeWithTag("service-block:list").performScrollToNode(hasTestTag("service-block:filter"))
         composeRule.onNodeWithTag("service-block:filter").performClick()
