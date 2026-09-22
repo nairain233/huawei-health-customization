@@ -21,6 +21,7 @@ import love.nairain.huawei.app.CategorySettingsScreen
 import love.nairain.huawei.app.SettingsScreen
 import love.nairain.huawei.app.SettingsNotice
 import love.nairain.huawei.app.SettingsNoticeKind
+import love.nairain.huawei.app.ScopeUiState
 import love.nairain.huawei.app.SettingsUiState
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
@@ -73,6 +74,13 @@ class SettingsScreenTest {
             assertCountEquals(1)
             get(0).assertIsNotEnabled()
         }
+        composeRule.onAllNodes(
+            isToggleable() and hasAnyAncestor(hasTestTag("setting:scope")),
+            useUnmergedTree = true,
+        ).apply {
+            assertCountEquals(1)
+            get(0).assertIsNotEnabled()
+        }
         composeRule.onNodeWithTag("settings:color-mode", useUnmergedTree = true)
             .assertDoesNotExist()
         composeRule.onNodeWithTag(
@@ -83,7 +91,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun showsOnlyMasterSwitchAndDispatchesChange() {
+    fun groupsMasterAndScopeSwitchesAndDispatchesMasterChange() {
         var changed: Pair<String, Boolean>? = null
         setScreen(
             state = SettingsUiState(
@@ -93,17 +101,24 @@ class SettingsScreenTest {
                     SettingsKeys.ENABLED to false,
                 ),
             ),
+            scopeState = ScopeUiState(isServiceConnected = true),
             onSettingChange = { key, value -> changed = key to value },
         )
 
         composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).apply {
-            assertCountEquals(1)
-            get(0).assertIsOff()
+            assertCountEquals(2)
         }
         composeRule.onNodeWithTag("setting:${SettingsKeys.ENABLED}", useUnmergedTree = true)
             .performClick()
 
         assertEquals(SettingsKeys.ENABLED to true, changed)
+        composeRule.onNodeWithTag("setting:scope", useUnmergedTree = true).assertIsOff()
+        assertTrue(
+            composeRule.onNodeWithTag("setting:${SettingsKeys.ENABLED}")
+                .fetchSemanticsNode().boundsInRoot.top <
+                composeRule.onNodeWithTag("setting:scope")
+                    .fetchSemanticsNode().boundsInRoot.top,
+        )
     }
 
     @Test
@@ -248,7 +263,10 @@ class SettingsScreenTest {
         )
 
         composeRule.onNodeWithText(resourceString(R.string.settings_status_saving)).assertExists()
-        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0)
+        composeRule.onNode(
+            isToggleable() and hasAnyAncestor(hasTestTag("setting:${SettingsKeys.ENABLED}")),
+            useUnmergedTree = true,
+        )
             .assertIsNotEnabled()
             .assertIsOff()
     }
@@ -265,7 +283,10 @@ class SettingsScreenTest {
 
         composeRule.onAllNodesWithText(resourceString(R.string.settings_status_loading))
             .assertCountEquals(2)
-        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0).assertIsNotEnabled()
+        composeRule.onNode(
+            isToggleable() and hasAnyAncestor(hasTestTag("setting:${SettingsKeys.ENABLED}")),
+            useUnmergedTree = true,
+        ).assertIsNotEnabled()
     }
 
     @Test
@@ -279,13 +300,33 @@ class SettingsScreenTest {
             ),
         )
 
-        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true).get(0).assertIsOn()
+        composeRule.onNode(
+            isToggleable() and hasAnyAncestor(hasTestTag("setting:${SettingsKeys.ENABLED}")),
+            useUnmergedTree = true,
+        ).assertIsOn()
         composeRule.onNodeWithText(resourceString(R.string.settings_restart_notice)).assertExists()
+    }
+
+    @Test
+    fun scopeSwitchReflectsGrantedStateAndDispatchesChange() {
+        var changed: Boolean? = null
+        setScreen(
+            state = SettingsUiState(isServiceConnected = true, isConfigAvailable = true),
+            scopeState = ScopeUiState(isServiceConnected = true, isGranted = true),
+            onScopeChange = { changed = it },
+        )
+
+        composeRule.onNodeWithTag("setting:scope", useUnmergedTree = true).assertIsOn().performClick()
+
+        assertEquals(false, changed)
+        composeRule.onNodeWithText(resourceString(R.string.settings_scope_granted)).assertExists()
     }
 
     private fun setScreen(
         state: SettingsUiState,
+        scopeState: ScopeUiState = ScopeUiState(),
         onSettingChange: (String, Boolean) -> Unit = { _, _ -> },
+        onScopeChange: (Boolean) -> Unit = {},
         onOpenThemeSettings: () -> Unit = {},
         onOpenLayoutTrim: () -> Unit = {},
         onOpenAbout: () -> Unit = {},
@@ -294,7 +335,9 @@ class SettingsScreenTest {
             MiuixTheme(colors = lightColorScheme()) {
                 SettingsScreen(
                     state = state,
+                    scopeState = scopeState,
                     onSettingChange = onSettingChange,
+                    onScopeChange = onScopeChange,
                     onOpenThemeSettings = onOpenThemeSettings,
                     onOpenLayoutTrim = onOpenLayoutTrim,
                     onOpenAbout = onOpenAbout,

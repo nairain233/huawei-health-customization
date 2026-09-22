@@ -169,11 +169,15 @@ private fun MiuixServiceStatusCard(
 private fun GeneralSettingsCard(
     enabled: Boolean,
     configurationEnabled: Boolean,
+    scopeState: ScopeUiState,
     onEnabledChange: (Boolean) -> Unit,
+    onScopeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("settings:general-card"),
         insideMargin = PaddingValues(0.dp),
     ) {
         SwitchPreference(
@@ -183,7 +187,24 @@ private fun GeneralSettingsCard(
             onCheckedChange = onEnabledChange,
             modifier = Modifier.testTag("setting:${SettingsKeys.ENABLED}"),
         )
+        SwitchPreference(
+            title = stringResource(R.string.scope_settings_title),
+            summary = stringResource(scopeSummary(scopeState)),
+            checked = scopeState.isGranted,
+            enabled = scopeState.writable,
+            onCheckedChange = onScopeChange,
+            modifier = Modifier.testTag("setting:scope"),
+        )
     }
+}
+
+private fun scopeSummary(state: ScopeUiState): Int = when {
+    !state.isServiceConnected -> R.string.scope_settings_disconnected
+    state.isLoading -> R.string.scope_settings_loading
+    state.isChanging -> R.string.scope_settings_updating
+    state.hasError -> R.string.scope_settings_error
+    state.isGranted -> R.string.scope_settings_granted
+    else -> R.string.scope_settings_not_granted
 }
 
 @Composable
@@ -261,7 +282,9 @@ internal fun SettingsNotice.message(): String = stringResource(
 @Composable
 internal fun SettingsScreen(
     state: SettingsUiState,
+    scopeState: ScopeUiState = ScopeUiState(),
     onSettingChange: (String, Boolean) -> Unit,
+    onScopeChange: (Boolean) -> Unit = {},
     onOpenThemeSettings: () -> Unit = {},
     onOpenLayoutTrim: () -> Unit = {},
     onOpenServiceBlock: () -> Unit = {},
@@ -313,7 +336,9 @@ internal fun SettingsScreen(
                 GeneralSettingsCard(
                     enabled = state.valueOf(SettingsKeys.ENABLED),
                     configurationEnabled = state.writable,
+                    scopeState = scopeState,
                     onEnabledChange = { onSettingChange(SettingsKeys.ENABLED, it) },
+                    onScopeChange = onScopeChange,
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),
