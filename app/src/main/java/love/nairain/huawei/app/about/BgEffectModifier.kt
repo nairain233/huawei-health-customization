@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.platform.InspectorInfo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -48,6 +49,19 @@ private data class BgEffectElement(
     val playing: Boolean,
     val alpha: () -> Float,
 ) : ModifierNodeElement<BgEffectNode>() {
+    override fun InspectorInfo.inspectableProperties() {
+        name = "bgEffectDraw"
+        properties["painter"] = painter
+        properties["preset"] = preset
+        properties["deviceType"] = deviceType
+        properties["isDarkTheme"] = isDarkTheme
+        properties["surface"] = surface
+        properties["effectBackground"] = effectBackground
+        properties["isFullSize"] = isFullSize
+        properties["playing"] = playing
+        properties["alpha"] = alpha
+    }
+
     override fun create(): BgEffectNode = BgEffectNode(
         painter = painter,
         preset = preset,

@@ -319,7 +319,7 @@ class SettingsScreenTest {
         composeRule.onNodeWithTag("setting:scope", useUnmergedTree = true).assertIsOn().performClick()
 
         assertEquals(false, changed)
-        composeRule.onNodeWithText(resourceString(R.string.settings_scope_granted)).assertExists()
+        composeRule.onNodeWithText(resourceString(R.string.scope_settings_granted)).assertExists()
     }
 
     private fun setScreen(

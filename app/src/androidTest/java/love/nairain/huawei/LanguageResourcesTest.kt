@@ -21,7 +21,7 @@ class LanguageResourcesTest {
 
         assertEquals("华为运动精简", chinese.getString(R.string.app_name))
         assertEquals("语言", chinese.getString(R.string.settings_language))
-        assertEquals("请求 LSPosed 作用域", chinese.getString(R.string.settings_scope_title))
+        assertEquals("请求 LSPosed 作用域", chinese.getString(R.string.scope_settings_title))
         assertEquals("布局精简", chinese.getString(R.string.settings_layout_trim_title))
         assertEquals("后台服务精简", chinese.getString(R.string.service_block_title))
         assertEquals("dexkit扫描", chinese.getString(R.string.scan_title))
@@ -33,7 +33,7 @@ class LanguageResourcesTest {
 
         assertEquals("Huawei Health Customization", english.getString(R.string.app_name))
         assertEquals("Language", english.getString(R.string.settings_language))
-        assertEquals("Request LSPosed scope", english.getString(R.string.settings_scope_title))
+        assertEquals("Request LSPosed scope", english.getString(R.string.scope_settings_title))
         assertEquals("Layout customization", english.getString(R.string.settings_layout_trim_title))
         assertEquals("Health page items", english.getString(R.string.settings_health_title))
         assertEquals("Exercise page items", english.getString(R.string.settings_sport_title))
