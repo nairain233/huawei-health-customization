@@ -1,11 +1,17 @@
-name: Build
+name: Preview Release
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: preview-release
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -72,10 +78,37 @@ jobs:
           "$build_tools/apksigner" verify "app/build/outputs/signed/huaweihook-release.apk"
           "$build_tools/zipalign" -c -P 16 4 "app/build/outputs/signed/huaweihook-release.apk"
 
-      - name: Upload signed APK
-        uses: actions/upload-artifact@v7
-        with:
-          name: huaweihook-release-${{ github.run_number }}
-          path: app/build/outputs/signed/huaweihook-release.apk
-          if-no-files-found: error
-          retention-days: 14
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          preview_tag="preview-$(date -u +'%Y%m%d-%H%M%S')"
+          preview_apk="app/build/outputs/signed/pre-release-${GITHUB_RUN_NUMBER}.apk"
+          mv "app/build/outputs/signed/huaweihook-release.apk" "$preview_apk"
+
+          while IFS= read -r old_tag; do
+            [[ -z "$old_tag" ]] && continue
+            echo "Removing previous preview release: $old_tag"
+            gh release delete "$old_tag" --yes --cleanup-tag
+          done < <(
+            gh release list --prerelease --limit 100 \
+              --json tagName,isPrerelease \
+              --jq '.[] | select(.isPrerelease and (.tagName | startswith("preview-"))) | .tagName'
+          )
+
+          cat > "$RUNNER_TEMP/preview-notes.md" <<'EOF'
+          ## 这是自动构建的最新测试版。
+
+          - **这是一个预发布版本，并非为生产环境准备就绪。**
+
+          ## This is an automatically built latest Preview release.
+
+          - **This is a pre-release version and is not intended for production use.**
+          EOF
+
+          gh release create "$preview_tag" "$preview_apk" \
+            --title "Preview $preview_tag" \
+            --notes-file "$RUNNER_TEMP/preview-notes.md" \
+            --prerelease
