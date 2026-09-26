@@ -1,0 +1,57 @@
+name: Pre-release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pre-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download signed APK
+        uses: actions/download-artifact@v4
+        with:
+          name: huaweihook-release
+          path: app/build/outputs/signed
+
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          preview_tag="preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          preview_apk="app/build/outputs/signed/pre-release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}.apk"
+          mv "app/build/outputs/signed/huaweihook-release.apk" "$preview_apk"
+
+          cat > "$RUNNER_TEMP/preview-notes.md" <<'EOF'
+          ## 这是手动构建的测试版。
+
+          - **这是一个预发布版本，并非为生产环境准备就绪。**
+
+          ## This is a manually built preview release.
+
+          - **This is a pre-release version and is not intended for production use.**
+          EOF
+
+          gh release create "$preview_tag" "$preview_apk" \
+            --title "Preview $preview_tag" \
+            --target "$GITHUB_SHA" \
+            --notes-file "$RUNNER_TEMP/preview-notes.md" \
+            --latest=false \
+            --prerelease
