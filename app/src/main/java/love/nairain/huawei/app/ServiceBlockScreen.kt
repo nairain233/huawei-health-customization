@@ -115,15 +115,11 @@ internal fun ServiceBlockScreen(
                     ) {
                         SwitchPreference(
                             title = stringResource(R.string.service_block_enabled),
+                            summary = stringResource(R.string.service_block_notice).lineSequence().first(),
                             checked = state.config.enabled,
                             enabled = state.writable && (state.catalog.supported || state.config.enabled),
                             onCheckedChange = { onConfigChange(state.config.copy(enabled = it)) },
                             modifier = Modifier.testTag("service-block:enabled"),
-                        )
-                        Text(
-                            text = stringResource(R.string.service_block_notice).lineSequence().first(),
-                            modifier = text,
-                            style = summaryStyle,
                         )
                     }
                 }
@@ -138,6 +134,7 @@ internal fun ServiceBlockScreen(
                                 val available = group.components.any(declared::contains)
                                 SwitchPreference(
                                     title = stringResource(group.title),
+                                    summary = stringResource(group.impact),
                                     checked = selected,
                                     enabled = state.writable && (selected || legacy || (available && state.catalog.supported)),
                                     onCheckedChange = { enabled ->
@@ -147,7 +144,6 @@ internal fun ServiceBlockScreen(
                                     },
                                     modifier = Modifier.testTag("service-block:preset:${group.id}"),
                                 )
-                                Text(stringResource(group.impact), modifier = text, style = summaryStyle)
                                 if (!group.evidenceConfirmed || !available) {
                                     Text(
                                         stringResource(if (!group.evidenceConfirmed) R.string.service_evidence_pending
@@ -174,12 +170,12 @@ internal fun ServiceBlockScreen(
                     Card(modifier = card.testTag("service-block:section:DEBUG"), insideMargin = PaddingValues(0.dp)) {
                         SwitchPreference(
                             title = stringResource(R.string.service_block_debug_mode),
+                            summary = stringResource(R.string.service_block_debug_mode_summary),
                             checked = state.config.debugMode,
                             enabled = state.writable,
                             onCheckedChange = { onConfigChange(state.config.copy(debugMode = it)) },
                             modifier = Modifier.testTag("service-block:debug"),
                         )
-                        Text(stringResource(R.string.service_block_debug_mode_summary), modifier = text, style = summaryStyle)
                         if (state.config.debugMode) {
                             ArrowPreference(
                                 title = stringResource(R.string.service_custom_title),
