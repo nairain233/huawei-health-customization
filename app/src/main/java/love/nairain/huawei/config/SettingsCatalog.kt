@@ -65,22 +65,69 @@ object SettingsCatalog {
             SettingsKeys.SPORT_BANNER to R.string.settings_sport_banner,
         ),
         group(
+            id = "tabs",
+            title = R.string.settings_group_sport_tabs,
+            SettingsKeys.SPORT_TAB_RECOMMEND to R.string.settings_sport_tab_recommend,
+            SettingsKeys.SPORT_TAB_PLAN to R.string.settings_sport_tab_plan,
+            SettingsKeys.SPORT_TAB_RUN to R.string.settings_sport_tab_run,
+            SettingsKeys.SPORT_TAB_YOGA to R.string.settings_sport_tab_yoga,
+            SettingsKeys.SPORT_TAB_FITNESS to R.string.settings_sport_tab_fitness,
+        ),
+        group(
             id = "quick-entries",
             title = R.string.settings_group_quick_entries,
+            SettingsKeys.SPORT_QUICK_ENTRIES to R.string.settings_sport_quick_entries,
             SettingsKeys.SPORT_STRETCH to R.string.settings_sport_stretch,
             SettingsKeys.SPORT_TRADITIONAL to R.string.settings_sport_traditional,
             SettingsKeys.SPORT_CYCLING to R.string.settings_sport_cycling,
             SettingsKeys.SPORT_GOLF to R.string.settings_sport_golf,
             SettingsKeys.SPORT_DANCE to R.string.settings_sport_dance,
             SettingsKeys.SPORT_PILATES to R.string.settings_sport_pilates,
+            SettingsKeys.SPORT_MASTER_YOGA to R.string.settings_sport_master_yoga,
+            SettingsKeys.SPORT_MUSCLE to R.string.settings_sport_muscle,
+            SettingsKeys.SPORT_RUN_POWER to R.string.settings_sport_run_power,
+            SettingsKeys.SPORT_BLUE_STAR to R.string.settings_sport_blue_star,
+            SettingsKeys.SPORT_WALK_RUN to R.string.settings_sport_walk_run,
+            SettingsKeys.SPORT_MUAY_THAI to R.string.settings_sport_muay_thai,
         ),
         group(
             id = "course-content",
-            title = R.string.settings_group_course_content,
+            title = R.string.settings_group_sport_recommend,
+            SettingsKeys.SPORT_LATEST to R.string.settings_sport_latest,
             SettingsKeys.SPORT_ENJOY to R.string.settings_sport_enjoy,
             SettingsKeys.SPORT_TODAY to R.string.settings_sport_today,
             SettingsKeys.SPORT_MORE_COURSES to R.string.settings_sport_more_courses,
             SettingsKeys.SPORT_COACHES to R.string.settings_sport_coaches,
+        ),
+        group(
+            id = "plan-content",
+            title = R.string.settings_group_sport_plan,
+            SettingsKeys.SPORT_PLAN_CARDS to R.string.settings_sport_plan_cards,
+            SettingsKeys.SPORT_PLAN_WEIGHT to R.string.settings_sport_plan_weight,
+            SettingsKeys.SPORT_PLAN_TRAINING to R.string.settings_sport_plan_training,
+        ),
+        group(
+            id = "run-content",
+            title = R.string.settings_group_sport_run,
+            SettingsKeys.SPORT_RUN_SUMMARY to R.string.settings_sport_run_summary,
+            SettingsKeys.SPORT_RUN_ROUTE to R.string.settings_sport_run_route,
+            SettingsKeys.SPORT_RUN_TRAINING to R.string.settings_sport_run_training,
+            SettingsKeys.SPORT_RUN_WARMUP to R.string.settings_sport_run_warmup,
+            SettingsKeys.SPORT_RUN_BEGIN to R.string.settings_sport_run_begin,
+            SettingsKeys.SPORT_RUN_MUSIC to R.string.settings_sport_run_music,
+        ),
+        group(
+            id = "yoga-content",
+            title = R.string.settings_group_sport_yoga,
+            SettingsKeys.SPORT_YOGA_SUMMARY to R.string.settings_sport_yoga_summary,
+            SettingsKeys.SPORT_YOGA_COURSES to R.string.settings_sport_yoga_courses,
+        ),
+        group(
+            id = "fitness-content",
+            title = R.string.settings_group_sport_fitness,
+            SettingsKeys.SPORT_FITNESS_SUMMARY to R.string.settings_sport_fitness_summary,
+            SettingsKeys.SPORT_MY_COURSES to R.string.settings_sport_my_courses,
+            SettingsKeys.SPORT_WEEKLY_PLAN to R.string.settings_sport_weekly_plan,
         ),
     )
     val sport = sportGroups.flatMap { it.settings }
@@ -91,6 +138,9 @@ object SettingsCatalog {
             title = R.string.settings_group_page_top,
             SettingsKeys.DEVICE_SEARCH to R.string.settings_search,
             SettingsKeys.DEVICE_MENU to R.string.settings_more_menu,
+            SettingsKeys.DEVICE_SWITCHER to R.string.settings_device_switcher,
+            SettingsKeys.DEVICE_TAB_DEVICE to R.string.settings_device_tab_device,
+            SettingsKeys.DEVICE_TAB_STORE to R.string.settings_device_tab_store,
         ),
         group(
             id = "notices",
@@ -105,7 +155,13 @@ object SettingsCatalog {
             title = R.string.settings_group_my_devices,
             SettingsKeys.DEVICE_ADD to R.string.settings_device_add,
             SettingsKeys.DEVICE_LIST to R.string.settings_device_list,
+            SettingsKeys.DEVICE_PRIMARY to R.string.settings_device_primary,
+            SettingsKeys.DEVICE_TIPS to R.string.settings_device_tips,
+            SettingsKeys.DEVICE_GENERAL_SETTINGS to R.string.settings_device_general_settings,
+            SettingsKeys.DEVICE_DISCONNECT_PROTECTION to R.string.settings_device_disconnect_protection,
+            SettingsKeys.DEVICE_MY_WATCH to R.string.settings_device_my_watch,
             SettingsKeys.DEVICE_FUNCTIONS to R.string.settings_device_functions,
+            SettingsKeys.DEVICE_FEATURES to R.string.settings_device_features,
             SettingsKeys.DEVICE_WATCH_FACES to R.string.settings_device_watch_faces,
         ),
         group(
@@ -202,7 +258,7 @@ object SettingsCatalog {
         },
     )
 
-    /** 只描述需要补齐的 schema v2 默认项，不在目录层直接写入配置。 */
+    /** 只描述需要补齐的当前 schema 默认项，不在目录层直接写入配置。 */
     fun missingDefaults(current: Map<String, *>): Map<String, Any> = buildMap {
         if (current[SettingsKeys.SCHEMA_VERSION] != SettingsKeys.CURRENT_SCHEMA_VERSION) {
             put(SettingsKeys.SCHEMA_VERSION, SettingsKeys.CURRENT_SCHEMA_VERSION)

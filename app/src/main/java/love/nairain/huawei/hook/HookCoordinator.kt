@@ -20,6 +20,7 @@ import love.nairain.huawei.hook.util.ModuleLogger
 import love.nairain.huawei.scan.ScanRuntime
 import love.nairain.huawei.scan.ScanProtocol
 import love.nairain.huawei.hook.resolver.ReflectionTargets
+import love.nairain.huawei.hook.util.ActivePageObserver
 
 /** 只安装 Application.attach；真实版本与配置均在 attach 完成后读取一次。 */
 internal object HookCoordinator {
@@ -57,6 +58,7 @@ internal object HookCoordinator {
         logger: ModuleLogger,
     ) {
         if (application.packageName != HookInstallPolicy.TARGET_PACKAGE) return
+        ActivePageObserver.register(application)
         val packageInfo = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 application.packageManager.getPackageInfo(

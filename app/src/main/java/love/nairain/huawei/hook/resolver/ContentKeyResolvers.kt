@@ -110,6 +110,10 @@ object SportContentKeyResolver {
         "今日动一动" to SettingsKeys.SPORT_TODAY,
         "更多好课" to SettingsKeys.SPORT_MORE_COURSES,
         "明星教练" to SettingsKeys.SPORT_COACHES,
+        "最新上线" to SettingsKeys.SPORT_LATEST,
+        "跑步必练" to SettingsKeys.SPORT_RUN_TRAINING,
+        "我的健身课程" to SettingsKeys.SPORT_MY_COURSES,
+        "一周五练计划" to SettingsKeys.SPORT_WEEKLY_PLAN,
     )
 
     fun resolve(resourceName: String?, providerName: String?, title: String?): String? {
@@ -127,6 +131,58 @@ object SportContentKeyResolver {
     }
 }
 
+/** 基准版实机核验的运动页视图身份；未识别的服务端条目保持显示。 */
+object SportPageTargets {
+    val tabs = mapOf(
+        "推荐" to SettingsKeys.SPORT_TAB_RECOMMEND,
+        "计划" to SettingsKeys.SPORT_TAB_PLAN,
+        "户外跑步" to SettingsKeys.SPORT_TAB_RUN,
+        "瑜伽" to SettingsKeys.SPORT_TAB_YOGA,
+        "健身" to SettingsKeys.SPORT_TAB_FITNESS,
+    )
+    val quickEntries = mapOf(
+        "拉伸放松" to SettingsKeys.SPORT_STRETCH,
+        "舒展放松" to SettingsKeys.SPORT_STRETCH,
+        "古法养生" to SettingsKeys.SPORT_TRADITIONAL,
+        "骑行课程" to SettingsKeys.SPORT_CYCLING,
+        "高尔夫课" to SettingsKeys.SPORT_GOLF,
+        "热汗舞蹈" to SettingsKeys.SPORT_DANCE,
+        "普拉提课" to SettingsKeys.SPORT_PILATES,
+        "大师瑜伽" to SettingsKeys.SPORT_MASTER_YOGA,
+        "增肌塑形" to SettingsKeys.SPORT_MUSCLE,
+        "跑力提升" to SettingsKeys.SPORT_RUN_POWER,
+        "蓝星环游" to SettingsKeys.SPORT_BLUE_STAR,
+        "跑步健走" to SettingsKeys.SPORT_WALK_RUN,
+        "泰拳搏击" to SettingsKeys.SPORT_MUAY_THAI,
+    )
+    val sections = mapOf(
+        "畅享运动" to SettingsKeys.SPORT_ENJOY,
+        "今日动一动" to SettingsKeys.SPORT_TODAY,
+        "更多好课" to SettingsKeys.SPORT_MORE_COURSES,
+        "明星教练" to SettingsKeys.SPORT_COACHES,
+        "最新上线" to SettingsKeys.SPORT_LATEST,
+        "跑步必练" to SettingsKeys.SPORT_RUN_TRAINING,
+        "我的健身课程" to SettingsKeys.SPORT_MY_COURSES,
+        "一周五练计划" to SettingsKeys.SPORT_WEEKLY_PLAN,
+        "智能体重管理" to SettingsKeys.SPORT_PLAN_WEIGHT,
+        "智能训练计划" to SettingsKeys.SPORT_PLAN_TRAINING,
+    )
+    val controls = mapOf(
+        "track_sport_tab" to SettingsKeys.SPORT_CATEGORY_BAR,
+        "sport_search_icon" to SettingsKeys.SPORT_SEARCH,
+        "sport_global_search_view" to SettingsKeys.SPORT_SEARCH,
+        "more_and_red_point" to SettingsKeys.SPORT_MORE,
+        "view_sport_banner_root" to SettingsKeys.SPORT_BANNER,
+        "section_img_sport_entrance_warmup" to SettingsKeys.SPORT_RUN_WARMUP,
+        "section_img_sport_entrance_begin" to SettingsKeys.SPORT_RUN_BEGIN,
+        "section_img_sport_entrance_music" to SettingsKeys.SPORT_RUN_MUSIC,
+        "normal_view_fitness" to SettingsKeys.SPORT_FITNESS_SUMMARY,
+        "normal_view" to SettingsKeys.SPORT_RUN_SUMMARY,
+        "right_top_layout" to SettingsKeys.SPORT_RUN_ROUTE,
+        "common_card_button_fitness" to SettingsKeys.SPORT_YOGA_COURSES,
+    )
+}
+
 object DeviceContentKeyResolver {
     val resourceMappings = mapOf(
         "device_global_search_view" to SettingsKeys.DEVICE_SEARCH,
@@ -139,7 +195,6 @@ object DeviceContentKeyResolver {
         "auto_switch_layout" to SettingsKeys.DEVICE_AUTO_SWITCH,
         "rl_share_device" to SettingsKeys.DEVICE_SHARED,
         "device_card_normal" to SettingsKeys.DEVICE_ADD,
-        "device_card_list_more_add" to SettingsKeys.DEVICE_LIST,
         "card_device_list" to SettingsKeys.DEVICE_LIST,
         "device_function_card" to SettingsKeys.DEVICE_FUNCTIONS,
         "watchface_card" to SettingsKeys.DEVICE_WATCH_FACES,
@@ -155,6 +210,30 @@ object DeviceContentKeyResolver {
     )
 
     fun resolve(resourceName: String?): String? = resourceName?.let(resourceMappings::get)
+
+    val newParentMappings = mapOf(
+        "hwappbarpattern_layout_menu_icon" to SettingsKeys.DEVICE_MENU,
+        "hwappbarpattern_menu_icon" to SettingsKeys.DEVICE_MENU,
+        "hwappbarpattern_layout_ok_icon" to SettingsKeys.DEVICE_SEARCH,
+        "hwappbarpattern_ok_icon" to SettingsKeys.DEVICE_SEARCH,
+    )
+
+    /** 仅限 17.0.7.310 核验的 Arkui 委托类；未知类不参与折叠。 */
+    val arkuiDelegateKeys = mapOf(
+        "rxl" to SettingsKeys.DEVICE_PRIMARY,
+        "ryd" to SettingsKeys.DEVICE_LIST,
+        "ryk" to SettingsKeys.DEVICE_TIPS,
+        "ryg" to SettingsKeys.DEVICE_MY_WATCH,
+        "rys" to SettingsKeys.DEVICE_WATCH_FACES,
+        "ryc" to SettingsKeys.DEVICE_FUNCTIONS,
+        "ryv" to SettingsKeys.DEVICE_FUNCTIONS,
+        "rxn" to SettingsKeys.DEVICE_FUNCTIONS,
+        "rxz" to SettingsKeys.DEVICE_FEATURES,
+    )
+    val arkuiSettings = mapOf(
+        "通用设置" to SettingsKeys.DEVICE_GENERAL_SETTINGS,
+        "手表防断连保护" to SettingsKeys.DEVICE_DISCONNECT_PROTECTION,
+    )
 }
 
 object ListFilters {
