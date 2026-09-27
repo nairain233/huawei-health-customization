@@ -4,6 +4,7 @@ import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys as K
 import love.nairain.huawei.hook.resolver.DeviceContentKeyResolver
+import love.nairain.huawei.hook.resolver.SportPageTargets
 import love.nairain.huawei.hook.resolver.RowKeyResolver
 import love.nairain.huawei.hook.resolver.BottomTabKeyResolver
 import love.nairain.huawei.hook.symbols.HuaweiHealthHookPoints
@@ -210,10 +211,42 @@ internal class LayoutScanner(
             method(points.functionSetHolder, "l", "void", emptyList())
             field(points.functionSetHolder, "m", "android.widget.LinearLayout")
         }
-        val sportTop = mapOf(K.SPORT_CATEGORY_BAR to "track_sport_tab", K.SPORT_SEARCH to "sport_search_icon",
-            K.SPORT_MORE to "more_and_red_point", K.SPORT_BANNER to "view_sport_banner_root")
-        sportTop.forEach { (key, name) -> run("sport.top", setOf(key)) { lifecycle(points.sportFragment); require(resource(name)) } }
-        val otherSport = category(SettingsCategory.SPORT) - sportTop.keys
+        val sportControls = SportPageTargets.controls.entries.groupBy({ it.value }, { it.key })
+        sportControls.forEach { (key, names) -> run("sport.chrome", setOf(key)) {
+            lifecycle(points.sportFragment)
+            require(names.any(::resource))
+        } }
+        SportPageTargets.tabs.values.toSet().forEach { key -> run("sport.tabs", setOf(key)) {
+            require(known)
+            lifecycle(points.sportFragment)
+            require(resource("track_sport_tab"))
+        } }
+        val quickKeys = SportPageTargets.quickEntries.values.toSet()
+        (quickKeys + K.SPORT_QUICK_ENTRIES).forEach { key -> run("sport.quick-views", setOf(key)) {
+            require(known)
+            lifecycle(points.sportFragment)
+            require(resource("item_quick_entry_root_layout") && resource("layout_marketing_grid"))
+        } }
+        SportPageTargets.sections.values.toSet().forEach { key -> run("sport.section-views", setOf(key)) {
+            require(known)
+            lifecycle(points.sportFragment)
+            require(if (key == K.SPORT_PLAN_WEIGHT || key == K.SPORT_PLAN_TRAINING)
+                resource("item_two_landscape_layout") && resource("item_two_landscape_title")
+            else listOf("layout_marketing_grid", "series_course_layout", "section_root_view").any(::resource))
+        } }
+        run("sport.yoga-views", setOf(K.SPORT_YOGA_SUMMARY)) {
+            require(known)
+            lifecycle(points.sportFragment)
+            require(resource("normal_view_fitness") && resource("common_card_button_fitness"))
+        }
+        run("sport.plan-views", setOf(K.SPORT_PLAN_CARDS)) {
+            require(known)
+            lifecycle(points.sportFragment)
+            require(resource("plan_resource_slot"))
+        }
+        val otherSport = setOf(K.SPORT_STRETCH, K.SPORT_TRADITIONAL, K.SPORT_CYCLING,
+            K.SPORT_GOLF, K.SPORT_DANCE, K.SPORT_PILATES, K.SPORT_ENJOY, K.SPORT_TODAY,
+            K.SPORT_MORE_COURSES, K.SPORT_COACHES)
         otherSport.forEach { key -> run("sport.sections", setOf(key)) {
             type(points.sportTrigger)
             require(known || key !in setOf(K.SPORT_TRADITIONAL, K.SPORT_ENJOY, K.SPORT_TODAY, K.SPORT_MORE_COURSES))
@@ -246,11 +279,47 @@ internal class LayoutScanner(
                 field("${points.sportColumnAdapter}\$e", "cn", "android.widget.RelativeLayout")
             }
         }
-        category(SettingsCategory.DEVICE).forEach { key -> run("device.fragment.0", setOf(key)) {
+        DeviceContentKeyResolver.resourceMappings.values.toSet().forEach { key -> run("device.fragment.0", setOf(key)) {
             points.deviceFragments.forEach(::lifecycle)
             require(DeviceContentKeyResolver.resourceMappings.filterValues { it == key }.keys.any(::resource))
             groups += "device.fragment.1"
         } }
+        val newParent = mapOf(
+            K.DEVICE_SEARCH to "hwappbarpattern_layout_ok_icon",
+            K.DEVICE_MENU to "hwappbarpattern_layout_menu_icon",
+            K.DEVICE_SWITCHER to "switch_device_layout",
+            K.DEVICE_TAB_DEVICE to "switch_device",
+            K.DEVICE_TAB_STORE to "switch_web",
+            K.DEVICE_STORE to "switch_web",
+        )
+        newParent.forEach { (key, name) -> run("device.new.parent", setOf(key)) {
+            lifecycle(points.newDeviceFragment)
+            require(resource(name))
+        } }
+        val arkuiResources = mapOf(
+            K.DEVICE_PRIMARY to "rl_tab_device",
+            K.DEVICE_ADD to "ll_tab_device_empty",
+            K.DEVICE_LIST to "tab_all_device_layout",
+            K.DEVICE_TIPS to "tab_setting_benefit_layout",
+            K.DEVICE_GENERAL_SETTINGS to "tab_title",
+            K.DEVICE_DISCONNECT_PROTECTION to "tab_title",
+            K.DEVICE_MY_WATCH to "card_mywatch_view",
+            K.DEVICE_WATCH_FACES to "card_watchface_view",
+            K.DEVICE_FUNCTIONS to "device_scrollview_content",
+            K.DEVICE_FEATURES to "device_feature_container",
+        )
+        arkuiResources.forEach { (key, name) -> run("device.new.arkui", setOf(key)) {
+            require(known)
+            lifecycle(points.arkuiDeviceFragment)
+            require(resource("device_scrollview_content") && resource(name))
+            method("com.huawei.ui.homehealth.devicearkui.delegate.BaseViewDelegate", "obtainView",
+                "android.view.View", listOf("android.view.LayoutInflater", "android.view.ViewGroup"))
+            DeviceContentKeyResolver.arkuiDelegateKeys.filterValues { it == key }.keys.forEach(::type)
+        } }
+        run("device.new.store", setOf(K.DEVICE_STORE)) {
+            lifecycle(points.vmallFragment)
+            require(resource("device_vmall_card_layout"))
+        }
         if (known) {
             group("device.refresh.0", emptySet()) {
                 method(points.deviceFragments[0], "a", "void", listOf("java.util.List"), "mContext = null or mMarketingBanner = null")
@@ -312,6 +381,16 @@ internal class LayoutScanner(
             method("com.huawei.uikit.hwbottomnavigationview.widget.HwBottomNavigationView\$BottomNavigationItemView", "getItemIndex", "int", emptyList())
             require(contentResource(BottomTabKeyResolver.RESOURCE_NAMES, key) || known)
         } }
+        val sportViewKeys = matched.filter { it.startsWith("hide.sport.") }
+        if (sportViewKeys.isNotEmpty()) {
+            groups += "sport.top"
+            capabilities["sport.top"] = sportViewKeys.toMutableSet()
+        }
+        val arkuiKeys = matched.intersect(arkuiResources.keys)
+        if (arkuiKeys.isNotEmpty()) {
+            groups += "device.new.delegates"
+            capabilities["device.new.delegates"] = arkuiKeys.toMutableSet()
+        }
         if ("device.fragment.1" in groups) capabilities["device.fragment.1"] = capabilities["device.fragment.0"].orEmpty().toMutableSet()
         points.deviceFragments.indices.forEach { index ->
             if ("device.refresh.$index" in groups) {
