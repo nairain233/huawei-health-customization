@@ -57,7 +57,7 @@
     <string name="settings_bottom_title">Bottom bar items</string>
     <string name="settings_group_page_top">Top of page</string>
     <string name="settings_group_quick_entries">Shortcuts</string>
-    <string name="settings_group_sport_tabs">Exercise pages</string>
+    <string name="settings_sport_quick_entry_items">Individual shortcuts</string>
     <string name="settings_group_sport_recommend">Recommendations</string>
     <string name="settings_group_sport_plan">Plans</string>
     <string name="settings_group_sport_run">Outdoor running</string>
@@ -86,11 +86,6 @@
 
     <string name="settings_sport_category_bar">Top category bar</string>
     <string name="settings_sport_banner">Banner</string>
-    <string name="settings_sport_tab_recommend">Recommended page tab</string>
-    <string name="settings_sport_tab_plan">Plan page tab</string>
-    <string name="settings_sport_tab_run">Outdoor running page tab</string>
-    <string name="settings_sport_tab_yoga">Yoga page tab</string>
-    <string name="settings_sport_tab_fitness">Fitness page tab</string>
     <string name="settings_sport_quick_entries">All shortcuts</string>
     <string name="settings_sport_stretch">Stretch and relax</string>
     <string name="settings_sport_traditional">Traditional wellness</string>
@@ -199,8 +194,6 @@
     <string name="service_block_custom_paused">Existing custom service rules are preserved and resume when debug mode is enabled.</string>
     <string name="service_block_low_title">Low coupling services</string>
     <string name="service_block_core_title">Core services</string>
-    <string name="service_low_notice">Low coupling groups are off by default and usually have a narrower impact.</string>
-    <string name="service_core_notice">Core groups are off by default and may affect device, exercise, or sync functions.</string>
     <string name="service_evidence_pending">Insufficient evidence; debug-only and no blocking rule is generated.</string>
     <string name="service_group_missing">No matching component is declared in this version; traffic remains allowed.</string>
     <string name="service_legacy_partial">Some legacy rules were found; the full group was not enabled automatically.</string>
