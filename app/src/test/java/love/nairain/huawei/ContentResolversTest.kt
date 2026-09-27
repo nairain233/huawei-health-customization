@@ -8,6 +8,8 @@ import love.nairain.huawei.hook.resolver.HealthContentKeyResolver
 import love.nairain.huawei.hook.resolver.ListFilters
 import love.nairain.huawei.hook.resolver.RowKeyResolver
 import love.nairain.huawei.hook.resolver.SportContentKeyResolver
+import love.nairain.huawei.hook.resolver.SportPageTargets
+import love.nairain.huawei.hook.resolver.SportTab
 import love.nairain.huawei.hook.resolver.MineMarketingContentResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -51,6 +53,25 @@ class ContentResolversTest {
         assertEquals(SettingsKeys.MINE_ABOUT, RowKeyResolver().resolve("2130841936", 0x7f021150))
         assertEquals(SettingsKeys.BOTTOM_MEMBER, BottomTabKeyResolver().resolve("IDS_vip"))
         assertNull(RowKeyResolver().resolve("new_dynamic_row"))
+    }
+
+    @Test
+    fun sportTabsArePageIdentitiesAndWholeQuickEntrySwitchSuspendsIndividualChoice() {
+        assertEquals(SportTab.RECOMMEND, SportPageTargets.tabs["推荐"])
+        assertEquals(SportTab.PLAN, SportPageTargets.tabs["计划"])
+        assertEquals(SportTab.RUN, SportPageTargets.tabs["户外跑步"])
+        assertEquals(SportTab.YOGA, SportPageTargets.tabs["瑜伽"])
+        assertEquals(SportTab.FITNESS, SportPageTargets.tabs["健身"])
+        val selected = mapOf(SettingsKeys.SPORT_STRETCH to true)
+        assertEquals(SettingsKeys.SPORT_STRETCH,
+            SportPageTargets.effectiveQuickEntryKey(SettingsKeys.SPORT_STRETCH, selected))
+        val whole = selected + (SettingsKeys.SPORT_QUICK_ENTRIES to true)
+        assertNull(SportPageTargets.effectiveQuickEntryKey(SettingsKeys.SPORT_STRETCH, whole))
+        assertEquals(SettingsKeys.SPORT_LATEST,
+            SportPageTargets.effectiveQuickEntryKey(SettingsKeys.SPORT_LATEST, whole))
+        assertEquals(listOf(SettingsKeys.SPORT_STRETCH), ListFilters.copyAndFilter(
+            listOf(SettingsKeys.SPORT_STRETCH),
+            { SportPageTargets.effectiveQuickEntryKey(it, whole) }, whole))
     }
 
     @Test

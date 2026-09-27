@@ -141,6 +141,77 @@ class SettingsSubPagesTest {
     }
 
     @Test
+    fun sportQuickEntryNavigationFollowsWholeAreaSwitch() {
+        var state by mutableStateOf(SettingsUiState(
+            isServiceConnected = true,
+            isConfigAvailable = true,
+            confirmedValues = SettingsCatalog.defaults + (SettingsKeys.ENABLED to true),
+        ))
+        composeRule.setContent {
+            MiuixTheme(colors = lightColorScheme()) {
+                CategorySettingsScreen(
+                    category = SettingsCategory.SPORT,
+                    groups = SettingsCatalog.sportGroups,
+                    state = state,
+                    onSettingChange = { _, _ -> },
+                    onClose = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("settings:sport-quick-entry-nav").assertExists()
+        composeRule.onNodeWithTag("setting:${SettingsKeys.SPORT_STRETCH}", useUnmergedTree = true)
+            .assertDoesNotExist()
+        composeRule.runOnUiThread {
+            state = state.copy(confirmedValues = state.confirmedValues +
+                (SettingsKeys.SPORT_QUICK_ENTRIES to true))
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings:sport-quick-entry-nav").assertDoesNotExist()
+        composeRule.runOnUiThread {
+            state = state.copy(confirmedValues = state.confirmedValues +
+                (SettingsKeys.SPORT_QUICK_ENTRIES to false))
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings:sport-quick-entry-nav").assertExists()
+    }
+
+    @Test
+    fun sportQuickEntryPageShowsSavedChoicesAndDisablesThemWhenWholeAreaIsHidden() {
+        var state by mutableStateOf(SettingsUiState(
+            isServiceConnected = true,
+            isConfigAvailable = true,
+            confirmedValues = SettingsCatalog.defaults + (SettingsKeys.ENABLED to true) +
+                (SettingsKeys.SPORT_STRETCH to true),
+        ))
+        composeRule.setContent {
+            MiuixTheme(colors = lightColorScheme()) {
+                CategorySettingsScreen(
+                    category = SettingsCategory.SPORT,
+                    title = R.string.settings_sport_quick_entry_items,
+                    groups = SettingsCatalog.sportQuickEntryGroups,
+                    state = state,
+                    onSettingChange = { _, _ -> },
+                    sportQuickEntriesPage = true,
+                    onClose = {},
+                )
+            }
+        }
+
+        composeRule.onAllNodes(isToggleable(), useUnmergedTree = true)
+            .assertCountEquals(SettingsCatalog.sportQuickEntries.size)
+        composeRule.onNodeWithTag("setting:${SettingsKeys.SPORT_STRETCH}", useUnmergedTree = true)
+            .assertIsEnabled()
+        composeRule.runOnUiThread {
+            state = state.copy(confirmedValues = state.confirmedValues +
+                (SettingsKeys.SPORT_QUICK_ENTRIES to true))
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("setting:${SettingsKeys.SPORT_STRETCH}", useUnmergedTree = true)
+            .assertIsNotEnabled()
+    }
+
+    @Test
     fun categoryShowsFailureNoticesAsTextAndUncertainStateIsDisabled() {
         val notices = listOf(
             SettingsNoticeKind.DEFAULTS_NOT_PERSISTED to

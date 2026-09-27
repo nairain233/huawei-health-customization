@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,6 +45,7 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -55,12 +57,15 @@ class CategorySettingsActivity : AppCompatActivity() {
     private lateinit var coordinator: LayoutSettingsCoordinator
     private val settingsListener = LayoutSettingsListener { newState -> uiState = newState }
     private lateinit var category: SettingsCategory
+    private var sportQuickEntriesPage = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         category = runCatching {
             SettingsCategory.valueOf(intent.getStringExtra(EXTRA_CATEGORY).orEmpty())
         }.getOrDefault(SettingsCategory.HEALTH)
+        sportQuickEntriesPage = category == SettingsCategory.SPORT &&
+            intent.getBooleanExtra(EXTRA_SPORT_QUICK_ENTRIES, false)
         enableEdgeToEdge()
         val moduleApplication = application as ModuleApplication
         coordinator = moduleApplication.layoutSettingsCoordinator
@@ -71,9 +76,17 @@ class CategorySettingsActivity : AppCompatActivity() {
             ) {
                 CategorySettingsScreen(
                     category = category,
-                    groups = SettingsCatalog.groupsFor(category),
+                    title = if (sportQuickEntriesPage) R.string.settings_sport_quick_entry_items else category.title,
+                    groups = if (sportQuickEntriesPage) SettingsCatalog.sportQuickEntryGroups
+                        else SettingsCatalog.groupsFor(category),
                     state = uiState,
                     onSettingChange = ::updateSetting,
+                    sportQuickEntriesPage = sportQuickEntriesPage,
+                    onOpenSportQuickEntries = {
+                        if (!uiState.valueOf(SettingsKeys.SPORT_QUICK_ENTRIES)) {
+                            startActivity(sportQuickEntriesIntent(this))
+                        }
+                    },
                     onClose = ::finish,
                 )
             }
@@ -96,19 +109,27 @@ class CategorySettingsActivity : AppCompatActivity() {
 
     companion object {
         private const val EXTRA_CATEGORY = "settings_category"
+        private const val EXTRA_SPORT_QUICK_ENTRIES = "sport_quick_entries"
 
         fun intent(context: Context, category: SettingsCategory): Intent =
             Intent(context, CategorySettingsActivity::class.java)
                 .putExtra(EXTRA_CATEGORY, category.name)
+
+        fun sportQuickEntriesIntent(context: Context): Intent =
+            intent(context, SettingsCategory.SPORT)
+                .putExtra(EXTRA_SPORT_QUICK_ENTRIES, true)
     }
 }
 
 @Composable
 internal fun CategorySettingsScreen(
     category: SettingsCategory,
+    @StringRes title: Int = category.title,
     groups: List<SettingGroup>,
     state: SettingsUiState,
     onSettingChange: (String, Boolean) -> Unit,
+    sportQuickEntriesPage: Boolean = false,
+    onOpenSportQuickEntries: () -> Unit = {},
     onClose: () -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -121,7 +142,7 @@ internal fun CategorySettingsScreen(
             TopAppBar(
                 color = MiuixTheme.colorScheme.surface,
                 scrollBehavior = scrollBehavior,
-                title = stringResource(category.title),
+                title = stringResource(title),
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(
@@ -136,7 +157,8 @@ internal fun CategorySettingsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .testTag("settings:${category.name.lowercase()}")
+                .testTag(if (sportQuickEntriesPage) "settings:sport-quick-entries"
+                    else "settings:${category.name.lowercase()}")
                 .scrollEndHaptic()
                 .overScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -178,9 +200,18 @@ internal fun CategorySettingsScreen(
                                 SwitchPreference(
                                     title = stringResource(setting.title),
                                     checked = state.valueOf(setting.key),
-                                    enabled = state.writable && state.valueOf(SettingsKeys.ENABLED),
+                                    enabled = state.writable && state.valueOf(SettingsKeys.ENABLED) &&
+                                        (!sportQuickEntriesPage || !state.valueOf(SettingsKeys.SPORT_QUICK_ENTRIES)),
                                     onCheckedChange = { onSettingChange(setting.key, it) },
                                     modifier = Modifier.testTag("setting:${setting.key}"),
+                                )
+                            }
+                            if (category == SettingsCategory.SPORT && !sportQuickEntriesPage &&
+                                group.id == "quick-entries" && !state.valueOf(SettingsKeys.SPORT_QUICK_ENTRIES)) {
+                                ArrowPreference(
+                                    title = stringResource(R.string.settings_sport_quick_entry_items),
+                                    onClick = onOpenSportQuickEntries,
+                                    modifier = Modifier.testTag("settings:sport-quick-entry-nav"),
                                 )
                             }
                         }

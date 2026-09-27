@@ -216,11 +216,6 @@ internal class LayoutScanner(
             lifecycle(points.sportFragment)
             require(names.any(::resource))
         } }
-        SportPageTargets.tabs.values.toSet().forEach { key -> run("sport.tabs", setOf(key)) {
-            require(known)
-            lifecycle(points.sportFragment)
-            require(resource("track_sport_tab"))
-        } }
         val quickKeys = SportPageTargets.quickEntries.values.toSet()
         (quickKeys + K.SPORT_QUICK_ENTRIES).forEach { key -> run("sport.quick-views", setOf(key)) {
             require(known)
