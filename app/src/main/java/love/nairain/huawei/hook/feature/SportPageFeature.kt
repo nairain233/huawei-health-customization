@@ -15,6 +15,7 @@ import love.nairain.huawei.hook.resolver.ListFilters
 import love.nairain.huawei.hook.resolver.ReflectionTargets
 import love.nairain.huawei.hook.resolver.SportContentKeyResolver
 import love.nairain.huawei.hook.resolver.SportPageTargets
+import love.nairain.huawei.hook.resolver.SportTab
 import love.nairain.huawei.hook.util.PageLayoutObserver
 import love.nairain.huawei.hook.util.ActivePageObserver
 import love.nairain.huawei.hook.util.ViewSelectors
@@ -93,10 +94,10 @@ class SportPageFeature : HookFeature {
     private fun applyPageViews(root: View, context: HookContext) {
         val page = selectedTab(root, context.application.packageName)
         val pageControls = when (page) {
-            SettingsKeys.SPORT_TAB_RUN -> setOf(SettingsKeys.SPORT_RUN_SUMMARY, SettingsKeys.SPORT_RUN_ROUTE,
+            SportTab.RUN -> setOf(SettingsKeys.SPORT_RUN_SUMMARY, SettingsKeys.SPORT_RUN_ROUTE,
                 SettingsKeys.SPORT_RUN_WARMUP, SettingsKeys.SPORT_RUN_BEGIN, SettingsKeys.SPORT_RUN_MUSIC)
-            SettingsKeys.SPORT_TAB_YOGA -> setOf(SettingsKeys.SPORT_YOGA_COURSES)
-            SettingsKeys.SPORT_TAB_FITNESS -> setOf(SettingsKeys.SPORT_FITNESS_SUMMARY)
+            SportTab.YOGA -> setOf(SettingsKeys.SPORT_YOGA_COURSES)
+            SportTab.FITNESS -> setOf(SettingsKeys.SPORT_FITNESS_SUMMARY)
             else -> emptySet()
         }
         ViewSelectors.applyByResourceNames(
@@ -106,41 +107,42 @@ class SportPageFeature : HookFeature {
             context.config,
         )
         if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) return
-        applyTabs(root, context)
         applyQuickEntryGroup(root, context)
-        if (page == SettingsKeys.SPORT_TAB_PLAN) {
+        if (page == SportTab.PLAN) {
             ViewSelectors.findByResourceName(root, context.application.packageName, "plan_resource_slot")?.let { slot ->
                 if (context.config[SettingsKeys.SPORT_PLAN_CARDS] == true) ViewTrimmer.collapse(slot)
                 else ViewTrimmer.restore(slot)
             }
         }
-        if (page == SettingsKeys.SPORT_TAB_YOGA) {
+        if (page == SportTab.YOGA) {
             ViewSelectors.findByResourceName(root, context.application.packageName, "normal_view_fitness")?.let { summary ->
                 if (context.config[SettingsKeys.SPORT_YOGA_SUMMARY] == true) ViewTrimmer.collapse(summary)
                 else ViewTrimmer.restore(summary)
             }
         }
-        ViewSelectors.collapseContainersByText(
-            root,
-            SportPageTargets.quickEntries,
-            setOf("item_quick_entry_root_layout"),
-            context.config,
-        )
+        if (context.config[SettingsKeys.SPORT_QUICK_ENTRIES] != true) {
+            ViewSelectors.collapseContainersByText(
+                root,
+                SportPageTargets.quickEntries,
+                setOf("item_quick_entry_root_layout"),
+                context.config,
+            )
+        }
         ViewSelectors.applyTitledContainers(
             root,
             SportPageTargets.sections.filterValues { key ->
                 when (page) {
-                    SettingsKeys.SPORT_TAB_RECOMMEND -> key in RECOMMEND_SECTIONS
-                    SettingsKeys.SPORT_TAB_PLAN -> key in PLAN_SECTIONS
-                    SettingsKeys.SPORT_TAB_RUN -> key == SettingsKeys.SPORT_RUN_TRAINING
-                    SettingsKeys.SPORT_TAB_FITNESS -> key in FITNESS_SECTIONS
+                    SportTab.RECOMMEND -> key in RECOMMEND_SECTIONS
+                    SportTab.PLAN -> key in PLAN_SECTIONS
+                    SportTab.RUN -> key == SettingsKeys.SPORT_RUN_TRAINING
+                    SportTab.FITNESS -> key in FITNESS_SECTIONS
                     else -> false
                 }
             },
             setOf("series_course_layout", "layout_marketing_grid", "section_root_view", "item_two_landscape_layout"),
             context.config,
         )
-        if (page == SettingsKeys.SPORT_TAB_PLAN) alignPlanCards(root, context)
+        if (page == SportTab.PLAN) alignPlanCards(root, context)
     }
 
     private fun alignPlanCards(root: View, context: HookContext) {
@@ -174,9 +176,9 @@ class SportPageFeature : HookFeature {
         }
     }
 
-    private fun selectedTab(root: View, packageName: String): String? {
+    private fun selectedTab(root: View, packageName: String): SportTab? {
         val bar = ViewSelectors.findByResourceName(root, packageName, "track_sport_tab") ?: return null
-        var selected: String? = null
+        var selected: SportTab? = null
         ViewSelectors.walk(bar) { view ->
             val label = view as? TextView ?: return@walk
             if (label.isSelected) selected = SportPageTargets.tabs[label.text?.toString()]
@@ -193,27 +195,6 @@ class SportPageFeature : HookFeature {
         }
     }
 
-    private fun applyTabs(root: View, context: HookContext) {
-        val tabBar = ViewSelectors.findByResourceName(root, context.application.packageName, "track_sport_tab") ?: return
-        val found = mutableListOf<Pair<TextView, String>>()
-        ViewSelectors.walk(tabBar) { view ->
-            val label = view as? TextView ?: return@walk
-            val key = SportPageTargets.tabs[label.text?.toString()] ?: return@walk
-            found += label to key
-        }
-        if (found.isEmpty()) return
-        val visible = found.filter { (_, key) -> context.config[key] != true }
-        val fallback = visible.firstOrNull()?.first ?: found.first().first
-        if (found.any { (label, key) -> label.isSelected && context.config[key] == true && label !== fallback }) {
-            fallback.performClick()
-        }
-        found.forEach { (label, key) ->
-            val item = (label.parent as? View) ?: label
-            val hide = context.config[key] == true && label !== fallback
-            if (hide) ViewTrimmer.collapse(item) else ViewTrimmer.restore(item)
-        }
-    }
-
     private fun installSections(context: HookContext): Int {
         val type = ReflectionTargets.type(context.classLoader, context.points.sportTrigger) ?: return 0
         val method = ReflectionTargets.method(type, "setCacheBeansList", 1) ?: return 0
@@ -226,7 +207,7 @@ class SportPageFeature : HookFeature {
                     val source = chain.args.firstOrNull() as? List<*>
                     if (source != null) {
                         args[0] = ListFilters.copyAndFilter(source.filterNotNull(), { section ->
-                            sectionKey(section, context)
+                            SportPageTargets.effectiveQuickEntryKey(sectionKey(section, context), context.config)
                         }, context.config)
                     }
                 }
@@ -257,7 +238,8 @@ class SportPageFeature : HookFeature {
 
     private fun applyBoundQuickEntry(root: View?, context: HookContext) {
         if (!ViewSelectors.hasAncestorResourceName(root, "sport_viewPager_container")) return
-        val key = SportPageTargets.quickEntries[ViewSelectors.text(root)]
+        val key = SportPageTargets.effectiveQuickEntryKey(
+            SportPageTargets.quickEntries[ViewSelectors.text(root)], context.config)
         if (key != null && context.config[key] == true) {
             root?.let(ViewTrimmer::collapse)
         } else {

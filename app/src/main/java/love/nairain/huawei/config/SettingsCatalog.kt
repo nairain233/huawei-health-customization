@@ -65,30 +65,9 @@ object SettingsCatalog {
             SettingsKeys.SPORT_BANNER to R.string.settings_sport_banner,
         ),
         group(
-            id = "tabs",
-            title = R.string.settings_group_sport_tabs,
-            SettingsKeys.SPORT_TAB_RECOMMEND to R.string.settings_sport_tab_recommend,
-            SettingsKeys.SPORT_TAB_PLAN to R.string.settings_sport_tab_plan,
-            SettingsKeys.SPORT_TAB_RUN to R.string.settings_sport_tab_run,
-            SettingsKeys.SPORT_TAB_YOGA to R.string.settings_sport_tab_yoga,
-            SettingsKeys.SPORT_TAB_FITNESS to R.string.settings_sport_tab_fitness,
-        ),
-        group(
             id = "quick-entries",
             title = R.string.settings_group_quick_entries,
             SettingsKeys.SPORT_QUICK_ENTRIES to R.string.settings_sport_quick_entries,
-            SettingsKeys.SPORT_STRETCH to R.string.settings_sport_stretch,
-            SettingsKeys.SPORT_TRADITIONAL to R.string.settings_sport_traditional,
-            SettingsKeys.SPORT_CYCLING to R.string.settings_sport_cycling,
-            SettingsKeys.SPORT_GOLF to R.string.settings_sport_golf,
-            SettingsKeys.SPORT_DANCE to R.string.settings_sport_dance,
-            SettingsKeys.SPORT_PILATES to R.string.settings_sport_pilates,
-            SettingsKeys.SPORT_MASTER_YOGA to R.string.settings_sport_master_yoga,
-            SettingsKeys.SPORT_MUSCLE to R.string.settings_sport_muscle,
-            SettingsKeys.SPORT_RUN_POWER to R.string.settings_sport_run_power,
-            SettingsKeys.SPORT_BLUE_STAR to R.string.settings_sport_blue_star,
-            SettingsKeys.SPORT_WALK_RUN to R.string.settings_sport_walk_run,
-            SettingsKeys.SPORT_MUAY_THAI to R.string.settings_sport_muay_thai,
         ),
         group(
             id = "course-content",
@@ -130,7 +109,26 @@ object SettingsCatalog {
             SettingsKeys.SPORT_WEEKLY_PLAN to R.string.settings_sport_weekly_plan,
         ),
     )
-    val sport = sportGroups.flatMap { it.settings }
+    val sportQuickEntryGroups = listOf(
+        group(
+            id = "quick-entry-items",
+            title = null,
+            SettingsKeys.SPORT_STRETCH to R.string.settings_sport_stretch,
+            SettingsKeys.SPORT_TRADITIONAL to R.string.settings_sport_traditional,
+            SettingsKeys.SPORT_CYCLING to R.string.settings_sport_cycling,
+            SettingsKeys.SPORT_GOLF to R.string.settings_sport_golf,
+            SettingsKeys.SPORT_DANCE to R.string.settings_sport_dance,
+            SettingsKeys.SPORT_PILATES to R.string.settings_sport_pilates,
+            SettingsKeys.SPORT_MASTER_YOGA to R.string.settings_sport_master_yoga,
+            SettingsKeys.SPORT_MUSCLE to R.string.settings_sport_muscle,
+            SettingsKeys.SPORT_RUN_POWER to R.string.settings_sport_run_power,
+            SettingsKeys.SPORT_BLUE_STAR to R.string.settings_sport_blue_star,
+            SettingsKeys.SPORT_WALK_RUN to R.string.settings_sport_walk_run,
+            SettingsKeys.SPORT_MUAY_THAI to R.string.settings_sport_muay_thai,
+        ),
+    )
+    val sportQuickEntries = sportQuickEntryGroups.flatMap { it.settings }
+    val sport = sportGroups.flatMap { it.settings } + sportQuickEntries
 
     val deviceGroups = listOf(
         group(
@@ -242,7 +240,9 @@ object SettingsCatalog {
         SettingsCategory.MINE to mineGroups,
         SettingsCategory.BOTTOM to bottomGroups,
     )
-    val categories = groups.mapValues { (_, categoryGroups) -> categoryGroups.flatMap { it.settings } }
+    val categories = groups.mapValues { (category, categoryGroups) ->
+        if (category == SettingsCategory.SPORT) sport else categoryGroups.flatMap { it.settings }
+    }
     val all = general + categories.values.flatten()
     val defaults = all.associate { it.key to it.defaultValue }
 

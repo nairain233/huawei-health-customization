@@ -176,12 +176,13 @@ app/src/main/
 
 ## 实现概要
 
-- schema v3 统一使用 `hide.health.*`、`hide.sport.*`、`hide.device.*`、`hide.mine.*`、`hide.bottom.*`；同义旧键沿用，新增区块键默认关闭，旧 `row_*` / `tab_*` 不迁移也不读取。
+- schema v3 统一使用 `hide.health.*`、`hide.sport.*`、`hide.device.*`、`hide.mine.*`、`hide.bottom.*`；同义旧键沿用，新增区块键默认关闭，旧 `row_*` / `tab_*` 不迁移也不读取。五个旧 `hide.sport.tab.*` 键保留原始存储值但从目录、读取和 Hook 中退出，运动子页入口始终显示；子页内容定位改用内部 `SportTab` 标识。
 - `onPackageReady` 只安装 `Application.attach()` Hook；attach 完成后读取真实包信息和一次性配置快照。服务独立安装，布局经后台 DexKit 扫描或缓存复核后按能力安装。
 - 健康页按 `HomeCardAdapter` 副本和 `FunctionMenuCardData`/`HealthQuickEntryCardData` 顶层卡片标识过滤；快捷入口关闭时整张卡片移除。运动页按 `SportEntranceFragment` 的五个子页及真实资源名、条目标题处理，Knit 过滤仅限推荐页 `SportTabPageResTrigger` 的 `resPosId=4040`。设备页分别处理未登录 `DeviceFragment`/`CardDeviceFragment` 和已登录 `NewDeviceFragment`/`ArkuiDeviceFragment`/`VMallFragment`；Arkui 区块依据实际 Dex 类名与 `BaseViewDelegate.obtainView` 关联，标题后备仅限已核验版本。我的页按资源名及 `wrq/wrl/wrb/wsa` 模型过滤并清理空分组；营销卡片仅在 `PersonalCenterRecyclerViewAdapter$c$4` 的 `d(Map)` 回调中移除已核验的 4168/9013。
 - 底栏保留原始 Tab 索引，使用按 `HealthBottomView` 实例隔离的弱状态表，处理清空、重复布局和 RTL。
-- DexKit 扫描 base/split APK，结果按功能隔离并缓存；当前规则版本 4 共检查 101 个布局开关，按旧设备页、新设备父页、Arkui 内容、商城页和运动子页分组。17.0.7.310 的设备委托类在 JADX 中显示为 `defpackage.rxl` 等，实际 Dex 类名为 `rxl` 等；扫描与运行时均使用实际类名。后台扫描晚于页面创建时，通过 attach 阶段注册的 Activity 弱引用追踪器对已显示页面重应用规则。未知版本只启用唯一命中且签名、内容身份通过校验的功能；历史数字 ID/文案后备仅限已核验版本。不持有 Activity、Fragment 或 View 的静态强引用。
-- 首页展示扫描 m/n 与预约重扫；`scan.request` 由模块写入，目标下次启动后执行。报告通过验证 UID 的专用 Provider 回传，不修改用户开关。规则变化递增 `ScanProtocol.RULES`，详细依据见 [DexKit 适配说明](docs/DexKit适配说明.md)。
+- DexKit 扫描 base/split APK，结果按功能隔离并缓存；当前规则版本 5 共检查 96 个布局开关，按旧设备页、新设备父页、Arkui 内容、商城页和运动子页分组。17.0.7.310 的设备委托类在 JADX 中显示为 `defpackage.rxl` 等，实际 Dex 类名为 `rxl` 等；扫描与运行时均使用实际类名。后台扫描晚于页面创建时，通过 attach 阶段注册的 Activity 弱引用追踪器对已显示页面重应用规则。未知版本只启用唯一命中且签名、内容身份通过校验的功能；历史数字 ID/文案后备仅限已核验版本。不持有 Activity、Fragment 或 View 的静态强引用。
+- 运动页“整个快捷入口区”开启时隐藏“快捷入口单项”二级页入口，暂停 12 个单项过滤但保留配置；关闭后单项选择恢复生效。二级页复用分类页和 `LayoutSettingsCoordinator`，应用级布局总开关仍控制全部布局精简。
+- 首页展示扫描 m/n 与预约重扫；`scan.request` 由模块写入，目标下次启动后执行。报告通过验证 UID 的专用 Provider 回传，不修改用户开关。当前扫描规则版本 5，96 个布局开关；规则变化递增 `ScanProtocol.RULES`，详细依据见 [DexKit 适配说明](docs/DexKit适配说明.md)。
 - 服务功能使用 `service_block.enabled`、`service_block.presets`、`service_block.debug_mode` 和 `service_block.components`，独立于 schema v3 布局配置；预设按“低耦合服务/核心服务”业务组展示，设备音乐同步、训练计划和表盘试用合并为设备辅助后台服务。核心组默认关闭并显示影响确认；调试模式关闭时自定义组件规则保留但暂停。attach 完成后独立安装，不依赖布局扫描或宿主版本白名单。通过已核验的 ContextImpl 内部入口匹配显式组件，缺少声明的旧规则不生效，安装不完整时回滚并放行。
 - 服务绑定状态按外层 Context 与 ServiceConnection 对象身份弱引用隔离，优先保留真实解绑；不记录 Intent 内容和宿主异常消息。设备验证边界见 [后台服务精简说明](docs/后台服务精简说明.md)。
 - 配置应用的首页与五类布局页统一订阅 `LayoutSettingsCoordinator`：应用级单线程串行执行 `getRemotePreferences()`、读取、默认值补齐和写入，主线程只接收已确认状态。`LayoutConfigStore` 使用 `commit()` 确认写入，失败后按原值及原始存在状态执行第二次 `commit()` 回滚；回滚失败时当前服务绑定被标记为不确定，必须等待新的服务绑定后才能恢复编辑。页面保存期间不乐观切换，默认补齐失败但已恢复时允许继续编辑并显示文字提示。

@@ -14,7 +14,9 @@ class SettingsSchemaV2Test {
     @Test
     fun groupedCatalogFlattensWithoutMissingOrDuplicateSettings() {
         SettingsCategory.entries.forEach { category ->
-            val groupedSettings = SettingsCatalog.groupsFor(category).flatMap { it.settings }
+            val pageGroups = SettingsCatalog.groupsFor(category) +
+                if (category == SettingsCategory.SPORT) SettingsCatalog.sportQuickEntryGroups else emptyList()
+            val groupedSettings = pageGroups.flatMap { it.settings }
             assertEquals(SettingsCatalog.settingsFor(category), groupedSettings)
             assertEquals(groupedSettings.size, groupedSettings.map { it.key }.distinct().size)
         }
@@ -179,9 +181,41 @@ class SettingsSchemaV2Test {
         assertEquals(3, preferences.getInt(SettingsKeys.SCHEMA_VERSION, 0))
         assertTrue(values.getValue(SettingsKeys.SPORT_BANNER))
         assertTrue(values.getValue(SettingsKeys.DEVICE_LIST))
-        assertFalse(values.getValue(SettingsKeys.SPORT_TAB_PLAN))
+        assertFalse(values.getValue(SettingsKeys.SPORT_STRETCH))
         assertFalse(values.getValue(SettingsKeys.DEVICE_PRIMARY))
         assertFalse(values.getValue(SettingsKeys.DEVICE_TAB_STORE))
+    }
+
+    @Test
+    fun removedSportTabKeysRemainStoredButAreNeverRead() {
+        val oldKeys = listOf(
+            "hide.sport.tab.recommend",
+            "hide.sport.tab.plan",
+            "hide.sport.tab.outdoor_run",
+            "hide.sport.tab.yoga",
+            "hide.sport.tab.fitness",
+        )
+        val preferences = InMemoryPreferences(oldKeys.associateWith { true })
+        val values = SettingsCatalog.read(preferences)
+
+        oldKeys.forEach { key ->
+            assertTrue(preferences.contains(key))
+            assertFalse(SettingsCatalog.defaults.containsKey(key))
+            assertFalse(values.containsKey(key))
+        }
+        assertTrue(SettingsCatalog.sportGroups.none { it.id == "tabs" })
+        assertEquals(listOf(SettingsKeys.SPORT_QUICK_ENTRIES),
+            SettingsCatalog.sportGroups.single { it.id == "quick-entries" }.settings.map { it.key })
+        assertEquals(12, SettingsCatalog.sportQuickEntries.size)
+    }
+
+    @Test
+    fun sportQuickEntryChoiceStillEnablesSportFeatureWhenWholeAreaIsOff() {
+        val selected = SettingsCatalog.defaults +
+            (SettingsKeys.ENABLED to true) + (SettingsKeys.SPORT_STRETCH to true)
+        assertTrue(SettingsCatalog.hasHidden(SettingsCategory.SPORT, selected))
+        assertTrue(SettingsCatalog.hasHidden(SettingsCategory.SPORT,
+            selected + (SettingsKeys.SPORT_QUICK_ENTRIES to true)))
     }
 
     @Test

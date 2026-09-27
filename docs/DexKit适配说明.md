@@ -2,7 +2,7 @@
 
 ## 使用及统计
 
-仅作用于 `com.huawei.health` 首包主进程。attach 完成后读取一次配置快照，服务独立安装；后台线程校验 APK 内容身份、读取缓存或完整扫描，不在主线程做 Dex/磁盘工作。规则版本 4 包含 101 个布局开关，成功条件为该项必要定位和内容识别均可用，与开关状态无关。扫描晚于页面创建时，Activity 弱引用追踪器对已创建视图重应用规则。
+仅作用于 `com.huawei.health` 首包主进程。attach 完成后读取一次配置快照，服务独立安装；后台线程校验 APK 内容身份、读取缓存或完整扫描，不在主线程做 Dex/磁盘工作。规则版本 5 包含 96 个布局开关，成功条件为该项必要定位和内容识别均可用，与开关状态无关。扫描晚于页面创建时，Activity 弱引用追踪器对已创建视图重应用规则。
 
 设置首页显示已匹配 m/n、已检查 p/n、版本、更新时间及服务状态。尚未扫描、运行中、完成、失败、过期和状态待确认分开展示。两分钟前的运行中报告只作为待确认状态；它不能证明目标进程仍在运行。匹配统计不宣称 Hook 安装或设备回归成功。
 
@@ -17,7 +17,7 @@
 | 健康顶部 | HomeFragment 生命周期、health_tab_titlebar、CustomTitleBar 两个可见性入口 | 保留对应控件 |
 | 顶部卡片 | HomeCardAdapter 构造/列表刷新、getCardName 字符串与签名，包括 FunctionMenuCardData、HealthQuickEntryCardData | 保留或移除对应整张卡片 |
 | 编辑卡片 | 基准版本已核验的 l() 与 LinearLayout 字段 m | 未知版本暂不启用 |
-| 运动五子页 | SportEntranceFragment 生命周期、分类栏/搜索/菜单/Banner 资源、已核验子页和区块标题 | 缺少身份的项目保留，标题后备仅用于 17.0.7.310 |
+| 运动五子页 | SportEntranceFragment 生命周期、分类栏/搜索/菜单/Banner 资源、已核验子页和区块标题；子页入口不再作为屏蔽项 | 缺少身份的项目保留，标题后备仅用于 17.0.7.310 |
 | 运动区块 | SportTabPageResTrigger 的继承入口、4040 常量证据与运行时范围检查、SectionBean 类型化访问器 | 无法确认的项目保留；仅依赖标题的项目限基准版本 |
 | 运动快捷绑定 | setQuickEntryLayout 日志、绑定签名及 holder 根容器字段 | 基准版本限定后备，缺失则不安装该入口 |
 | 旧设备页 | DeviceFragment、CardDeviceFragment 生命周期与独立资源名 | 缺少资源的项目保留 |
@@ -46,7 +46,7 @@
 
 `ApkScanTest` 可通过 Gradle 属性 `scan.native`、`scan.apk`、`scan.resources`（JADX public.xml）、`scan.output` 使用桌面 DexKit 对真实 APK 执行生产查询。未提供属性时明确跳过该测试。桌面 native 库仅用于开发验证，不打包进 APK。
 
-2026-09-08 的 44 项 JVM、`lintDebug`、`assembleDebug` 和 Compose 编译记录属于早期规则版本。当前规则版本 4 保留 `mine.marketing`，新增运动和设备双状态规则，共 101 项。MuMu 上安装的 17.0.7.310 基准 APK 已通过 `HostApkScanTest` 完成 101/101 项真实 DexKit 与资源定位。JADX 的 `defpackage` 是展示包名；扫描和运行时使用 Dex 中的实际类名，如 `rxl`。桌面扫描可用 `scan.native`、`scan.apk`、`scan.resources` 配置；`scan.fixture` 可指定由 `tools/scan-fixtures/ScanCollision.java` 经 javac/D8 生成的 DEX，验证重复内容候选不会误选。
+2026-09-08 的 44 项 JVM、`lintDebug`、`assembleDebug` 和 Compose 编译记录属于早期规则版本。规则版本 5 移除五个运动子页入口扫描项，共 96 项；版本 4 的 101/101 项 MuMu 基准 APK 扫描记录仍属于历史验证，不代表版本 5 的运行结果。JADX 的 `defpackage` 是展示包名；扫描和运行时使用 Dex 中的实际类名，如 `rxl`。桌面扫描可用 `scan.native`、`scan.apk`、`scan.resources` 配置；`scan.fixture` 可指定由 `tools/scan-fixtures/ScanCollision.java` 经 javac/D8 生成的 DEX，验证重复内容候选不会误选。
 
 APK 包含 API 102 入口、唯一运动健康作用域及四种 ABI 的 `libdexkit.so`。MuMu 上已完成真实 APK 的扫描验证；Provider/RemotePreferences 跨进程通信、进程中断重试及各开关的页面恢复须以运行时实测结果为准。
 
