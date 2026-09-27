@@ -65,11 +65,12 @@ class AboutScreenTest {
     fun dispatchesExistingExternalLinks() {
         val urls = mutableListOf<String>()
         setScreen(onOpenLink = { urls += it })
-        for (tag in listOf("about:author", "about:repository", "about:telegram")) {
+        for (tag in listOf("about:author", "about:repository")) {
             scrollTo(tag)
             composeRule.onNodeWithTag(tag).performClick()
         }
         scrollTo("about:libraries")
+        composeRule.onNodeWithTag("about:telegram").assertDoesNotExist()
         composeRule.onNodeWithTag("about:libraries").performClick()
         composeRule.onNodeWithTag("about:libraries:list").performScrollToNode(hasText("Miuix"))
         composeRule.onNodeWithTag("about:library:Miuix").performClick()
@@ -77,7 +78,6 @@ class AboutScreenTest {
             listOf(
                 "https://github.com/nairain233",
                 "https://github.com/nairain233/huawei-health-customization",
-                "https://t.me/Rain_Cl",
                 "https://github.com/compose-miuix-ui/miuix",
             ),
             urls,
