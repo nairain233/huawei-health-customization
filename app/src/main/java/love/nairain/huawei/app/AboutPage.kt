@@ -179,18 +179,13 @@ internal fun AboutPage(
                     AboutSection(
                         title = stringResource(R.string.about_section_links),
                         backdrop = backdrop,
+                        modifier = Modifier.padding(top = 12.dp),
                     ) {
                         ArrowPreference(
                             modifier = Modifier.testTag("about:repository"),
                             title = stringResource(R.string.about_repository),
                             endActions = { AboutValueText(stringResource(R.string.about_platform_github)) },
                             onClick = { onOpenLink("https://github.com/nairain233/huawei-health-customization") },
-                        )
-                        ArrowPreference(
-                            modifier = Modifier.testTag("about:telegram"),
-                            title = stringResource(R.string.about_link_telegram),
-                            endActions = { AboutValueText(stringResource(R.string.about_platform_telegram)) },
-                            onClick = { onOpenLink("https://t.me/Rain_Cl") },
                         )
                         ArrowPreference(
                             modifier = Modifier.testTag("about:libraries"),
@@ -258,6 +253,7 @@ private fun AboutHeader(
 private fun AboutSection(
     title: String,
     backdrop: Backdrop?,
+    modifier: Modifier = Modifier,
     cardTag: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -277,7 +273,7 @@ private fun AboutSection(
             )
         }
     }
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth()) {
         SmallTitle(
             text = title,
             insideMargin = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
