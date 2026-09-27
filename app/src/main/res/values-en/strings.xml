@@ -45,7 +45,6 @@
     <string name="about_version">Version v%1$s (%2$d)</string>
     <string name="about_section_links">Links</string>
     <string name="about_repository">Project repository</string>
-    <string name="about_link_telegram">Release channel</string>
     <string name="about_open_source_section">Third-party libraries</string>
     <string name="about_lib_summary">%1$s · %2$s</string>
     <string name="about_link_failed">No app can open this link</string>
