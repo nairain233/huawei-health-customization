@@ -132,13 +132,15 @@ object SportContentKeyResolver {
 }
 
 /** 基准版实机核验的运动页视图身份；未识别的服务端条目保持显示。 */
+enum class SportTab { RECOMMEND, PLAN, RUN, YOGA, FITNESS }
+
 object SportPageTargets {
     val tabs = mapOf(
-        "推荐" to SettingsKeys.SPORT_TAB_RECOMMEND,
-        "计划" to SettingsKeys.SPORT_TAB_PLAN,
-        "户外跑步" to SettingsKeys.SPORT_TAB_RUN,
-        "瑜伽" to SettingsKeys.SPORT_TAB_YOGA,
-        "健身" to SettingsKeys.SPORT_TAB_FITNESS,
+        "推荐" to SportTab.RECOMMEND,
+        "计划" to SportTab.PLAN,
+        "户外跑步" to SportTab.RUN,
+        "瑜伽" to SportTab.YOGA,
+        "健身" to SportTab.FITNESS,
     )
     val quickEntries = mapOf(
         "拉伸放松" to SettingsKeys.SPORT_STRETCH,
@@ -155,6 +157,11 @@ object SportPageTargets {
         "跑步健走" to SettingsKeys.SPORT_WALK_RUN,
         "泰拳搏击" to SettingsKeys.SPORT_MUAY_THAI,
     )
+    private val quickEntryKeys = quickEntries.values.toSet()
+
+    /** 整区屏蔽时暂停单项过滤，不改动已保存的单项配置。 */
+    fun effectiveQuickEntryKey(key: String?, config: Map<String, Boolean>): String? =
+        key?.takeUnless { it in quickEntryKeys && config[SettingsKeys.SPORT_QUICK_ENTRIES] == true }
     val sections = mapOf(
         "畅享运动" to SettingsKeys.SPORT_ENJOY,
         "今日动一动" to SettingsKeys.SPORT_TODAY,
