@@ -74,14 +74,14 @@ jobs:
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
             --key-pass env:KEY_PASSWORD \
-            --out "app/build/outputs/signed/huaweihook-release.apk" \
+            --out "app/build/outputs/signed/build.apk" \
             "$RUNNER_TEMP/app-release-aligned.apk"
-          "$build_tools/apksigner" verify "app/build/outputs/signed/huaweihook-release.apk"
-          "$build_tools/zipalign" -c -P 16 4 "app/build/outputs/signed/huaweihook-release.apk"
+          "$build_tools/apksigner" verify "app/build/outputs/signed/build.apk"
+          "$build_tools/zipalign" -c -P 16 4 "app/build/outputs/signed/build.apk"
 
       - name: Upload signed APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: huaweihook-release
-          path: app/build/outputs/signed/huaweihook-release.apk
+          name: build
+          path: app/build/outputs/signed/build.apk
           if-no-files-found: error
