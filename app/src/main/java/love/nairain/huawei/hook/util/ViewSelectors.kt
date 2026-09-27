@@ -58,6 +58,23 @@ object ViewSelectors {
         }
     }
 
+    /** 对可复用的区块同时处理隐藏与恢复，未知标题不作修改。 */
+    fun applyTitledContainers(
+        root: View,
+        textKeys: Map<String, String>,
+        containerNames: Set<String>,
+        config: Map<String, Boolean>,
+    ) {
+        walk(root) { view ->
+            if (resourceEntryName(view) !in containerNames) return@walk
+            val label = text(view) ?: return@walk
+            val key = textKeys[label] ?: textKeys.entries.firstOrNull { (title, _) -> label.startsWith("$title |") }?.value
+            if (key == null) ViewTrimmer.restore(view)
+            else if (config[key] == true) ViewTrimmer.collapse(view)
+            else ViewTrimmer.restore(view)
+        }
+    }
+
     fun resourceEntryName(view: View?): String? = runCatching {
         if (view == null || view.id == View.NO_ID) null else view.resources.getResourceEntryName(view.id)
     }.getOrNull()
@@ -71,7 +88,7 @@ object ViewSelectors {
         return false
     }
 
-    private fun walk(root: View, block: (View) -> Unit) {
+    fun walk(root: View, block: (View) -> Unit) {
         block(root)
         if (root is ViewGroup) {
             for (index in 0 until root.childCount) walk(root.getChildAt(index), block)

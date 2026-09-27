@@ -1,6 +1,8 @@
 package love.nairain.huawei.hook.feature
 
 import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
 import io.github.libxposed.api.XposedInterface
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
@@ -12,13 +14,16 @@ import love.nairain.huawei.hook.installIsolated
 import love.nairain.huawei.hook.resolver.ListFilters
 import love.nairain.huawei.hook.resolver.ReflectionTargets
 import love.nairain.huawei.hook.resolver.SportContentKeyResolver
+import love.nairain.huawei.hook.resolver.SportPageTargets
+import love.nairain.huawei.hook.util.PageLayoutObserver
+import love.nairain.huawei.hook.util.ActivePageObserver
 import love.nairain.huawei.hook.util.ViewSelectors
 import love.nairain.huawei.hook.util.ViewTrimmer
-import java.util.Collections
 import java.util.WeakHashMap
 
 class SportPageFeature : HookFeature {
     override val id = "sport.page"
+    private val originalTranslations = WeakHashMap<View, Float>()
 
     override fun install(context: HookContext): InstallResult {
         if (!SettingsCatalog.hasHidden(SettingsCategory.SPORT, context.config)) {
@@ -35,12 +40,19 @@ class SportPageFeature : HookFeature {
     private fun installTopControls(context: HookContext): Int {
         val type = ReflectionTargets.type(context.classLoader, context.points.sportFragment) ?: return 0
         val method = ReflectionTargets.method(type, "onCreateView", 3) ?: return 0
+        ActivePageObserver.observe { activity ->
+            val tabLayout = ViewSelectors.findByResourceName(activity.window.decorView,
+                context.application.packageName, "tab_layout") ?: return@observe
+            val page = tabLayout.parent as? View ?: return@observe
+            PageLayoutObserver.observe(page) { view -> applyPageViews(view, context) }
+            applyPageViews(page, context)
+        }
         context.hooks.hook(method).setId("$id:top")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
                 (result as? View)?.let {
-                    observeLayouts(it, context)
+                    PageLayoutObserver.observe(it) { view -> applyPageViews(view, context) }
                     applyPageViews(it, context)
                     it.post { applyPageViews(it, context) }
                 }
@@ -53,7 +65,7 @@ class SportPageFeature : HookFeature {
                 .intercept { chain ->
                     val result = chain.proceed()
                     (ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View)?.let {
-                        observeLayouts(it, context)
+                        PageLayoutObserver.observe(it) { view -> applyPageViews(view, context) }
                         applyPageViews(it, context)
                         it.post { applyPageViews(it, context) }
                     }
@@ -67,7 +79,7 @@ class SportPageFeature : HookFeature {
                 .intercept { chain ->
                     val result = chain.proceed()
                     (ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View)?.let {
-                        observeLayouts(it, context)
+                        PageLayoutObserver.observe(it) { view -> applyPageViews(view, context) }
                         applyPageViews(it, context)
                         it.post { applyPageViews(it, context) }
                     }
@@ -79,35 +91,126 @@ class SportPageFeature : HookFeature {
     }
 
     private fun applyPageViews(root: View, context: HookContext) {
+        val page = selectedTab(root, context.application.packageName)
+        val pageControls = when (page) {
+            SettingsKeys.SPORT_TAB_RUN -> setOf(SettingsKeys.SPORT_RUN_SUMMARY, SettingsKeys.SPORT_RUN_ROUTE,
+                SettingsKeys.SPORT_RUN_WARMUP, SettingsKeys.SPORT_RUN_BEGIN, SettingsKeys.SPORT_RUN_MUSIC)
+            SettingsKeys.SPORT_TAB_YOGA -> setOf(SettingsKeys.SPORT_YOGA_COURSES)
+            SettingsKeys.SPORT_TAB_FITNESS -> setOf(SettingsKeys.SPORT_FITNESS_SUMMARY)
+            else -> emptySet()
+        }
         ViewSelectors.applyByResourceNames(
             root,
             context.application.packageName,
-            TOP_VIEWS,
+            SportPageTargets.controls.filterValues { key -> key !in PAGE_CONTROL_KEYS || key in pageControls },
             context.config,
         )
         if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) return
+        applyTabs(root, context)
+        applyQuickEntryGroup(root, context)
+        if (page == SettingsKeys.SPORT_TAB_PLAN) {
+            ViewSelectors.findByResourceName(root, context.application.packageName, "plan_resource_slot")?.let { slot ->
+                if (context.config[SettingsKeys.SPORT_PLAN_CARDS] == true) ViewTrimmer.collapse(slot)
+                else ViewTrimmer.restore(slot)
+            }
+        }
+        if (page == SettingsKeys.SPORT_TAB_YOGA) {
+            ViewSelectors.findByResourceName(root, context.application.packageName, "normal_view_fitness")?.let { summary ->
+                if (context.config[SettingsKeys.SPORT_YOGA_SUMMARY] == true) ViewTrimmer.collapse(summary)
+                else ViewTrimmer.restore(summary)
+            }
+        }
         ViewSelectors.collapseContainersByText(
             root,
-            QUICK_ENTRY_TITLES,
+            SportPageTargets.quickEntries,
             setOf("item_quick_entry_root_layout"),
             context.config,
         )
-        ViewSelectors.collapseContainersByText(
+        ViewSelectors.applyTitledContainers(
             root,
-            SECTION_TITLES,
-            setOf("series_course_layout", "layout_marketing_grid"),
+            SportPageTargets.sections.filterValues { key ->
+                when (page) {
+                    SettingsKeys.SPORT_TAB_RECOMMEND -> key in RECOMMEND_SECTIONS
+                    SettingsKeys.SPORT_TAB_PLAN -> key in PLAN_SECTIONS
+                    SettingsKeys.SPORT_TAB_RUN -> key == SettingsKeys.SPORT_RUN_TRAINING
+                    SettingsKeys.SPORT_TAB_FITNESS -> key in FITNESS_SECTIONS
+                    else -> false
+                }
+            },
+            setOf("series_course_layout", "layout_marketing_grid", "section_root_view", "item_two_landscape_layout"),
             context.config,
         )
+        if (page == SettingsKeys.SPORT_TAB_PLAN) alignPlanCards(root, context)
     }
 
-    private fun observeLayouts(root: View, context: HookContext) {
-        synchronized(layoutListeners) {
-            if (layoutListeners.containsKey(root)) return
-            val listener = View.OnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
-                applyPageViews(view, context)
-            }
-            layoutListeners[root] = listener
-            root.addOnLayoutChangeListener(listener)
+    private fun alignPlanCards(root: View, context: HookContext) {
+        val slot = ViewSelectors.findByResourceName(root, context.application.packageName,
+            "plan_resource_slot") ?: return
+        val rows = mutableMapOf<String, View>()
+        ViewSelectors.walk(slot) { view ->
+            if (ViewSelectors.resourceEntryName(view) != "item_two_landscape_layout") return@walk
+            originalTranslations.remove(view)?.let { view.translationX = it }
+            ViewSelectors.text(view)?.let { title -> rows[title] = view }
+        }
+        val weight = rows["智能体重管理"] ?: return
+        val training = rows["智能训练计划"] ?: return
+        val grid = training.parent as? ViewGroup ?: return
+        if (weight.parent !== grid) return
+        var section: View? = grid
+        while (section != null && ViewSelectors.resourceEntryName(section) != "layout_marketing_grid") {
+            section = section.parent as? View
+        }
+        section?.let {
+            val hideBoth = rows.size == 2 &&
+                context.config[SettingsKeys.SPORT_PLAN_WEIGHT] == true &&
+                context.config[SettingsKeys.SPORT_PLAN_TRAINING] == true
+            if (hideBoth) ViewTrimmer.collapse(it) else ViewTrimmer.restore(it)
+        }
+        if (context.config[SettingsKeys.SPORT_PLAN_WEIGHT] == true &&
+            context.config[SettingsKeys.SPORT_PLAN_TRAINING] != true) {
+            val base = training.translationX
+            originalTranslations[training] = base
+            training.translationX = base + grid.paddingLeft - training.left
+        }
+    }
+
+    private fun selectedTab(root: View, packageName: String): String? {
+        val bar = ViewSelectors.findByResourceName(root, packageName, "track_sport_tab") ?: return null
+        var selected: String? = null
+        ViewSelectors.walk(bar) { view ->
+            val label = view as? TextView ?: return@walk
+            if (label.isSelected) selected = SportPageTargets.tabs[label.text?.toString()]
+        }
+        return selected
+    }
+
+    private fun applyQuickEntryGroup(root: View, context: HookContext) {
+        ViewSelectors.walk(root) { view ->
+            if (ViewSelectors.resourceEntryName(view) != "layout_marketing_grid") return@walk
+            if (ViewSelectors.findByResourceName(view, context.application.packageName, "item_quick_entry_root_layout") == null) return@walk
+            if (context.config[SettingsKeys.SPORT_QUICK_ENTRIES] == true) ViewTrimmer.collapse(view)
+            else ViewTrimmer.restore(view)
+        }
+    }
+
+    private fun applyTabs(root: View, context: HookContext) {
+        val tabBar = ViewSelectors.findByResourceName(root, context.application.packageName, "track_sport_tab") ?: return
+        val found = mutableListOf<Pair<TextView, String>>()
+        ViewSelectors.walk(tabBar) { view ->
+            val label = view as? TextView ?: return@walk
+            val key = SportPageTargets.tabs[label.text?.toString()] ?: return@walk
+            found += label to key
+        }
+        if (found.isEmpty()) return
+        val visible = found.filter { (_, key) -> context.config[key] != true }
+        val fallback = visible.firstOrNull()?.first ?: found.first().first
+        if (found.any { (label, key) -> label.isSelected && context.config[key] == true && label !== fallback }) {
+            fallback.performClick()
+        }
+        found.forEach { (label, key) ->
+            val item = (label.parent as? View) ?: label
+            val hide = context.config[key] == true && label !== fallback
+            if (hide) ViewTrimmer.collapse(item) else ViewTrimmer.restore(item)
         }
     }
 
@@ -154,7 +257,7 @@ class SportPageFeature : HookFeature {
 
     private fun applyBoundQuickEntry(root: View?, context: HookContext) {
         if (!ViewSelectors.hasAncestorResourceName(root, "sport_viewPager_container")) return
-        val key = QUICK_ENTRY_TITLES[ViewSelectors.text(root)]
+        val key = SportPageTargets.quickEntries[ViewSelectors.text(root)]
         if (key != null && context.config[key] == true) {
             root?.let(ViewTrimmer::collapse)
         } else {
@@ -176,30 +279,12 @@ class SportPageFeature : HookFeature {
 
     private companion object {
         const val SPORT_RES_POS_ID = 4040
-        val TOP_VIEWS = mapOf(
-            "track_sport_tab" to SettingsKeys.SPORT_CATEGORY_BAR,
-            "sport_search_icon" to SettingsKeys.SPORT_SEARCH,
-            "sport_global_search_view" to SettingsKeys.SPORT_SEARCH,
-            "more_and_red_point" to SettingsKeys.SPORT_MORE,
-            "view_sport_banner_root" to SettingsKeys.SPORT_BANNER,
-        )
-        val layoutListeners = Collections.synchronizedMap(
-            WeakHashMap<View, View.OnLayoutChangeListener>(),
-        )
-        val QUICK_ENTRY_TITLES = mapOf(
-            "拉伸放松" to SettingsKeys.SPORT_STRETCH,
-            "舒展放松" to SettingsKeys.SPORT_STRETCH,
-            "古法养生" to SettingsKeys.SPORT_TRADITIONAL,
-            "骑行课程" to SettingsKeys.SPORT_CYCLING,
-            "高尔夫课" to SettingsKeys.SPORT_GOLF,
-            "热汗舞蹈" to SettingsKeys.SPORT_DANCE,
-            "普拉提课" to SettingsKeys.SPORT_PILATES,
-        )
-        val SECTION_TITLES = mapOf(
-            "畅享运动" to SettingsKeys.SPORT_ENJOY,
-            "今日动一动" to SettingsKeys.SPORT_TODAY,
-            "更多好课" to SettingsKeys.SPORT_MORE_COURSES,
-            "明星教练" to SettingsKeys.SPORT_COACHES,
-        )
+        val PAGE_CONTROL_KEYS = setOf(SettingsKeys.SPORT_RUN_SUMMARY, SettingsKeys.SPORT_RUN_ROUTE,
+            SettingsKeys.SPORT_RUN_WARMUP, SettingsKeys.SPORT_RUN_BEGIN, SettingsKeys.SPORT_RUN_MUSIC,
+            SettingsKeys.SPORT_YOGA_COURSES, SettingsKeys.SPORT_FITNESS_SUMMARY)
+        val RECOMMEND_SECTIONS = setOf(SettingsKeys.SPORT_ENJOY, SettingsKeys.SPORT_TODAY,
+            SettingsKeys.SPORT_MORE_COURSES, SettingsKeys.SPORT_COACHES, SettingsKeys.SPORT_LATEST)
+        val PLAN_SECTIONS = setOf(SettingsKeys.SPORT_PLAN_WEIGHT, SettingsKeys.SPORT_PLAN_TRAINING)
+        val FITNESS_SECTIONS = setOf(SettingsKeys.SPORT_MY_COURSES, SettingsKeys.SPORT_WEEKLY_PLAN)
     }
 }

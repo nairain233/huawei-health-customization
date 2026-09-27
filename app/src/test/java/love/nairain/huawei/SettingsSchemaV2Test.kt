@@ -163,6 +163,28 @@ class SettingsSchemaV2Test {
     }
 
     @Test
+    fun schemaThreePreservesEquivalentKeysAndDefaultsNewSectionsOff() {
+        val preferences = InMemoryPreferences(
+            mapOf(
+                SettingsKeys.SCHEMA_VERSION to 2,
+                SettingsKeys.ENABLED to true,
+                SettingsKeys.SPORT_BANNER to true,
+                SettingsKeys.DEVICE_LIST to true,
+            ),
+        )
+
+        LayoutConfigStore().load(preferences)
+        val values = SettingsCatalog.read(preferences)
+
+        assertEquals(3, preferences.getInt(SettingsKeys.SCHEMA_VERSION, 0))
+        assertTrue(values.getValue(SettingsKeys.SPORT_BANNER))
+        assertTrue(values.getValue(SettingsKeys.DEVICE_LIST))
+        assertFalse(values.getValue(SettingsKeys.SPORT_TAB_PLAN))
+        assertFalse(values.getValue(SettingsKeys.DEVICE_PRIMARY))
+        assertFalse(values.getValue(SettingsKeys.DEVICE_TAB_STORE))
+    }
+
+    @Test
     fun masterSwitchAndCategoryHiddenItemAreBothRequired() {
         val hidden = SettingsCatalog.defaults + (SettingsKeys.HEALTH_SEARCH to true)
         assertFalse(SettingsCatalog.hasHidden(SettingsCategory.HEALTH, hidden))

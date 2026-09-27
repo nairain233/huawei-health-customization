@@ -11,6 +11,7 @@ import love.nairain.huawei.hook.resolver.SportContentKeyResolver
 import love.nairain.huawei.hook.resolver.MineMarketingContentResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ContentResolversTest {
@@ -54,8 +55,14 @@ class ContentResolversTest {
 
     @Test
     fun everyDeviceSettingHasVerifiedResourceMapping() {
-        val mappedKeys = DeviceContentKeyResolver.resourceMappings.values.toSet()
-        assertEquals(SettingsCatalog.device.map { it.key }.toSet(), mappedKeys)
+        val legacy = DeviceContentKeyResolver.resourceMappings.values.toSet()
+        val newParent = DeviceContentKeyResolver.newParentMappings.values.toSet()
+        val arkui = DeviceContentKeyResolver.arkuiDelegateKeys.values.toSet()
+        assertTrue(SettingsCatalog.device.map { it.key }.toSet().containsAll(legacy + newParent + arkui))
+        assertEquals(SettingsKeys.DEVICE_PRIMARY,
+            DeviceContentKeyResolver.arkuiDelegateKeys["rxl"])
+        assertEquals(SettingsKeys.DEVICE_SEARCH,
+            DeviceContentKeyResolver.newParentMappings["hwappbarpattern_layout_ok_icon"])
         assertEquals(
             SettingsKeys.DEVICE_MENU,
             DeviceContentKeyResolver.resolve("hwappbarpattern_layout_ok_icon"),

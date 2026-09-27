@@ -1,12 +1,12 @@
 package love.nairain.huawei.config
 
-/** 模块应用与目标进程共享的 schema v2 配置键。 */
+/** 模块应用与目标进程共享的 schema v3 配置键。 */
 object SettingsKeys {
     const val GROUP = "huawei_health_trim"
     const val SCHEMA_VERSION = "schema_version"
-    const val CURRENT_SCHEMA_VERSION = 2
+    const val CURRENT_SCHEMA_VERSION = 3
 
-    // 仅这两个旧键继续沿用；旧版 row_* / tab_* 键有意不再读取。
+    // 保留既有同义键；旧版 row_* / tab_* 键有意不再读取。
     const val ENABLED = "enabled"
     const val HIDE_LAUNCHER_ICON = "hide_launcher_icon"
 
@@ -24,12 +24,39 @@ object SettingsKeys {
     const val SPORT_SEARCH = "hide.sport.search"
     const val SPORT_MORE = "hide.sport.more_menu"
     const val SPORT_BANNER = "hide.sport.banner"
+    const val SPORT_TAB_RECOMMEND = "hide.sport.tab.recommend"
+    const val SPORT_TAB_PLAN = "hide.sport.tab.plan"
+    const val SPORT_TAB_RUN = "hide.sport.tab.outdoor_run"
+    const val SPORT_TAB_YOGA = "hide.sport.tab.yoga"
+    const val SPORT_TAB_FITNESS = "hide.sport.tab.fitness"
+    const val SPORT_QUICK_ENTRIES = "hide.sport.quick_entries"
     const val SPORT_STRETCH = "hide.sport.entry.stretch"
     const val SPORT_TRADITIONAL = "hide.sport.entry.traditional"
     const val SPORT_CYCLING = "hide.sport.entry.cycling"
     const val SPORT_GOLF = "hide.sport.entry.golf"
     const val SPORT_DANCE = "hide.sport.entry.dance"
     const val SPORT_PILATES = "hide.sport.entry.pilates"
+    const val SPORT_MASTER_YOGA = "hide.sport.entry.master_yoga"
+    const val SPORT_MUSCLE = "hide.sport.entry.muscle"
+    const val SPORT_RUN_POWER = "hide.sport.entry.run_power"
+    const val SPORT_BLUE_STAR = "hide.sport.entry.blue_star"
+    const val SPORT_WALK_RUN = "hide.sport.entry.walk_run"
+    const val SPORT_MUAY_THAI = "hide.sport.entry.muay_thai"
+    const val SPORT_LATEST = "hide.sport.latest"
+    const val SPORT_PLAN_CARDS = "hide.sport.plan.cards"
+    const val SPORT_PLAN_WEIGHT = "hide.sport.plan.weight"
+    const val SPORT_PLAN_TRAINING = "hide.sport.plan.training"
+    const val SPORT_RUN_SUMMARY = "hide.sport.run.summary"
+    const val SPORT_RUN_ROUTE = "hide.sport.run.route"
+    const val SPORT_RUN_WARMUP = "hide.sport.run.warmup"
+    const val SPORT_RUN_BEGIN = "hide.sport.run.begin"
+    const val SPORT_RUN_MUSIC = "hide.sport.run.music"
+    const val SPORT_FITNESS_SUMMARY = "hide.sport.fitness.summary"
+    const val SPORT_YOGA_SUMMARY = "hide.sport.yoga.summary"
+    const val SPORT_YOGA_COURSES = "hide.sport.yoga.courses"
+    const val SPORT_MY_COURSES = "hide.sport.fitness.my_courses"
+    const val SPORT_WEEKLY_PLAN = "hide.sport.fitness.weekly_plan"
+    const val SPORT_RUN_TRAINING = "hide.sport.run.training"
     const val SPORT_ENJOY = "hide.sport.enjoy"
     const val SPORT_TODAY = "hide.sport.today"
     const val SPORT_MORE_COURSES = "hide.sport.more_courses"
@@ -48,6 +75,15 @@ object SettingsKeys {
     const val DEVICE_RECOMMENDED = "hide.device.recommended"
     const val DEVICE_MARKETING = "hide.device.marketing"
     const val DEVICE_STORE = "hide.device.store"
+    const val DEVICE_SWITCHER = "hide.device.tab_switcher"
+    const val DEVICE_TAB_DEVICE = "hide.device.tab.device"
+    const val DEVICE_TAB_STORE = "hide.device.tab.store"
+    const val DEVICE_PRIMARY = "hide.device.primary_card"
+    const val DEVICE_TIPS = "hide.device.tips"
+    const val DEVICE_GENERAL_SETTINGS = "hide.device.general_settings"
+    const val DEVICE_DISCONNECT_PROTECTION = "hide.device.disconnect_protection"
+    const val DEVICE_MY_WATCH = "hide.device.my_watch"
+    const val DEVICE_FEATURES = "hide.device.features"
 
     const val MINE_MESSAGES = "hide.mine.messages"
     const val MINE_ACCOUNT = "hide.mine.account"
