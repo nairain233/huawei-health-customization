@@ -23,9 +23,9 @@ jobs:
       contents: write
     steps:
       - name: Download signed APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
-          name: huaweihook-release
+          name: build
           path: app/build/outputs/signed
 
       - name: Publish preview release
@@ -36,8 +36,8 @@ jobs:
         run: |
           set -euo pipefail
           preview_tag="preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          preview_apk="app/build/outputs/signed/pre-release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}.apk"
-          mv "app/build/outputs/signed/huaweihook-release.apk" "$preview_apk"
+          preview_apk="app/build/outputs/signed/pre-release.apk"
+          mv "app/build/outputs/signed/build.apk" "$preview_apk"
 
           cat > "$RUNNER_TEMP/preview-notes.md" <<'EOF'
           ## 这是手动构建的测试版。
