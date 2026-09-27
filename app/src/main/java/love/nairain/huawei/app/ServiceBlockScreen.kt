@@ -35,6 +35,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -128,13 +129,9 @@ internal fun ServiceBlockScreen(
                 }
                 ServiceSection.entries.forEach { section ->
                     item(section.name) {
+                        SmallTitle(text = stringResource(if (section == ServiceSection.LOW_COUPLING)
+                            R.string.service_block_low_title else R.string.service_block_core_title))
                         Card(modifier = card.testTag("service-block:section:${section.name}"), insideMargin = PaddingValues(0.dp)) {
-                            Text(
-                                text = stringResource(if (section == ServiceSection.LOW_COUPLING)
-                                    R.string.service_block_low_title else R.string.service_block_core_title),
-                                modifier = text,
-                                style = MiuixTheme.textStyles.body1,
-                            )
                             Text(
                                 text = stringResource(if (section == ServiceSection.CORE)
                                     R.string.service_core_notice else R.string.service_low_notice),
