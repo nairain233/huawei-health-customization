@@ -132,14 +132,6 @@ internal fun ServiceBlockScreen(
                         SmallTitle(text = stringResource(if (section == ServiceSection.LOW_COUPLING)
                             R.string.service_block_low_title else R.string.service_block_core_title))
                         Card(modifier = card.testTag("service-block:section:${section.name}"), insideMargin = PaddingValues(0.dp)) {
-                            Text(
-                                text = stringResource(if (section == ServiceSection.CORE)
-                                    R.string.service_core_notice else R.string.service_low_notice),
-                                modifier = text,
-                                style = if (section == ServiceSection.CORE) {
-                                    summaryStyle.copy(color = MiuixTheme.colorScheme.error)
-                                } else summaryStyle,
-                            )
                             ServicePreset.visible(section).forEach { group ->
                                 val selected = group.id in state.config.presets
                                 val legacy = ServicePreset.hasLegacySelection(state.config.presets, group)
