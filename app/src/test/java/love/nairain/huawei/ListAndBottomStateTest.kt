@@ -69,4 +69,17 @@ class ListAndBottomStateTest {
         assertEquals(SettingsKeys.BOTTOM_MINE, BottomTabIndexResolver.resolve(4))
         assertNull(BottomTabIndexResolver.resolve(5))
     }
+
+    @Test
+    fun reducedBottomTabsUseRecordedIdentityInsteadOfFiveTabIndexes() {
+        // 未登录等模式可省略会员页，索引 2 此时不能按五项布局解释为会员。
+        assertNull(BottomTabIndexResolver.resolve(2, itemCount = 4))
+        assertNull(BottomTabIndexResolver.resolve(1, itemCount = 3))
+        val instance = Any()
+        val state = BottomTabStateStore<Any>()
+        state.record(instance, 2, false)
+        assertTrue(state.snapshot(instance).isEmpty())
+        state.record(instance, 2, true)
+        assertEquals(setOf(2), state.snapshot(instance))
+    }
 }

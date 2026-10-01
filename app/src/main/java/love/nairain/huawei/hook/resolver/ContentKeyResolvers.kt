@@ -31,7 +31,7 @@ class RowKeyResolver {
             "IDS_settings_about" to SettingsKeys.MINE_ABOUT,
         )
 
-        /** 17.0.7.310 运行时资源名被压缩为数字，因此保留该版本核验后的 R.string ID。 */
+        /** 17.0.7.320 已重新核对 R.string ID；资源名压缩时仅向该版本开放数字后备。 */
         private val RESOURCE_IDS = mapOf(
             0x7f0211b2 to SettingsKeys.MINE_MEDALS,
             0x7f021581 to SettingsKeys.MINE_ACHIEVEMENTS,
@@ -225,17 +225,17 @@ object DeviceContentKeyResolver {
         "hwappbarpattern_ok_icon" to SettingsKeys.DEVICE_SEARCH,
     )
 
-    /** 仅限 17.0.7.310 核验的 Arkui 委托类；未知类不参与折叠。 */
+    /** 仅限 17.0.7.320 核验的 Arkui 委托类；未知类不参与折叠。 */
     val arkuiDelegateKeys = mapOf(
         "rxl" to SettingsKeys.DEVICE_PRIMARY,
-        "ryd" to SettingsKeys.DEVICE_LIST,
-        "ryk" to SettingsKeys.DEVICE_TIPS,
+        "rya" to SettingsKeys.DEVICE_LIST,
+        "ryi" to SettingsKeys.DEVICE_TIPS,
         "ryg" to SettingsKeys.DEVICE_MY_WATCH,
-        "rys" to SettingsKeys.DEVICE_WATCH_FACES,
-        "ryc" to SettingsKeys.DEVICE_FUNCTIONS,
-        "ryv" to SettingsKeys.DEVICE_FUNCTIONS,
-        "rxn" to SettingsKeys.DEVICE_FUNCTIONS,
-        "rxz" to SettingsKeys.DEVICE_FEATURES,
+        "ryr" to SettingsKeys.DEVICE_WATCH_FACES,
+        "rxz" to SettingsKeys.DEVICE_FUNCTIONS,
+        "ryq" to SettingsKeys.DEVICE_FUNCTIONS,
+        "rxg" to SettingsKeys.DEVICE_FUNCTIONS,
+        "ryb" to SettingsKeys.DEVICE_FEATURES,
     )
     val arkuiSettings = mapOf(
         "通用设置" to SettingsKeys.DEVICE_GENERAL_SETTINGS,

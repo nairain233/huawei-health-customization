@@ -220,7 +220,7 @@ class SportPageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader, context.points.sportColumnAdapter) ?: return 0
         val method = ReflectionTargets.methods(type, "x", 2).firstOrNull {
             it.returnType == Void.TYPE &&
-                it.parameterTypes.getOrNull(0)?.name == "${context.points.sportColumnAdapter}\$e" &&
+                it.parameterTypes.getOrNull(0)?.name == "${context.points.sportColumnAdapter}\$b" &&
                 it.parameterTypes.getOrNull(1) == Int::class.javaPrimitiveType
         } ?: return 0
         context.hooks.hook(method).setId("$id:quick-entry-bind")
@@ -228,7 +228,7 @@ class SportPageFeature : HookFeature {
             .intercept { chain ->
                 val result = chain.proceed()
                 val holder = chain.args.firstOrNull()
-                val root = holder?.let { ReflectionTargets.fieldValue(it, "cn") } as? View
+                val root = holder?.let { ReflectionTargets.fieldValue(it, "cq") } as? View
                 applyBoundQuickEntry(root, context)
                 root?.post { applyBoundQuickEntry(root, context) }
                 result

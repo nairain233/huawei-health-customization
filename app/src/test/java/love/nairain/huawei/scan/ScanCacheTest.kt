@@ -24,4 +24,18 @@ class ScanCacheTest {
         assertTrue(runCatching { ScanCache.decode("{", "apk1", "request1") {} }.isFailure)
         assertTrue(runCatching { ScanCache.decode(raw, "apk1", "request1") { throw NoSuchMethodException() } }.isFailure)
     }
+
+    @Test fun rule5CacheCannotBeUsedAfter320Adaptation() {
+        val apk = kotlin.io.path.createTempFile().toFile()
+        try {
+            apk.writeText("same APK content")
+            val previous = ApkIdentity.fingerprint("17.0.7.320", 1700007320L, 10, listOf(apk), rules = 5)
+            val current = ApkIdentity.fingerprint("17.0.7.320", 1700007320L, 10, listOf(apk))
+            assertNotEquals(previous, current)
+            val raw = ScanCache.encode(previous, "", resolution)
+            assertTrue(runCatching { ScanCache.decode(raw, current, "") {} }.isFailure)
+        } finally {
+            apk.delete()
+        }
+    }
 }

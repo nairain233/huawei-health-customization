@@ -92,6 +92,20 @@ class ContentResolversTest {
     }
 
     @Test
+    fun maps320DeviceDelegatesWithoutReusing310Meanings() {
+        val delegates = DeviceContentKeyResolver.arkuiDelegateKeys
+        assertEquals(SettingsKeys.DEVICE_LIST, delegates["rya"])
+        assertEquals(SettingsKeys.DEVICE_TIPS, delegates["ryi"])
+        assertEquals(SettingsKeys.DEVICE_WATCH_FACES, delegates["ryr"])
+        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["rxz"])
+        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["ryq"])
+        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["rxg"])
+        assertEquals(SettingsKeys.DEVICE_FEATURES, delegates["ryb"])
+        listOf("ryd", "ryk", "rys", "ryc", "ryv", "rxn").forEach { assertNull(delegates[it]) }
+        assertNull(RowKeyResolver().resolve("2130841936", 0x7f021150, allowStaticIds = false))
+    }
+
+    @Test
     fun mineMarketingFilterRemovesOnlyVerifiedPositionIdsWhenEnabled() {
         val source = linkedMapOf<Any, String>(
             MineMarketingContentResolver.NEW_PRODUCT_POSITION_ID to "new product",

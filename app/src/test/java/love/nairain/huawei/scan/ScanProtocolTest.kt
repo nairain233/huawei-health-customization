@@ -8,11 +8,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ScanProtocolTest {
-    private fun report() = ScanReport("a".repeat(64), "17.0.7.310", 1700007310, 10, "request", "11111111-1111-1111-1111-111111111111", 100, time = 100)
+    private fun report() = ScanReport("a".repeat(64), "17.0.7.320", 1700007320, 10, "request", "11111111-1111-1111-1111-111111111111", 100, time = 100)
 
     @Test fun countsOnlyLayoutChoicesAndKeepsDisabledChoices() {
         assertEquals(96, ScanProtocol.keys.size)
-        assertEquals(5, ScanProtocol.RULES)
+        assertEquals(6, ScanProtocol.RULES)
         assertFalse(ScanProtocol.keys.any { it.startsWith("hide.sport.tab.") })
         assertFalse(ScanProtocol.keys.contains(SettingsKeys.ENABLED))
         assertFalse(ScanProtocol.keys.contains(SettingsKeys.HIDE_LAUNCHER_ICON))
