@@ -196,7 +196,6 @@
     <string name="service_block_custom_paused">已有自定义服务规则已保留，开启调试模式后才会恢复。</string>
     <string name="service_block_low_title">低耦合服务</string>
     <string name="service_block_core_title">核心服务</string>
-    <string name="service_evidence_pending">职责依据不足，仅供调试确认，当前不生成拦截规则。</string>
     <string name="service_group_missing">当前版本未声明此组组件，保持放行。</string>
     <string name="service_legacy_partial">检测到旧规则的部分组件，未自动扩大为完整业务组。</string>
     <string name="service_legacy_clear">清除旧规则</string>
@@ -228,8 +227,4 @@
     <string name="service_group_daemon_impact">多个功能可能同时受影响</string>
     <string name="service_group_wallet">钱包与支付后台服务</string>
     <string name="service_group_wallet_impact">钱包、交通卡或车钥匙可能不可用</string>
-    <string name="service_group_sleep">睡眠与专项健康服务</string>
-    <string name="service_group_sleep_impact">睡眠记录或专项提醒可能失效</string>
-    <string name="service_group_diagnostics">设备诊断后台服务</string>
-    <string name="service_group_diagnostics_impact">设备诊断和跨设备修复可能不可用</string>
 </resources>

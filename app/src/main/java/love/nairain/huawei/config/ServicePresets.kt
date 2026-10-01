@@ -55,12 +55,7 @@ internal enum class ServicePreset(
         "com.huawei.health/com.huawei.health.hwwear.pluginpay.HealthWalletBusinessService",
         "com.huawei.health/com.huawei.health.hwwear.pluginpay.HealthTransitOpenService",
         "com.huawei.health/com.huawei.wear.wallet.proxy.openservice.WalletPassService",
-        "com.huawei.health/com.huawei.wear.wallet.proxy.openservice.BleCarKeyService")),
-    // 插件只有 Manifest 声明，尚无方法体证据；展示待确认，不生成组规则。
-    SLEEP("sleep", ServiceSection.CORE, R.string.service_group_sleep, R.string.service_group_sleep_impact, emptySet()),
-    DIAGNOSTICS("diagnostics", ServiceSection.CORE, R.string.service_group_diagnostics, R.string.service_group_diagnostics_impact, emptySet());
-
-    val evidenceConfirmed: Boolean get() = components.isNotEmpty()
+        "com.huawei.health/com.huawei.wear.wallet.proxy.openservice.BleCarKeyService"));
 
     companion object {
         private val appLegacy = setOf("com.huawei.health/com.huawei.hwversionmgr.utils.service.UpdateService")
@@ -82,7 +77,6 @@ internal enum class ServicePreset(
             ids.any { it in legacy && componentsFor(it).any(group.components::contains) }
 
         fun changeSelection(ids: Set<String>, group: ServicePreset, selected: Boolean): Set<String> {
-            if (selected && !group.evidenceConfirmed) return ids
             val expanded = if ("app_update" in ids) {
                 ids - "app_update" + setOf("legacy.app_update.app", "legacy.app_update.device")
             } else ids

@@ -193,7 +193,6 @@
     <string name="service_block_custom_paused">Existing custom service rules are preserved and resume when debug mode is enabled.</string>
     <string name="service_block_low_title">Low coupling services</string>
     <string name="service_block_core_title">Core services</string>
-    <string name="service_evidence_pending">Insufficient evidence; debug-only and no blocking rule is generated.</string>
     <string name="service_group_missing">No matching component is declared in this version; traffic remains allowed.</string>
     <string name="service_legacy_partial">Some legacy rules were found; the full group was not enabled automatically.</string>
     <string name="service_legacy_clear">Clear legacy rules</string>
@@ -225,8 +224,4 @@
     <string name="service_group_daemon_impact">Multiple application features may be affected.</string>
     <string name="service_group_wallet">Wallet and payment services</string>
     <string name="service_group_wallet_impact">Wallet, transit card, or car key functions may become unavailable.</string>
-    <string name="service_group_sleep">Sleep and specialized health services</string>
-    <string name="service_group_sleep_impact">Sleep records or specialized health reminders may fail.</string>
-    <string name="service_group_diagnostics">Device diagnostics services</string>
-    <string name="service_group_diagnostics_impact">Device diagnostics and cross-device repair may become unavailable.</string>
 </resources>
