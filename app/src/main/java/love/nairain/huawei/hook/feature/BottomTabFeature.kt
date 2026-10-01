@@ -97,7 +97,7 @@ class BottomTabFeature : HookFeature {
             val child = view.getChildAt(position) ?: continue
             val index = itemIndex(child) ?: continue
             val key = if (verifiedVersion)
-                BottomTabIndexResolver.resolve(index) else null
+                BottomTabIndexResolver.resolve(index, view.childCount) else null
             val hiddenByConfig = key != null && context.config[key] == true
             if (key != null) state.record(view, index, hiddenByConfig)
             if (hiddenByConfig || index in hiddenIndexes) {

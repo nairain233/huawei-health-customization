@@ -32,5 +32,7 @@ object BottomTabIndexResolver {
         SettingsKeys.BOTTOM_MINE,
     )
 
-    fun resolve(index: Int): String? = keys.getOrNull(index)
+    /** 基准版 MainActivity 会按模式省略会员、运动或设备；只有完整五项可使用固定索引。 */
+    fun resolve(index: Int, itemCount: Int = keys.size): String? =
+        if (itemCount == keys.size) keys.getOrNull(index) else null
 }

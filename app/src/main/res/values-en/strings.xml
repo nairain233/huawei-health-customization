@@ -179,7 +179,7 @@
     <string name="service_block_notice">Blocks only explicit service starts and bindings initiated by the Huawei Health main process, including foreground services. It does not immediately stop running services or prevent the system, other apps, or subprocesses from starting them.\nBlocked services may affect notifications, device connections, and synchronization. Unblock them and restart the app to allow them again.\nRestart Huawei Health completely twice after making changes. This feature is independent of interface customization.</string>
     <string name="service_block_loading">Loading services…</string>
     <string name="service_block_not_installed">Huawei Health is not installed or is not visible to the current user.</string>
-    <string name="service_block_unsupported">Service blocking is not supported for this version. Only 17.0.7.310 is supported. You can still view services, turn off the master switch, or remove old rules.</string>
+    <string name="service_block_unsupported">Service blocking is unavailable for the current system hooks. You can still view services, turn off the master switch, or remove old rules.</string>
     <string name="service_block_load_error">Unable to load the service list. Refresh and try again.</string>
     <string name="service_block_disconnected">The module configuration service is disconnected. Editing is temporarily unavailable.</string>
     <string name="service_block_save_uncertain">Save failed and the previous configuration could not be confirmed as restored. Editing is paused. Reconnect the module configuration service, then refresh and verify the settings.</string>

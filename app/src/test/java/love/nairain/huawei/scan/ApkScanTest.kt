@@ -35,10 +35,24 @@ class ApkScanTest {
             assertTrue(SettingsKeys.MINE_MARKETING in result.matched)
             assertTrue("mine.marketing" in result.groups)
             assertTrue("必须覆盖复用恢复入口", "sport.quick-entry-bind" in result.groups)
+            assertTrue("device.refresh.1" in result.groups)
+            assertTrue("Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->l:Landroid/widget/LinearLayout;" in result.descriptors)
+            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter;->x(Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$b;I)V" in result.descriptors)
+            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$b;->cq:Landroid/widget/RelativeLayout;" in result.descriptors)
+            assertTrue("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$b\$4;->d(Ljava/util/Map;)V" in result.descriptors)
+            assertEquals("wsl", result.mineManager)
+            assertEquals("r", result.aliases["wsl#t#0"])
+            assertEquals("n", result.aliases["wsl#l#0"])
+            assertEquals("e", result.aliases["wqy#a#0"])
+            assertEquals("h", result.aliases["wqy#j#0"])
 
             val generic = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, {}, false).scan { _, _ -> }
             assertTrue(SettingsKeys.MINE_GROUP in generic.matched)
-            assertFalse("未知版本不能使用编辑卡片的旧符号后备", SettingsKeys.HEALTH_EDIT_CARDS in generic.matched)
+            assertFalse("未知版本不能使用编辑卡片的静态符号后备", SettingsKeys.HEALTH_EDIT_CARDS in generic.matched)
+            assertFalse(SettingsKeys.MINE_MARKETING in generic.matched)
+            assertFalse(SettingsKeys.DEVICE_PRIMARY in generic.matched)
+            assertFalse("旧设备页命中不能开放 Arkui 混淆委托", "device.new.delegates" in generic.groups)
+            assertFalse("sport.quick-entry-bind" in generic.groups)
             if (output.isNotEmpty()) File("$output.generic.json").writeText(generic.encode())
 
             val missing = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
@@ -46,6 +60,24 @@ class ApkScanTest {
             }, true).scan { _, _ -> }
             assertFalse(SettingsKeys.HEALTH_ACTIVITY_RINGS in missing.matched)
             assertTrue(SettingsKeys.MINE_GROUP in missing.matched)
+
+            val missingField = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
+                if (symbol == "Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->l:Landroid/widget/LinearLayout;") {
+                    throw NoSuchFieldException()
+                }
+            }, true).scan { _, _ -> }
+            assertFalse(SettingsKeys.HEALTH_EDIT_CARDS in missingField.matched)
+            assertTrue(SettingsKeys.HEALTH_QUICK_ENTRIES in missingField.matched)
+            assertTrue(SettingsKeys.MINE_MARKETING in missingField.matched)
+
+            val missingCallback = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
+                if (symbol.startsWith("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$b\$4;")) {
+                    throw ClassNotFoundException()
+                }
+            }, true).scan { _, _ -> }
+            assertFalse(SettingsKeys.MINE_MARKETING in missingCallback.matched)
+            assertTrue(SettingsKeys.MINE_GROUP in missingCallback.matched)
+            assertTrue(SettingsKeys.DEVICE_PRIMARY in missingCallback.matched)
 
             val fixture = System.getProperty("scan.fixture").orEmpty()
             if (fixture.isNotEmpty()) DexKitBridge.create(arrayOf(File(fixture).readBytes())).use { collision ->
