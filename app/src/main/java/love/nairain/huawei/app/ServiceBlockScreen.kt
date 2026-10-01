@@ -144,10 +144,9 @@ internal fun ServiceBlockScreen(
                                     },
                                     modifier = Modifier.testTag("service-block:preset:${group.id}"),
                                 )
-                                if (!group.evidenceConfirmed || !available) {
+                                if (!available) {
                                     Text(
-                                        stringResource(if (!group.evidenceConfirmed) R.string.service_evidence_pending
-                                            else R.string.service_group_missing),
+                                        stringResource(R.string.service_group_missing),
                                         modifier = text,
                                         style = summaryStyle.copy(color = MiuixTheme.colorScheme.error),
                                     )
