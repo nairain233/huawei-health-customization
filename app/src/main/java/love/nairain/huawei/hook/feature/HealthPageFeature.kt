@@ -97,7 +97,7 @@ class HealthPageFeature : HookFeature {
                 .intercept { chain ->
                     val result = chain.proceed()
                     if (context.config[SettingsKeys.HEALTH_EDIT_CARDS] == true) {
-                        (ReflectionTargets.fieldValue(chain.thisObject, "m") as? View)
+                        (ReflectionTargets.fieldValue(chain.thisObject, "l") as? View)
                             ?.let(ViewTrimmer::collapse)
                     }
                     result

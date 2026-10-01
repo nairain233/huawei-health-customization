@@ -100,11 +100,11 @@ class ScanStatusCardTest {
     }
 
     @Test fun pendingKeepsPreviousPhaseAndDisablesDuplicateRequest() {
-        val report = ScanReport("a".repeat(64), "17.0.7.310", 1700007310, 1, "", "11111111-1111-1111-1111-111111111111", 1,
+        val report = ScanReport("a".repeat(64), "17.0.7.320", 1700007320, 1, "", "11111111-1111-1111-1111-111111111111", 1,
             phase = "complete", checked = ScanProtocol.keys, matched = setOf(SettingsKeys.MINE_FAMILY))
         compose.setContent { MiuixTheme { ScanStatusCard(ScanUiState(report, pending = true, writable = true), {}) } }
         compose.onNodeWithTag("scan:matched").assertDoesNotExist()
-        compose.onNodeWithText("17.0.7.310", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("17.0.7.320", substring = true).assertDoesNotExist()
         compose.onNodeWithText("服务屏蔽", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("scan:phase", useUnmergedTree = true).assertTextEquals(
             resourceString(R.string.scan_complete_partial, 1, ScanProtocol.keys.size),
@@ -149,7 +149,7 @@ class ScanStatusCardTest {
     }
 
     @Test fun completeShowsAllDiscoveredAndHasNoSeparateButton() {
-        val report = ScanReport("a".repeat(64), "17.0.7.310", 1700007310, 1, "", "11111111-1111-1111-1111-111111111111", 1,
+        val report = ScanReport("a".repeat(64), "17.0.7.320", 1700007320, 1, "", "11111111-1111-1111-1111-111111111111", 1,
             phase = "complete", checked = ScanProtocol.keys, matched = ScanProtocol.keys)
         compose.setContent { MiuixTheme { ScanStatusCard(ScanUiState(report, writable = true), {}) } }
         compose.onNodeWithTag("scan:phase", useUnmergedTree = true)
@@ -165,7 +165,7 @@ class ScanStatusCardTest {
     }
 
     @Test fun runningShowsProgressAndDisablesRescan() {
-        val report = ScanReport("a".repeat(64), "17.0.7.310", 1700007310, 1, "", "11111111-1111-1111-1111-111111111111", 1,
+        val report = ScanReport("a".repeat(64), "17.0.7.320", 1700007320, 1, "", "11111111-1111-1111-1111-111111111111", 1,
             phase = "running", checked = setOf(SettingsKeys.MINE_FAMILY))
         compose.setContent { MiuixTheme { ScanStatusCard(ScanUiState(report, writable = true), {}) } }
         compose.onNodeWithTag("scan:phase", useUnmergedTree = true)
@@ -184,7 +184,7 @@ class ScanStatusCardTest {
         compose.onNodeWithTag("scan:phase", useUnmergedTree = true)
             .assertTextEquals(resourceString(R.string.scan_uncertain))
         compose.runOnIdle {
-            state.value = ScanUiState(report = ScanReport("a".repeat(64), "17.0.7.310", 1700007310, 1, "",
+            state.value = ScanUiState(report = ScanReport("a".repeat(64), "17.0.7.320", 1700007320, 1, "",
                 "11111111-1111-1111-1111-111111111111", 1, phase = "failed"), saveFailed = true)
         }
         compose.onNodeWithTag("scan:phase", useUnmergedTree = true)

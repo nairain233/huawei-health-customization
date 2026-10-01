@@ -62,7 +62,7 @@ internal class LayoutScanner(
     private val verifySymbol: (String) -> Unit,
     private val known: Boolean,
 ) {
-    private val points = HuaweiHealthHookPoints.V17_0_7_310
+    private val points = HuaweiHealthHookPoints.V17_0_7_320
     private val aliases = linkedMapOf<String, String>()
     private val descriptors = linkedSetOf<String>()
     private val groups = linkedSetOf<String>()
@@ -209,7 +209,7 @@ internal class LayoutScanner(
         run("health.edit-cards", setOf(K.HEALTH_EDIT_CARDS)) {
             require(known)
             method(points.functionSetHolder, "l", "void", emptyList())
-            field(points.functionSetHolder, "m", "android.widget.LinearLayout")
+            field(points.functionSetHolder, "l", "android.widget.LinearLayout")
         }
         val sportControls = SportPageTargets.controls.entries.groupBy({ it.value }, { it.key })
         sportControls.forEach { (key, names) -> run("sport.chrome", setOf(key)) {
@@ -258,12 +258,12 @@ internal class LayoutScanner(
         // 快捷入口绑定是列表复用恢复的独立入口，目前文字后备仅限已核验版本。
         if (known) {
             group("sport.quick-entry-bind", emptySet()) {
-                // k/x 共用日志和签名，按内容访问器返回类型排除另一种网格布局。
+                // 两种网格绑定共用日志和签名，按内容访问器返回类型选择快捷入口。
                 val candidates = bridges.flatMap { bridge -> bridge.findMethod {
                     matcher {
                         declaredClass(points.sportColumnAdapter)
                         returnType("void")
-                        paramTypes("${points.sportColumnAdapter}\$e", "int")
+                        paramTypes("${points.sportColumnAdapter}\$b", "int")
                         usingEqStrings(listOf("setQuickEntryLayout content is null."))
                     }
                 } }.distinctBy { it.descriptor }.filter { candidate ->
@@ -271,7 +271,7 @@ internal class LayoutScanner(
                 }
                 require(candidates.size == 1) { "ambiguous" }
                 remember(candidates.single(), points.sportColumnAdapter, "x")
-                field("${points.sportColumnAdapter}\$e", "cn", "android.widget.RelativeLayout")
+                field("${points.sportColumnAdapter}\$b", "cq", "android.widget.RelativeLayout")
             }
         }
         DeviceContentKeyResolver.resourceMappings.values.toSet().forEach { key -> run("device.fragment.0", setOf(key)) {
@@ -320,7 +320,7 @@ internal class LayoutScanner(
                 method(points.deviceFragments[0], "a", "void", listOf("java.util.List"), "mContext = null or mMarketingBanner = null")
             }
             group("device.refresh.1", emptySet()) {
-                method(points.deviceFragments[1], "b", "void", listOf("com.huawei.health.marketing.api.MarketingApi", "java.util.Map"))
+                method(points.deviceFragments[1], "e", "void", listOf("com.huawei.health.marketing.api.MarketingApi", "java.util.Map"))
             }
         }
         val headers = mapOf(K.MINE_MESSAGES to "rl_actionbar_right", K.MINE_ACCOUNT to "head_layout", K.MINE_VIP to "vip_layout")
@@ -338,6 +338,8 @@ internal class LayoutScanner(
             aliases["grid:${model.className}"] = key
         } }
         run("mine.marketing", setOf(K.MINE_MARKETING)) {
+            // 回调类与营销位置 ID 属于基准 APK 的联合证据，不向未知版本复用。
+            require(known)
             val callback = points.mineMarketingCallback
             // JADX 将该方法还原为 onSuccess(Map)，实际 Dex 中是 d(Map)，并由 onSuccess(Object) 桥接。
             val success = method(callback, "d", "void", listOf("java.util.Map"))
@@ -381,7 +383,8 @@ internal class LayoutScanner(
             groups += "sport.top"
             capabilities["sport.top"] = sportViewKeys.toMutableSet()
         }
-        val arkuiKeys = matched.intersect(arkuiResources.keys)
+        // 旧页与 Arkui 页共享部分配置键；旧页命中不能授权使用基准版混淆委托。
+        val arkuiKeys = capabilities["device.new.arkui"].orEmpty().toSet()
         if (arkuiKeys.isNotEmpty()) {
             groups += "device.new.delegates"
             capabilities["device.new.delegates"] = arkuiKeys.toMutableSet()

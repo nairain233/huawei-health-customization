@@ -101,7 +101,7 @@ internal object HookCoordinator {
         ScanRuntime.start(application, packageInfo, classLoader, request, serviceStatus, logger) { resolution ->
         ReflectionTargets.aliases = resolution.aliases
         ReflectionTargets.resolvedDescriptors = resolution.descriptors
-        val points = HuaweiHealthHookPoints.V17_0_7_310.copy(
+        val points = HuaweiHealthHookPoints.V17_0_7_320.copy(
             versionName = versionName.orEmpty(), versionCode = versionCode, mineListManager = resolution.mineManager,
         )
         val context = HookContext(
