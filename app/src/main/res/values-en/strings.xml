@@ -182,7 +182,7 @@
     <string name="service_block_unsupported">Service blocking is unavailable for the current system hooks. You can still view services, turn off the master switch, or remove old rules.</string>
     <string name="service_block_load_error">Unable to load the service list. Refresh and try again.</string>
     <string name="service_block_disconnected">The module configuration service is disconnected. Editing is temporarily unavailable.</string>
-    <string name="service_block_save_uncertain">Save failed and the previous configuration could not be confirmed as restored. Editing is paused. Reconnect the module configuration service, then refresh and verify the settings.</string>
+    <string name="service_block_save_uncertain">Save failed and the previous configuration could not be confirmed as restored. Editing is paused until the module configuration service reconnects and the settings load successfully. Refreshing or reopening this page does not resume editing.</string>
     <string name="service_block_empty">No matching services.</string>
     <string name="service_block_missing">Not found in the current version and will not be blocked. You can remove this rule.</string>
     <string name="service_block_details">Process: %1$s\nExported: %2$s · Enabled by system: %3$s</string>

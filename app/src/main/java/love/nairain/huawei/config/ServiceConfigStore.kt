@@ -6,21 +6,17 @@ internal data class ServiceSaveResult(val saved: Boolean, val restored: Boolean 
 
 /** RemotePreferences.commit 会先更新本地缓存，失败时必须尝试恢复旧值。仅在工作线程调用。 */
 internal object ServiceConfigStore {
-    fun save(preferences: SharedPreferences, previous: ServiceBlockConfig, next: ServiceBlockConfig): ServiceSaveResult {
-        return try {
-            if (ServiceBlockConfig.write(preferences, next)) ServiceSaveResult(true)
-            else restore(preferences, previous)
-        } catch (_: RuntimeException) {
-            restore(preferences, previous)
-        }
-    }
-
-    private fun restore(preferences: SharedPreferences, previous: ServiceBlockConfig): ServiceSaveResult {
-        val restored = try {
-            ServiceBlockConfig.write(preferences, previous)
+    fun save(preferences: SharedPreferences, next: ServiceBlockConfig): ServiceSaveResult {
+        val original = preferences.snapshot()
+        val saved = try {
+            ServiceBlockConfig.write(preferences, next)
         } catch (_: RuntimeException) {
             false
         }
-        return ServiceSaveResult(false, restored)
+        if (saved) return ServiceSaveResult(true)
+        return ServiceSaveResult(false, restorePreferences(preferences, KEYS, original))
     }
+
+    private val KEYS = setOf(ServiceBlockConfig.ENABLED, ServiceBlockConfig.COMPONENTS,
+        ServiceBlockConfig.PRESETS, ServiceBlockConfig.DEBUG_MODE)
 }
