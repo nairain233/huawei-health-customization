@@ -115,7 +115,6 @@ internal fun ServiceBlockScreen(
                     ) {
                         SwitchPreference(
                             title = stringResource(R.string.service_block_enabled),
-                            summary = stringResource(R.string.service_block_notice).lineSequence().first(),
                             checked = state.config.enabled,
                             enabled = state.writable && (state.catalog.supported || state.config.enabled),
                             onCheckedChange = { onConfigChange(state.config.copy(enabled = it)) },
