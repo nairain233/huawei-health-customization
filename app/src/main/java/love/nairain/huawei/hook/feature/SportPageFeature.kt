@@ -16,8 +16,9 @@ import love.nairain.huawei.hook.resolver.ReflectionTargets
 import love.nairain.huawei.hook.resolver.SportContentKeyResolver
 import love.nairain.huawei.hook.resolver.SportPageTargets
 import love.nairain.huawei.hook.resolver.SportTab
-import love.nairain.huawei.hook.util.PageLayoutObserver
 import love.nairain.huawei.hook.util.ActivePageObserver
+import love.nairain.huawei.hook.util.applyPage
+import love.nairain.huawei.hook.util.post
 import love.nairain.huawei.hook.util.ViewSelectors
 import love.nairain.huawei.hook.util.ViewTrimmer
 import java.util.WeakHashMap
@@ -41,22 +42,13 @@ class SportPageFeature : HookFeature {
     private fun installTopControls(context: HookContext): Int {
         val type = ReflectionTargets.type(context.classLoader, context.points.sportFragment) ?: return 0
         val method = ReflectionTargets.method(type, "onCreateView", 3) ?: return 0
-        ActivePageObserver.observe { activity ->
-            val tabLayout = ViewSelectors.findByResourceName(activity.window.decorView,
-                context.application.packageName, "tab_layout") ?: return@observe
-            val page = tabLayout.parent as? View ?: return@observe
-            PageLayoutObserver.observe(page) { view -> applyPageViews(view, context) }
-            applyPageViews(page, context)
-        }
+        val callbacks = context.hooks.callbacks()
+        ActivePageObserver.observeFragment(callbacks, type) { view -> applyPageViews(view, context) }
         context.hooks.hook(method).setId("$id:top")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
-                (result as? View)?.let {
-                    PageLayoutObserver.observe(it) { view -> applyPageViews(view, context) }
-                    applyPageViews(it, context)
-                    it.post { applyPageViews(it, context) }
-                }
+                callbacks.applyPage(result as? View) { view -> applyPageViews(view, context) }
                 result
             }
         var count = 1
@@ -65,10 +57,8 @@ class SportPageFeature : HookFeature {
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    (ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View)?.let {
-                        PageLayoutObserver.observe(it) { view -> applyPageViews(view, context) }
-                        applyPageViews(it, context)
-                        it.post { applyPageViews(it, context) }
+                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View) {
+                        view -> applyPageViews(view, context)
                     }
                     result
                 }
@@ -79,10 +69,8 @@ class SportPageFeature : HookFeature {
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    (ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View)?.let {
-                        PageLayoutObserver.observe(it) { view -> applyPageViews(view, context) }
-                        applyPageViews(it, context)
-                        it.post { applyPageViews(it, context) }
+                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View) {
+                        view -> applyPageViews(view, context)
                     }
                     result
                 }
@@ -223,14 +211,15 @@ class SportPageFeature : HookFeature {
                 it.parameterTypes.getOrNull(0)?.name == "${context.points.sportColumnAdapter}\$b" &&
                 it.parameterTypes.getOrNull(1) == Int::class.javaPrimitiveType
         } ?: return 0
+        val callbacks = context.hooks.callbacks()
         context.hooks.hook(method).setId("$id:quick-entry-bind")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
                 val holder = chain.args.firstOrNull()
                 val root = holder?.let { ReflectionTargets.fieldValue(it, "cq") } as? View
-                applyBoundQuickEntry(root, context)
-                root?.post { applyBoundQuickEntry(root, context) }
+                callbacks.run { applyBoundQuickEntry(root, context) }
+                root?.let { callbacks.post(it) { view -> applyBoundQuickEntry(view, context) } }
                 result
             }
         return 1

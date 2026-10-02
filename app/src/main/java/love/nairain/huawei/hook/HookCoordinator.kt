@@ -114,6 +114,7 @@ internal object HookCoordinator {
             points = points,
             logger = logger,
             resolvedGroups = resolution.capabilities.filterValues { keys -> keys.any { config[it] == true } }.keys,
+            resolvedCapabilities = resolution.capabilities,
         )
         HookRegistry(
             listOf(
