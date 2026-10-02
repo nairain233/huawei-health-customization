@@ -185,7 +185,7 @@
     <string name="service_block_unsupported">当前系统入口不支持服务屏蔽。可查看服务、关闭总开关或删除旧规则。</string>
     <string name="service_block_load_error">服务列表加载失败，请刷新重试。</string>
     <string name="service_block_disconnected">模块配置服务未连接，暂时无法编辑。</string>
-    <string name="service_block_save_uncertain">保存失败且无法确认旧配置已恢复，已暂停编辑。请恢复模块配置服务连接后刷新核对。</string>
+    <string name="service_block_save_uncertain">保存失败且无法确认旧配置已恢复，已暂停编辑。请重新连接模块配置服务，成功读取配置后再编辑；普通刷新或重新打开页面不会解除暂停。</string>
     <string name="service_block_empty">没有符合条件的服务。</string>
     <string name="service_block_missing">当前版本未发现，不参与屏蔽；可取消此规则。</string>
     <string name="service_block_details">进程：%1$s\n已导出：%2$s · 系统启用：%3$s</string>

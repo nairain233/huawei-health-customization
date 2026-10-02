@@ -79,49 +79,11 @@ internal class LayoutConfigStore {
             false
         }
         if (saved) return LayoutWriteOutcome.SUCCESS
-        return if (restore(preferences, writes.keys, original)) {
+        return if (restorePreferences(preferences, writes.keys, original)) {
             LayoutWriteOutcome.FAILED_RESTORED
         } else {
             LayoutWriteOutcome.FAILED_UNCERTAIN
         }
     }
 
-    private fun restore(
-        preferences: SharedPreferences,
-        keys: Set<String>,
-        original: Map<String, *>,
-    ): Boolean = try {
-        val editor = preferences.edit()
-        keys.forEach { key ->
-            if (original.containsKey(key)) {
-                editor.putValue(key, requireNotNull(original[key]))
-            } else {
-                editor.remove(key)
-            }
-        }
-        editor.commit()
-    } catch (_: RuntimeException) {
-        false
-    }
-
-    private fun SharedPreferences.Editor.putValue(key: String, value: Any): SharedPreferences.Editor =
-        when (value) {
-            is Boolean -> putBoolean(key, value)
-            is Int -> putInt(key, value)
-            is Long -> putLong(key, value)
-            is Float -> putFloat(key, value)
-            is String -> putString(key, value)
-            is Set<*> -> {
-                val strings = value.mapTo(linkedSetOf()) { element ->
-                    require(element is String) { "Unsupported preference set value" }
-                    element
-                }
-                putStringSet(key, strings)
-            }
-            else -> error("Unsupported preference value type")
-        }
-
-    private fun SharedPreferences.snapshot(): Map<String, Any?> = all.mapValues { (_, value) ->
-        if (value is Set<*>) value.toSet() else value
-    }
 }

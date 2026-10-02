@@ -21,6 +21,8 @@ class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
         private set
     internal lateinit var scopeSettingsCoordinator: ScopeSettingsCoordinator
         private set
+    internal lateinit var serviceSettingsCoordinator: ServiceSettingsCoordinator
+        private set
     internal var colorMode by mutableStateOf(AppColorMode.SYSTEM)
         private set
     private lateinit var settingsExecutor: ExecutorService
@@ -39,6 +41,11 @@ class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
             workerExecutor = settingsExecutor,
             mainExecutor = mainExecutor,
         )
+        serviceSettingsCoordinator = ServiceSettingsCoordinator(
+            workerExecutor = settingsExecutor,
+            mainExecutor = mainExecutor,
+            loadCatalog = { ServiceCatalog.load(packageManager) },
+        )
         XposedServiceHelper.registerListener(this)
     }
 
@@ -50,6 +57,9 @@ class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onServiceBind(boundService: XposedService) {
         service = boundService
+        serviceSettingsCoordinator.bind(boundService) {
+            boundService.getRemotePreferences(SettingsKeys.GROUP)
+        }
         layoutSettingsCoordinator.bind {
             boundService.getRemotePreferences(SettingsKeys.GROUP)
         }
@@ -60,6 +70,7 @@ class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
     override fun onServiceDied(deadService: XposedService) {
         if (service === deadService) {
             service = null
+            serviceSettingsCoordinator.bind(null)
             layoutSettingsCoordinator.bind(null)
             scopeSettingsCoordinator.bind(null)
             notifyListeners()

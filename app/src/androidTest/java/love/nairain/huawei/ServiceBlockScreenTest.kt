@@ -3,6 +3,7 @@ package love.nairain.huawei
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isToggleable
@@ -16,6 +17,7 @@ import love.nairain.huawei.app.ServiceBlockScreen
 import love.nairain.huawei.app.ServiceBlockUiState
 import love.nairain.huawei.app.ServiceCatalog
 import love.nairain.huawei.app.ServiceItem
+import love.nairain.huawei.app.ServiceSettingsCoordinator
 import love.nairain.huawei.app.SettingsScreen
 import love.nairain.huawei.app.SettingsUiState
 import love.nairain.huawei.config.ServiceBlockConfig
@@ -26,6 +28,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
+import java.util.ArrayDeque
+import java.util.concurrent.Executor
 
 @RunWith(AndroidJUnit4::class)
 class ServiceBlockScreenTest {
@@ -92,5 +96,40 @@ class ServiceBlockScreenTest {
         composeRule.onNodeWithTag("service-block:list").performScrollToNode(
             androidx.compose.ui.test.hasText(resourceString(R.string.settings_status_save_error)),
         )
+    }
+
+    @Test fun savingShowsOnlyConfirmedSwitchUntilCommitCompletes() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = context.getSharedPreferences("service-settings-ui-test", android.content.Context.MODE_PRIVATE)
+        assertTrue(preferences.edit().clear().commit())
+        val tasks = ArrayDeque<Runnable>()
+        val worker = Executor { tasks.addLast(it) }
+        val coordinator = ServiceSettingsCoordinator(worker, Executor(Runnable::run)) {
+            ServiceCatalog(supported = true)
+        }
+        coordinator.bind(Any()) { preferences }
+        while (tasks.isNotEmpty()) tasks.removeFirst().run()
+        val state = mutableStateOf(coordinator.currentState())
+        coordinator.addListener { state.value = it }
+        composeRule.setContent {
+            MiuixTheme(colors = lightColorScheme()) {
+                ServiceBlockScreen(state.value, { coordinator.save(it) }, coordinator::refresh, {})
+            }
+        }
+        composeRule.onNodeWithTag("service-block:enabled").performClick()
+        val toggle = isToggleable() and hasAnyAncestor(hasTestTag("service-block:enabled"))
+        composeRule.onNode(toggle, true).assertIsOff().assertIsNotEnabled()
+        composeRule.runOnIdle {
+            assertTrue(state.value.saving)
+            assertEquals(R.string.settings_status_saving, state.value.message)
+            assertTrue(!state.value.config.enabled)
+            while (tasks.isNotEmpty()) tasks.removeFirst().run()
+        }
+        composeRule.onNode(toggle, true).assertIsOn()
+        composeRule.runOnIdle {
+            assertEquals(R.string.settings_restart_notice, state.value.message)
+            assertTrue(preferences.getBoolean(ServiceBlockConfig.ENABLED, false))
+        }
+        assertTrue(preferences.edit().clear().commit())
     }
 }
