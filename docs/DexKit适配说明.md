@@ -52,6 +52,8 @@
 
 ## 验证
 
+2026-10-02 的运行时编排优化将设备各组配置键限定为该组的扫描能力，观察器与排队任务随实际安装结果激活和撤销；扫描完成回放按实际 Fragment 实例限定页面，异步失败仅停用相应安装组。查询规则与缓存协议未改变，规则仍为 6。第一批实现、127 项 JVM 及 Debug/Release APK 验证记录见 [模块优化审查](模块优化审查.md) 的“实施记录”；当前设备页面回归仍待确认。
+
 常规检查：`testDebugUnitTest lintDebug assembleDebug compileDebugAndroidTestKotlin`。
 
 `ApkScanTest` 可通过 Gradle 属性 `scan.native`、`scan.apk`、`scan.resources`（JADX public.xml）、`scan.output` 使用桌面 DexKit 对真实 APK 执行生产查询。未提供属性时明确跳过该测试。桌面 native 库仅用于开发验证，不打包进 APK。
