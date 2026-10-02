@@ -188,6 +188,7 @@ app/src/main/
 - 服务功能使用 `service_block.enabled`、`service_block.presets`、`service_block.debug_mode` 和 `service_block.components`，独立于 schema v3 布局配置；预设按“低耦合服务/核心服务”业务组展示，设备音乐同步、训练计划和表盘试用合并为设备辅助后台服务。核心组默认关闭并显示影响确认；调试模式关闭时自定义组件规则保留但暂停。attach 完成后独立安装，不依赖布局扫描或宿主版本白名单。通过已核验的 ContextImpl 内部入口匹配显式组件，缺少声明的旧规则不生效，安装不完整时回滚并放行。
 - 服务绑定状态按外层 Context 与 ServiceConnection 对象身份弱引用隔离，优先保留真实解绑；不记录 Intent 内容和宿主异常消息。设备验证边界见 [后台服务精简说明](docs/后台服务精简说明.md)。
 - 配置应用的首页与五类布局页统一订阅 `LayoutSettingsCoordinator`：应用级单线程串行执行 `getRemotePreferences()`、读取、默认值补齐和写入，主线程只接收已确认状态。`LayoutConfigStore` 使用 `commit()` 确认写入，失败后按原值及原始存在状态执行第二次 `commit()` 回滚；回滚失败时当前服务绑定被标记为不确定，必须等待新的服务绑定后才能恢复编辑。页面保存期间不乐观切换，默认补齐失败但已恢复时允许继续编辑并显示文字提示。
+- 服务配置页通过 `ServiceSettingsCoordinator` 复用应用级串行执行器，按页面生命周期订阅已确认状态；保存期间保留原值并显示保存提示，刷新和页面重建不会取消保存或创建并行写入。`ServiceConfigStore` 与布局存储共用原始偏好快照和精确恢复工具，只回滚四个服务键；缺键、未知旧规则和原始类型均恢复，无关布局/扫描键不变。恢复失败按 XposedService 对象身份暂停编辑，普通刷新、页面重进及同对象重新绑定均不解除；新服务绑定成功读取后恢复。2026-10-02 第二批通过 142 项 JVM、Debug/Release、Lint、设备测试编译、96/96 生产扫描及两份 APK 元数据检查，实际设备重建/重连仍待验证，详见 [模块优化审查](docs/模块优化审查.md)。
 - 配置应用提供简体中文与 English 完整资源，默认跟随系统；“主题设置”中的语言下拉通过 AppCompat 应用语言 API 在 Android 9–最新版本持久化并立即刷新。语言只影响模块配置应用，不写入 RemotePreferences，也不改变宿主中文内容定位规则。
 
 
