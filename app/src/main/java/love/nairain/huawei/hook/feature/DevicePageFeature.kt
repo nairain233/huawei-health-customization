@@ -13,8 +13,9 @@ import love.nairain.huawei.hook.InstallResult
 import love.nairain.huawei.hook.installIsolated
 import love.nairain.huawei.hook.resolver.DeviceContentKeyResolver
 import love.nairain.huawei.hook.resolver.ReflectionTargets
-import love.nairain.huawei.hook.util.PageLayoutObserver
 import love.nairain.huawei.hook.util.ActivePageObserver
+import love.nairain.huawei.hook.util.applyPage
+import love.nairain.huawei.hook.util.post
 import love.nairain.huawei.hook.util.ViewSelectors
 import love.nairain.huawei.hook.util.ViewTrimmer
 import java.util.WeakHashMap
@@ -28,36 +29,24 @@ class DevicePageFeature : HookFeature {
             return InstallResult.Disabled
         }
         var count = 0
+        fun installSource(source: String, install: (HookContext) -> Int) {
+            val scoped = context.forSource(source)
+            count += scoped.installIsolated(source) { install(scoped) }
+        }
         context.points.deviceFragments.forEachIndexed { index, className ->
-            count += context.installIsolated("device.fragment.$index") {
-                installFragment(context, index, className)
+            installSource("device.fragment.$index") { scoped ->
+                installFragment(scoped, index, className)
             }
         }
-        count += context.installIsolated("device.new.parent") {
-            installPageLifecycle(context, "parent", context.points.newDeviceFragment) { applyNewParent(it, context) }
+        installSource("device.new.parent") { scoped ->
+            installPageLifecycle(scoped, "parent", context.points.newDeviceFragment) { applyNewParent(it, scoped) }
         }
-        count += context.installIsolated("device.new.arkui") {
-            installPageLifecycle(context, "arkui", context.points.arkuiDeviceFragment) { applyArkui(it, context) }
+        installSource("device.new.arkui") { scoped ->
+            installPageLifecycle(scoped, "arkui", context.points.arkuiDeviceFragment) { applyArkui(it, scoped) }
         }
-        count += context.installIsolated("device.new.delegates") { installDelegateBinding(context) }
-        count += context.installIsolated("device.new.store") {
-            installPageLifecycle(context, "store", context.points.vmallFragment) { applyStore(it, context) }
-        }
-        ActivePageObserver.observe { activity ->
-            val root = activity.window.decorView
-            ViewSelectors.applyByResourceNames(root, context.application.packageName,
-                DeviceContentKeyResolver.resourceMappings, context.config)
-            applyLegacyAddCard(root, context)
-            ViewSelectors.findByResourceName(root, context.application.packageName,
-                "switch_device_layout")?.let { switcher ->
-                PageLayoutObserver.observe(switcher) { view -> applyNewParent(view, context) }
-                applyNewParent(root, context)
-            }
-            ViewSelectors.findByResourceName(root, context.application.packageName,
-                "device_scrollview_content")?.let { content ->
-                PageLayoutObserver.observe(content) { view -> applyArkui(view, context) }
-                applyArkui(content, context)
-            }
+        installSource("device.new.delegates", ::installDelegateBinding)
+        installSource("device.new.store") { scoped ->
+            installPageLifecycle(scoped, "store", context.points.vmallFragment) { applyStore(it, scoped) }
         }
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified device symbols unavailable")
@@ -65,13 +54,15 @@ class DevicePageFeature : HookFeature {
 
     private fun installFragment(context: HookContext, index: Int, className: String): Int {
         val type = ReflectionTargets.type(context.classLoader, className) ?: return 0
+        val callbacks = context.hooks.callbacks()
+        ActivePageObserver.observeFragment(callbacks, type) { view -> apply(view, context) }
         var count = 0
         ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
             context.hooks.hook(method).setId("$id:create:$index")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    apply(result as? View, context)
+                    callbacks.applyPage(result as? View) { view -> apply(view, context) }
                     result
                 }
             count++
@@ -81,7 +72,9 @@ class DevicePageFeature : HookFeature {
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    apply(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View, context)
+                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View) {
+                        view -> apply(view, context)
+                    }
                     result
                 }
             count++
@@ -103,7 +96,9 @@ class DevicePageFeature : HookFeature {
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    apply(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View, context)
+                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View) {
+                        view -> apply(view, context)
+                    }
                     result
                 }
             count++
@@ -113,7 +108,6 @@ class DevicePageFeature : HookFeature {
 
     private fun apply(root: View?, context: HookContext) {
         if (root == null) return
-        PageLayoutObserver.observe(root) { view -> apply(view, context) }
         ViewSelectors.applyByResourceNames(
             root,
             context.application.packageName,
@@ -138,17 +132,15 @@ class DevicePageFeature : HookFeature {
         apply: (View) -> Unit,
     ): Int {
         val type = ReflectionTargets.type(context.classLoader, className) ?: return 0
+        val callbacks = context.hooks.callbacks()
+        ActivePageObserver.observeFragment(callbacks, type, apply)
         var count = 0
         ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
             context.hooks.hook(method).setId("$id:$source:create")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    (result as? View)?.let { root ->
-                        PageLayoutObserver.observe(root, apply)
-                        apply(root)
-                        root.post { apply(root) }
-                    }
+                    callbacks.applyPage(result as? View, apply)
                     result
                 }
             count++
@@ -158,11 +150,7 @@ class DevicePageFeature : HookFeature {
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    (ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View)?.let { root ->
-                        PageLayoutObserver.observe(root, apply)
-                        apply(root)
-                        root.post { apply(root) }
-                    }
+                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View, apply)
                     result
                 }
             count++
@@ -174,6 +162,7 @@ class DevicePageFeature : HookFeature {
         val type = ReflectionTargets.type(context.classLoader,
             "com.huawei.ui.homehealth.devicearkui.delegate.BaseViewDelegate") ?: return 0
         val method = ReflectionTargets.method(type, "obtainView", 2) ?: return 0
+        val callbacks = context.hooks.callbacks()
         context.hooks.hook(method).setId("$id:arkui-delegate")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
@@ -181,10 +170,10 @@ class DevicePageFeature : HookFeature {
                 val key = DeviceContentKeyResolver.arkuiDelegateKeys[chain.thisObject.javaClass.name]
                 if (key != null && result is View) {
                     synchronized(delegateRoots) { delegateRoots[result] = key }
-                    result.post {
-                        if (ViewSelectors.hasAncestorResourceName(result, "hw_device_viewpager")) {
-                            if (context.config[key] == true) ViewTrimmer.collapse(result)
-                            else ViewTrimmer.restore(result)
+                    callbacks.post(result) { view ->
+                        if (ViewSelectors.hasAncestorResourceName(view, "hw_device_viewpager")) {
+                            if (context.config[key] == true) ViewTrimmer.collapse(view)
+                            else ViewTrimmer.restore(view)
                         }
                     }
                 }
