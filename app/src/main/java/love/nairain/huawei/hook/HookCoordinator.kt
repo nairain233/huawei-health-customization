@@ -92,6 +92,13 @@ internal object HookCoordinator {
             logger,
         )
         val config = readConfig(framework, logger)
+        love.nairain.huawei.hook.feature.LocalWatchFaceFeature.install(
+            framework, classLoader, application, versionName, versionCode,
+            config[SettingsKeys.LOCAL_WATCH_FACE] == true,
+            serviceConfig.effectiveComponents(declaredServices).any {
+                it in love.nairain.huawei.config.ServicePreset.DEVICE_CORE.components
+            }, logger,
+        )
         val request = try {
             framework.getRemotePreferences(SettingsKeys.GROUP).getString(ScanProtocol.REQUEST, "").orEmpty()
         } catch (error: RuntimeException) {

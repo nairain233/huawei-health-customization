@@ -1,0 +1,109 @@
+package love.nairain.huawei.hook.resolver
+
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
+import love.nairain.huawei.hook.HookInstallPolicy
+
+/** 17.0.7.320 的真实 Dex 名称；与布局定位无关。完整契约缺一项就关闭本功能。 */
+internal class LocalWatchFaceTargets(loader: ClassLoader) {
+    data class Spec(val key: String, val owner: String, val name: String, val result: String,
+        val args: List<String> = emptyList(), val static: Boolean = false)
+
+    val methods: Map<String, Method> = specs.associate { spec ->
+        val owner = Class.forName(spec.owner, false, loader)
+        val method = owner.getDeclaredMethod(spec.name, *spec.args.map { type(it, loader) }.toTypedArray())
+        require(method.returnType == type(spec.result, loader) && Modifier.isStatic(method.modifiers) == spec.static)
+        method.isAccessible = true
+        spec.key to method
+    }
+    val infoClass: Class<*> = Class.forName(INFO, false, loader)
+    val infoConstructor = infoClass.getDeclaredConstructor()
+    val callbackClass: Class<*> = Class.forName(CALLBACK, false, loader)
+    val fileCallbackClass: Class<*> = Class.forName(FILE_CALLBACK, false, loader)
+    val appCallbackClass: Class<*> = Class.forName(APP_CALLBACK, false, loader)
+    val webClass: Class<*> = Class.forName(WEB, false, loader)
+
+    fun method(key: String): Method = methods.getValue(key)
+    fun call(key: String, receiver: Any? = null, vararg args: Any?): Any? = method(key).invoke(receiver, *args)
+
+    companion object {
+        private const val BASE = "com.huawei.watchface."
+        const val WEB = BASE + "api.WebViewActivity"
+        const val MANAGER = BASE + "api.HwWatchFaceManager"
+        const val BT = BASE + "api.HwWatchFaceBtManager"
+        const val INFO = BASE + "mvp.model.datatype.WatchResourcesInfo"
+        const val SUPPORT = BASE + "mvp.model.datatype.WatchFaceSupportInfo"
+        const val CALLBACK = BASE + "utils.callback.IBaseResponseCallback"
+        const val FILE_CALLBACK = BASE + "utils.callback.IFileTransferStateCallback"
+        const val APP_CALLBACK = BASE + "utils.callback.IAppTransferFileResultAIDLCallback"
+        private const val CONFIG = BASE + "manager.HwDeviceConfigManager"
+        private const val STRING = "java.lang.String"
+        private const val CONTEXT = "android.content.Context"
+
+        fun accepts(version: String?, code: Long, enabled: Boolean): Boolean =
+            enabled && HookInstallPolicy.acceptsVersion(version, code)
+
+        val specs = listOf(
+            Spec("page", WEB, "initView", "void"),
+            Spec("result", WEB, "onActivityResult", "void", listOf("int", "int", "android.content.Intent")),
+            Spec("destroy", WEB, "onDestroy", "void"),
+            Spec("manager", MANAGER, "getInstance", MANAGER, listOf(CONTEXT), true),
+            Spec("api", BASE + "api.HwWatchFaceApi", "getInstance", BASE + "api.HwWatchFaceApi", listOf(CONTEXT), true),
+            Spec("device", BASE + "api.HwWatchFaceApi", "getDeviceInfo", "java.util.Map"),
+            Spec("bt", BT, "getInstance", BT, listOf(CONTEXT), true),
+            Spec("config", CONFIG, "getInstance", CONFIG, listOf(CONTEXT), true),
+            Spec("connected", MANAGER, "isBtConnect", "boolean"),
+            Spec("state", MANAGER, "getWatchFaceInstallState", "int"),
+            Spec("setState", MANAGER, "changeInstallState", "void", listOf("int")),
+            Spec("setId", MANAGER, "setCurrentInstallWatchFaceHiTopId", "void", listOf(STRING)),
+            Spec("setVersion", MANAGER, "setCurrentInstallWatchFaceVersion", "void", listOf(STRING)),
+            Spec("currentId", MANAGER, "getCurrentInstallWatchFaceHiTopId", STRING),
+            Spec("currentVersion", MANAGER, "getCurrentInstallWatchFaceVersion", STRING),
+            Spec("blockApply", MANAGER, "applyWatchFace", "void", listOf(STRING, STRING, "int", STRING, "boolean", "int", "boolean")),
+            Spec("btResponse", "$MANAGER\$1", "onResponse", "void", listOf("int", "java.lang.Object")),
+            Spec("listed", BT, "reportSuccessFaceInfo", "void"),
+            Spec("names", MANAGER, "dealWatchFaceInfoTransmit", "void", listOf("java.util.HashMap")),
+            Spec("list", BT, "getAllWatchInfoHash", "java.util.HashMap"),
+            Spec("refresh", BT, "getDeviceWatchInfo", "void"),
+            Spec("support", BT, "getWatchFaceSupportInfo", SUPPORT),
+            Spec("signatureSupported", BT, "isSupportWatchfaceSignature", "boolean"),
+            Spec("operate", BT, "operateDevice", "void", listOf(INFO, "int", CALLBACK, "boolean", "boolean")),
+            Spec("screen", SUPPORT, "getWatchFaceScreen", STRING),
+            Spec("maxVersion", SUPPORT, "getWatchFaceMaxVersion", STRING),
+            Spec("compatible", SUPPORT, "getCompatibleList", "java.util.List"),
+            Spec("compatibleVersions", BASE + "mvp.model.datatype.ScreenInfo", "getSupportVersion", STRING),
+            Spec("infoId", INFO, "getWatchInfoId", STRING),
+            Spec("infoVersion", INFO, "getWatchInfoVersion", STRING),
+            Spec("infoName", INFO, "getWatchInfoName", STRING),
+            Spec("infoSetName", INFO, "setWatchInfoName", "void", listOf(STRING)),
+            Spec("infoSetId", INFO, "setWatchInfoId", "void", listOf(STRING)),
+            Spec("infoSetVersion", INFO, "setWatchInfoVersion", "void", listOf(STRING)),
+            Spec("infoSetScreen", INFO, "setWatchScreen", "void", listOf(STRING)),
+            Spec("payload", BASE + "b2", "a", BASE + "b2", static = true),
+            Spec("decode", BASE + "b2", "a", "java.util.Map", listOf(CONTEXT, "byte[]", "boolean", "boolean")),
+            Spec("cache", BASE + "s0", "a", BASE + "s0", static = true),
+            Spec("putCache", BASE + "s0", "a", "void", listOf(STRING, "java.util.Map")),
+            Spec("removeCache", BASE + "s0", "d", "java.util.Map", listOf(STRING)),
+            Spec("signature", BASE + "k2", "a", BASE + "k2", static = true),
+            Spec("requestSignature", BASE + "k2", "a", "boolean", listOf(STRING, STRING, "int", "boolean")),
+            Spec("removeSignature", BASE + "k2", "b", "void", listOf(STRING, STRING)),
+            Spec("transfer", CONFIG, "a", "void", listOf(STRING, STRING, "int", FILE_CALLBACK, APP_CALLBACK)),
+            Spec("stop", CONFIG, "a", "void", listOf(STRING, "int", CALLBACK)),
+            Spec("callback", CALLBACK, "onResponse", "void", listOf("int", "java.lang.Object")),
+            Spec("fileResult", FILE_CALLBACK, "onFileRespond", "void", listOf("int")),
+            Spec("fileProgress", FILE_CALLBACK, "onFileTransferState", "void", listOf("int")),
+            Spec("fileFailure", FILE_CALLBACK, "onUpgradeFailed", "void", listOf("int", STRING)),
+            Spec("appResult", APP_CALLBACK, "onFileRespond", "void", listOf("int", STRING)),
+            Spec("appProgress", APP_CALLBACK, "onFileTransferState", "void", listOf("int", STRING)),
+            Spec("appFailure", APP_CALLBACK, "onUpgradeFailed", "void", listOf("int", STRING)),
+        )
+
+        private fun type(name: String, loader: ClassLoader): Class<*> = when (name) {
+            "void" -> Void.TYPE
+            "int" -> Integer.TYPE
+            "boolean" -> java.lang.Boolean.TYPE
+            "byte[]" -> ByteArray::class.java
+            else -> Class.forName(name, false, loader)
+        }
+    }
+}
