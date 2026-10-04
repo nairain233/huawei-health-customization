@@ -4,9 +4,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 
-object ViewSelectors {
+class ViewSelectors(resourceIds: Map<String, Int>) {
+    private val resources = ResourceIdResolver(resourceIds)
     fun findByResourceName(root: View, packageName: String, resourceName: String): View? {
-        val id = ResourceIdResolver.id(root.resources, packageName, resourceName)
+        val id = if (packageName == love.nairain.huawei.hook.HookInstallPolicy.TARGET_PACKAGE)
+            resources.id(resourceName) else 0
         return if (id == 0) null else root.findViewById(id)
     }
 
@@ -75,9 +77,10 @@ object ViewSelectors {
         }
     }
 
-    fun resourceEntryName(view: View?): String? = runCatching {
-        if (view == null || view.id == View.NO_ID) null else view.resources.getResourceEntryName(view.id)
-    }.getOrNull()
+    fun resourceEntryName(view: View?): String? {
+        if (view == null || view.id == View.NO_ID) return null
+        return resources.name(view.id)
+    }
 
     fun hasAncestorResourceName(view: View?, resourceName: String): Boolean {
         var current = view

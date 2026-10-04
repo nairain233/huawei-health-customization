@@ -19,7 +19,6 @@ import love.nairain.huawei.hook.symbols.HuaweiHealthHookPoints
 import love.nairain.huawei.hook.util.ModuleLogger
 import love.nairain.huawei.scan.ScanRuntime
 import love.nairain.huawei.scan.ScanProtocol
-import love.nairain.huawei.hook.resolver.ReflectionTargets
 import love.nairain.huawei.hook.util.ActivePageObserver
 
 /** 只安装 Application.attach；真实版本与配置均在 attach 完成后读取一次。 */
@@ -99,32 +98,31 @@ internal object HookCoordinator {
             ""
         }
         ScanRuntime.start(application, packageInfo, classLoader, request, serviceStatus, logger) { resolution ->
-        ReflectionTargets.aliases = resolution.aliases
-        ReflectionTargets.resolvedDescriptors = resolution.descriptors
-        val points = HuaweiHealthHookPoints.V17_0_8_300.copy(
-            versionName = versionName.orEmpty(), versionCode = versionCode, mineListManager = resolution.mineManager,
-        )
-        val context = HookContext(
-            framework = framework,
-            classLoader = classLoader,
-            application = application,
-            versionName = versionName.orEmpty(),
-            versionCode = versionCode,
-            config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
-            points = points,
-            logger = logger,
-            resolvedGroups = resolution.capabilities.filterValues { keys -> keys.any { config[it] == true } }.keys,
-            resolvedCapabilities = resolution.capabilities,
-        )
-        HookRegistry(
-            listOf(
-                HealthPageFeature(),
-                SportPageFeature(),
-                DevicePageFeature(),
-                MinePageFeature(),
-                BottomTabFeature(),
-            ),
-        ).installAll(context)
+            val points = HuaweiHealthHookPoints.ANCHORS.copy(
+                mineListManager = resolution.mineManager,
+            )
+            val context = HookContext(
+                framework = framework,
+                classLoader = classLoader,
+                application = application,
+                versionName = versionName.orEmpty(),
+                versionCode = versionCode,
+                config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
+                points = points,
+                logger = logger,
+                resolvedGroups = resolution.capabilities.filterValues { keys -> keys.any { config[it] == true } }.keys,
+                resolvedCapabilities = resolution.capabilities,
+                resolution = resolution,
+            )
+            HookRegistry(
+                listOf(
+                    HealthPageFeature(),
+                    SportPageFeature(),
+                    DevicePageFeature(),
+                    MinePageFeature(),
+                    BottomTabFeature(),
+                ),
+            ).installAll(context)
         }
     }
 

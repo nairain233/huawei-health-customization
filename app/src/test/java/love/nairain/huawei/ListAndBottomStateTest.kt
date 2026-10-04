@@ -1,14 +1,11 @@
 package love.nairain.huawei
 
-import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.feature.BottomLayoutOrder
-import love.nairain.huawei.hook.feature.BottomTabIndexResolver
 import love.nairain.huawei.hook.feature.BottomTabStateStore
 import love.nairain.huawei.hook.resolver.ListFilters
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -61,20 +58,8 @@ class ListAndBottomStateTest {
     }
 
     @Test
-    fun bottomIndexesKeepHuaweiOriginalTabOrder() {
-        assertEquals(SettingsKeys.BOTTOM_HEALTH, BottomTabIndexResolver.resolve(0))
-        assertEquals(SettingsKeys.BOTTOM_SPORT, BottomTabIndexResolver.resolve(1))
-        assertEquals(SettingsKeys.BOTTOM_MEMBER, BottomTabIndexResolver.resolve(2))
-        assertEquals(SettingsKeys.BOTTOM_DEVICE, BottomTabIndexResolver.resolve(3))
-        assertEquals(SettingsKeys.BOTTOM_MINE, BottomTabIndexResolver.resolve(4))
-        assertNull(BottomTabIndexResolver.resolve(5))
-    }
-
-    @Test
     fun reducedBottomTabsUseRecordedIdentityInsteadOfFiveTabIndexes() {
         // 未登录等模式可省略会员页，索引 2 此时不能按五项布局解释为会员。
-        assertNull(BottomTabIndexResolver.resolve(2, itemCount = 4))
-        assertNull(BottomTabIndexResolver.resolve(1, itemCount = 3))
         val instance = Any()
         val state = BottomTabStateStore<Any>()
         state.record(instance, 2, false)

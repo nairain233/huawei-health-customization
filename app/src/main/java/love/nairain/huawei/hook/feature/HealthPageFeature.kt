@@ -8,11 +8,8 @@ import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.HookContext
 import love.nairain.huawei.hook.HookFeature
 import love.nairain.huawei.hook.InstallResult
-import love.nairain.huawei.hook.installIsolated
-import love.nairain.huawei.hook.resolver.HealthContentKeyResolver
+import love.nairain.huawei.hook.installSource
 import love.nairain.huawei.hook.resolver.ListFilters
-import love.nairain.huawei.hook.resolver.ReflectionTargets
-import love.nairain.huawei.hook.util.ViewSelectors
 import love.nairain.huawei.hook.util.ViewTrimmer
 
 class HealthPageFeature : HookFeature {
@@ -23,17 +20,17 @@ class HealthPageFeature : HookFeature {
             return InstallResult.Disabled
         }
         var count = 0
-        count += context.installIsolated("health.top") { installTopControls(context) }
-        count += context.installIsolated("health.top-cards") { installTopCardFilter(context) }
-        count += context.installIsolated("health.edit-cards") { installEditCards(context) }
+        count += context.installSource("health.top", ::installTopControls)
+        count += context.installSource("health.top-cards", ::installTopCardFilter)
+        count += context.installSource("health.edit-cards", ::installEditCards)
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified health symbols unavailable")
     }
 
     private fun installTopControls(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.homeFragment) ?: return 0
+        val type = context.targets.type(context.classLoader, context.points.homeFragment) ?: return 0
         var count = 0
-        ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
+        context.targets.method(type, "onCreateView", 3)?.let { method ->
             context.hooks.hook(method).setId("$id:top:create")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
@@ -43,12 +40,12 @@ class HealthPageFeature : HookFeature {
                 }
             count++
         }
-        ReflectionTargets.method(type, "onResume", 0, Void.TYPE)?.let { method ->
+        context.targets.method(type, "onResume", 0, Void.TYPE)?.let { method ->
             context.hooks.hook(method).setId("$id:top:resume")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    (ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View)
+                    (context.targets.invokeNoArgs(chain.thisObject, "getView") as? View)
                         ?.let { applyTopControls(it, context) }
                     result
                 }
@@ -58,29 +55,29 @@ class HealthPageFeature : HookFeature {
     }
 
     private fun installTopCardFilter(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.homeAdapter) ?: return 0
+        val type = context.targets.type(context.classLoader, context.points.homeAdapter) ?: return 0
         var count = 0
-        ReflectionTargets.constructor(type, 2)?.let { constructor ->
+        context.targets.constructor(type, 2)?.let { constructor ->
             context.hooks.hook(constructor).setId("$id:adapter:init")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val args = filteredArguments(chain.args, 1, context) { item ->
-                        HealthContentKeyResolver.topCard(
-                            ReflectionTargets.invokeNoArgs(item, "getCardName") as? String,
-                        )
+                        (context.targets.invokeNoArgs(item, "card.identity") as? String)?.let { identity ->
+                            context.targets.identities["card:${item.javaClass.name}:$identity"]
+                        }
                     }
                     chain.proceed(args)
                 }
             count++
         }
-        ReflectionTargets.method(type, "c", 1)?.let { method ->
+        context.targets.method(type, "cards.refresh", 1)?.let { method ->
             context.hooks.hook(method).setId("$id:adapter:refresh")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val args = filteredArguments(chain.args, 0, context) { item ->
-                        HealthContentKeyResolver.topCard(
-                            ReflectionTargets.invokeNoArgs(item, "getCardName") as? String,
-                        )
+                        (context.targets.invokeNoArgs(item, "card.identity") as? String)?.let { identity ->
+                            context.targets.identities["card:${item.javaClass.name}:$identity"]
+                        }
                     }
                     chain.proceed(args)
                 }
@@ -90,15 +87,17 @@ class HealthPageFeature : HookFeature {
     }
 
     private fun installEditCards(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.functionSetHolder) ?: return 0
-        ReflectionTargets.method(type, "k", 0, Void.TYPE)?.let { method ->
+        val type = context.targets.type(context.classLoader, context.points.functionSetHolder) ?: return 0
+        context.targets.method(type, "edit.update", 0, Void.TYPE)?.let { method ->
             context.hooks.hook(method).setId("$id:edit-cards")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
                     if (context.config[SettingsKeys.HEALTH_EDIT_CARDS] == true) {
-                        (ReflectionTargets.fieldValue(chain.thisObject, "n") as? View)
-                            ?.let(ViewTrimmer::collapse)
+                        (context.targets.fieldValue(chain.thisObject, "edit.root") as? View)?.let { root ->
+                            context.views.findByResourceName(root, context.application.packageName, "modify_cards_layout")
+                                ?.let(ViewTrimmer::collapse)
+                        }
                     }
                     result
                 }
@@ -108,23 +107,22 @@ class HealthPageFeature : HookFeature {
     }
 
     private fun applyTopControls(root: View, context: HookContext) {
-        val titleBar = ViewSelectors.findByResourceName(
+        val titleBar = context.views.findByResourceName(
             root,
             context.application.packageName,
             "health_tab_titlebar",
         ) ?: return
         if (context.config[SettingsKeys.HEALTH_SEARCH] == true) {
-            hideControl(titleBar, "setRightSoftkeyVisibility")
+            hideControl(titleBar, "setRightSoftkeyVisibility", context)
         }
         if (context.config[SettingsKeys.HEALTH_MORE] == true) {
-            hideControl(titleBar, "setRightButtonVisibility")
+            hideControl(titleBar, "setRightButtonVisibility", context)
         }
     }
 
-    private fun hideControl(target: View, methodName: String) {
+    private fun hideControl(target: View, methodName: String, context: HookContext) {
         runCatching {
-            target.javaClass.getMethod(methodName, Int::class.javaPrimitiveType)
-                .invoke(target, View.GONE)
+            context.targets.method(target.javaClass, methodName, 1)?.invoke(target, View.GONE)
         }
     }
 

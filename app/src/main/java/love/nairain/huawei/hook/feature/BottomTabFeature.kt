@@ -10,13 +10,10 @@ import love.nairain.huawei.hook.HookContext
 import love.nairain.huawei.hook.HookFeature
 import love.nairain.huawei.hook.InstallResult
 import love.nairain.huawei.hook.installIsolated
-import love.nairain.huawei.hook.resolver.BottomTabKeyResolver
-import love.nairain.huawei.hook.resolver.ReflectionTargets
 import love.nairain.huawei.hook.util.ViewTrimmer
 
 class BottomTabFeature : HookFeature {
     override val id = "bottom.tabs"
-    private val resolver = BottomTabKeyResolver()
     private val state = BottomTabStateStore<ViewGroup>()
 
     override fun install(context: HookContext): InstallResult {
@@ -29,15 +26,15 @@ class BottomTabFeature : HookFeature {
     }
 
     private fun installNavigation(context: HookContext): Int {
-        val base = requireNotNull(ReflectionTargets.type(context.classLoader, context.points.bottomBase))
-        val clear = ReflectionTargets.method(base, "a", 0, Void.TYPE)
-        val add = ReflectionTargets.methods(base, "a", 3).firstOrNull { method ->
+        val base = requireNotNull(context.targets.type(context.classLoader, context.points.bottomBase))
+        val clear = context.targets.method(base, "bottom.clear", 0, Void.TYPE)
+        val add = context.targets.methods(base, "bottom.add", 3).firstOrNull { method ->
             method.returnType == Boolean::class.javaPrimitiveType &&
                 method.parameterTypes.contentEquals(
                     arrayOf(Int::class.javaPrimitiveType, Drawable::class.java, Boolean::class.javaPrimitiveType),
                 )
         }?.apply { isAccessible = true }
-        val layout = ReflectionTargets.method(base, "onLayout", 5, Void.TYPE)
+        val layout = context.targets.method(base, "onLayout", 5, Void.TYPE)
 
         var count = 0
         require(clear != null && add != null && layout != null)
@@ -79,30 +76,24 @@ class BottomTabFeature : HookFeature {
     private fun recordTab(view: ViewGroup?, titleId: Int?, context: HookContext) {
         if (view == null || titleId == null || titleId <= 0 || !isMainView(view, context)) return
         val child = view.getChildAt(view.childCount - 1) ?: return
-        val index = itemIndex(child) ?: return
-        val resourceName = runCatching { view.resources.getResourceEntryName(titleId) }.getOrNull()
-        val key = ReflectionTargets.aliases["content:$titleId"] ?: resolver.resolve(resourceName) ?: return
+        val index = itemIndex(child, context) ?: return
+        val key = context.targets.identities["content:$titleId"] ?: return
         val hidden = context.config[key] == true
         state.record(view, index, hidden)
-        if (hidden) disableItem(view, index)
+        if (hidden) disableItem(view, index, context)
     }
 
     private fun applyLayout(view: ViewGroup?, context: HookContext) {
         if (view == null || !isMainView(view, context) || view.width <= 0 || view.height <= 0) return
         val hiddenIndexes = state.snapshot(view)
-        val verifiedVersion = love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)
-        if (!verifiedVersion && hiddenIndexes.isEmpty()) return
+        if (hiddenIndexes.isEmpty()) return
         val visible = ArrayList<View>()
         for (position in 0 until view.childCount) {
             val child = view.getChildAt(position) ?: continue
-            val index = itemIndex(child) ?: continue
-            val key = if (verifiedVersion)
-                BottomTabIndexResolver.resolve(index, view.childCount) else null
-            val hiddenByConfig = key != null && context.config[key] == true
-            if (key != null) state.record(view, index, hiddenByConfig)
-            if (hiddenByConfig || index in hiddenIndexes) {
+            val index = itemIndex(child, context) ?: continue
+            if (index in hiddenIndexes) {
                 ViewTrimmer.collapse(child)
-                disableItem(view, index)
+                disableItem(view, index, context)
             } else {
                 ViewTrimmer.restore(child)
                 visible += child
@@ -132,17 +123,12 @@ class BottomTabFeature : HookFeature {
         }
     }
 
-    private fun itemIndex(child: View): Int? = runCatching {
-        child.javaClass.getMethod("getItemIndex").invoke(child) as? Int
-    }.getOrNull()
+    private fun itemIndex(child: View, context: HookContext): Int? =
+        context.targets.invokeNoArgs(child, "getItemIndex") as? Int
 
-    private fun disableItem(view: ViewGroup, index: Int) {
+    private fun disableItem(view: ViewGroup, index: Int, context: HookContext) {
         runCatching {
-            view.javaClass.getMethod(
-                "setSelectItemEnabled",
-                Int::class.javaPrimitiveType,
-                Boolean::class.javaPrimitiveType,
-            ).invoke(view, index, false)
+            context.targets.method(view.javaClass, "setSelectItemEnabled", 2)?.invoke(view, index, false)
         }
     }
 

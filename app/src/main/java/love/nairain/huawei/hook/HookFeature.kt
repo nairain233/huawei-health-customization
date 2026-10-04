@@ -16,8 +16,11 @@ data class HookContext(
     val logger: ModuleLogger,
     val resolvedGroups: Set<String>? = null,
     val resolvedCapabilities: Map<String, Set<String>>? = null,
+    val resolution: love.nairain.huawei.scan.LayoutResolution = love.nairain.huawei.scan.LayoutResolution(emptySet(), emptySet(), emptyMap(), emptySet(), ""),
 ) {
     val hooks = TransactionalHooks(framework, logger)
+    internal val targets = love.nairain.huawei.hook.resolver.ReflectionTargets(resolution, classLoader)
+    val views = love.nairain.huawei.hook.util.ViewSelectors(resolution.resourceIds)
 
     internal fun forSource(source: String): HookContext = copy(
         config = sourceLayoutConfig(config, source, resolvedCapabilities),
@@ -42,6 +45,12 @@ internal fun HookContext.installIsolated(source: String, block: () -> Int): Int 
 } catch (error: Throwable) {
     logger.warn("Hook source skipped: $source, ${error.javaClass.simpleName}")
     0
+}
+
+/** 能力配置与安装事务共用同一个页面上下文，避免 copy 后丢失事务状态。 */
+internal fun HookContext.installSource(source: String, block: (HookContext) -> Int): Int {
+    val scoped = forSource(source)
+    return scoped.installIsolated(source) { block(scoped) }
 }
 
 /** 同义配置键在其他页面命中，不能授权当前安装组使用未通过核验的定位。 */

@@ -10,13 +10,11 @@ import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.HookContext
 import love.nairain.huawei.hook.HookFeature
 import love.nairain.huawei.hook.InstallResult
-import love.nairain.huawei.hook.installIsolated
+import love.nairain.huawei.hook.installSource
 import love.nairain.huawei.hook.resolver.DeviceContentKeyResolver
-import love.nairain.huawei.hook.resolver.ReflectionTargets
 import love.nairain.huawei.hook.util.ActivePageObserver
 import love.nairain.huawei.hook.util.applyPage
 import love.nairain.huawei.hook.util.post
-import love.nairain.huawei.hook.util.ViewSelectors
 import love.nairain.huawei.hook.util.ViewTrimmer
 import java.util.WeakHashMap
 
@@ -30,8 +28,7 @@ class DevicePageFeature : HookFeature {
         }
         var count = 0
         fun installSource(source: String, install: (HookContext) -> Int) {
-            val scoped = context.forSource(source)
-            count += scoped.installIsolated(source) { install(scoped) }
+            count += context.installSource(source, install)
         }
         context.points.deviceFragments.forEachIndexed { index, className ->
             installSource("device.fragment.$index") { scoped ->
@@ -53,11 +50,11 @@ class DevicePageFeature : HookFeature {
     }
 
     private fun installFragment(context: HookContext, index: Int, className: String): Int {
-        val type = ReflectionTargets.type(context.classLoader, className) ?: return 0
+        val type = context.targets.type(context.classLoader, className) ?: return 0
         val callbacks = context.hooks.callbacks()
         ActivePageObserver.observeFragment(callbacks, type) { view -> apply(view, context) }
         var count = 0
-        ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
+        context.targets.method(type, "onCreateView", 3)?.let { method ->
             context.hooks.hook(method).setId("$id:create:$index")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
@@ -67,36 +64,25 @@ class DevicePageFeature : HookFeature {
                 }
             count++
         }
-        ReflectionTargets.method(type, "onResume", 0)?.let { method ->
+        context.targets.method(type, "onResume", 0)?.let { method ->
             context.hooks.hook(method).setId("$id:resume:$index")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View) {
+                    callbacks.applyPage(context.targets.invokeNoArgs(chain.thisObject, "getView") as? View) {
                         view -> apply(view, context)
                     }
                     result
                 }
             count++
         }
-        // 17.0.8.300 的营销资源刷新入口；每个入口独立安装，缺失时不影响生命周期 Hook。
-        val refreshMethods = if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) {
-            emptyList()
-        } else if (index == 0) {
-            ReflectionTargets.methods(type, "a", 1).filter {
-                List::class.java.isAssignableFrom(it.parameterTypes[0])
-            }
-        } else {
-            ReflectionTargets.methods(type, "c", 2).filter {
-                it.parameterTypes.lastOrNull()?.name == "java.util.Map"
-            }
-        }
+        val refreshMethods = context.targets.methods(type, "device.refresh", if (index == 0) 1 else 2)
         refreshMethods.forEachIndexed { refreshIndex, method ->
             context.hooks.hook(method).setId("$id:refresh:$index:$refreshIndex")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View) {
+                    callbacks.applyPage(context.targets.invokeNoArgs(chain.thisObject, "getView") as? View) {
                         view -> apply(view, context)
                     }
                     result
@@ -108,7 +94,7 @@ class DevicePageFeature : HookFeature {
 
     private fun apply(root: View?, context: HookContext) {
         if (root == null) return
-        ViewSelectors.applyByResourceNames(
+        context.views.applyByResourceNames(
             root,
             context.application.packageName,
             DeviceContentKeyResolver.resourceMappings,
@@ -119,8 +105,8 @@ class DevicePageFeature : HookFeature {
 
     private fun applyLegacyAddCard(root: View, context: HookContext) {
         val packageName = context.application.packageName
-        val wrapper = ViewSelectors.findByResourceName(root, packageName, "device_card") as? ViewGroup ?: return
-        ViewSelectors.findByResourceName(wrapper, packageName, "device_card_normal") ?: return
+        val wrapper = context.views.findByResourceName(root, packageName, "device_card") as? ViewGroup ?: return
+        context.views.findByResourceName(wrapper, packageName, "device_card_normal") ?: return
         if (context.config[SettingsKeys.DEVICE_ADD] == true) ViewTrimmer.collapse(wrapper)
         else ViewTrimmer.restore(wrapper)
     }
@@ -131,11 +117,11 @@ class DevicePageFeature : HookFeature {
         className: String,
         apply: (View) -> Unit,
     ): Int {
-        val type = ReflectionTargets.type(context.classLoader, className) ?: return 0
+        val type = context.targets.type(context.classLoader, className) ?: return 0
         val callbacks = context.hooks.callbacks()
         ActivePageObserver.observeFragment(callbacks, type, apply)
         var count = 0
-        ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
+        context.targets.method(type, "onCreateView", 3)?.let { method ->
             context.hooks.hook(method).setId("$id:$source:create")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
@@ -145,12 +131,12 @@ class DevicePageFeature : HookFeature {
                 }
             count++
         }
-        ReflectionTargets.method(type, "onResume", 0)?.let { method ->
+        context.targets.method(type, "onResume", 0)?.let { method ->
             context.hooks.hook(method).setId("$id:$source:resume")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    callbacks.applyPage(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View, apply)
+                    callbacks.applyPage(context.targets.invokeNoArgs(chain.thisObject, "getView") as? View, apply)
                     result
                 }
             count++
@@ -159,19 +145,19 @@ class DevicePageFeature : HookFeature {
     }
 
     private fun installDelegateBinding(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader,
+        val type = context.targets.type(context.classLoader,
             "com.huawei.ui.homehealth.devicearkui.delegate.BaseViewDelegate") ?: return 0
-        val method = ReflectionTargets.method(type, "obtainView", 2) ?: return 0
+        val method = context.targets.method(type, "obtainView", 2) ?: return 0
         val callbacks = context.hooks.callbacks()
         context.hooks.hook(method).setId("$id:arkui-delegate")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
-                val key = DeviceContentKeyResolver.arkuiDelegateKeys[chain.thisObject.javaClass.name]
+                val key = context.targets.identities["delegate:${chain.thisObject.javaClass.name}"]
                 if (key != null && result is View) {
                     synchronized(delegateRoots) { delegateRoots[result] = key }
                     callbacks.post(result) { view ->
-                        if (ViewSelectors.hasAncestorResourceName(view, "hw_device_viewpager")) {
+                        if (context.views.hasAncestorResourceName(view, "hw_device_viewpager")) {
                             if (context.config[key] == true) ViewTrimmer.collapse(view)
                             else ViewTrimmer.restore(view)
                         }
@@ -184,12 +170,11 @@ class DevicePageFeature : HookFeature {
 
     private fun applyNewParent(root: View, context: HookContext) {
         val packageName = context.application.packageName
-        ViewSelectors.applyByResourceNames(root, packageName,
+        context.views.applyByResourceNames(root, packageName,
             DeviceContentKeyResolver.newParentMappings, context.config)
-        if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) return
-        val device = ViewSelectors.findByResourceName(root, packageName, "switch_device") ?: return
-        val store = ViewSelectors.findByResourceName(root, packageName, "switch_web") ?: return
-        val switcher = ViewSelectors.findByResourceName(root, packageName, "switch_device_layout") ?: return
+        val device = context.views.findByResourceName(root, packageName, "switch_device") ?: return
+        val store = context.views.findByResourceName(root, packageName, "switch_web") ?: return
+        val switcher = context.views.findByResourceName(root, packageName, "switch_device_layout") ?: return
         val hideSwitcher = context.config[SettingsKeys.DEVICE_SWITCHER] == true
         val hideStore = hideSwitcher || context.config[SettingsKeys.DEVICE_TAB_STORE] == true ||
             context.config[SettingsKeys.DEVICE_STORE] == true
@@ -202,20 +187,18 @@ class DevicePageFeature : HookFeature {
     }
 
     private fun applyArkui(root: View, context: HookContext) {
-        if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) return
-        val content = ViewSelectors.findByResourceName(root, context.application.packageName,
+        val content = context.views.findByResourceName(root, context.application.packageName,
             "device_scrollview_content") as? ViewGroup ?: return
         for (index in 0 until content.childCount) {
             val child = content.getChildAt(index)
-            val key = synchronized(delegateRoots) { delegateRoots[child] } ?: arkuiKeyByResource(child,
-                context.application.packageName) ?: continue
+            val key = synchronized(delegateRoots) { delegateRoots[child] } ?: arkuiKeyByResource(child, context) ?: continue
             if (context.config[key] == true) ViewTrimmer.collapse(child) else ViewTrimmer.restore(child)
             if (key == SettingsKeys.DEVICE_PRIMARY) applyAddDevice(child, context)
             if (key == SettingsKeys.DEVICE_TIPS) applyTipRows(child, context)
         }
     }
 
-    private fun arkuiKeyByResource(root: View, packageName: String): String? =
+    private fun arkuiKeyByResource(root: View, context: HookContext): String? =
         mapOf(
             "rl_tab_device" to SettingsKeys.DEVICE_PRIMARY,
             "tab_all_device_layout" to SettingsKeys.DEVICE_LIST,
@@ -224,19 +207,19 @@ class DevicePageFeature : HookFeature {
             "card_watchface_view" to SettingsKeys.DEVICE_WATCH_FACES,
             "device_feature_container" to SettingsKeys.DEVICE_FEATURES,
         ).entries.firstOrNull { (name, _) ->
-            ViewSelectors.findByResourceName(root, packageName, name) != null
+            context.views.findByResourceName(root, context.application.packageName, name) != null
         }?.value
 
     private fun applyAddDevice(root: View, context: HookContext) {
-        ViewSelectors.findByResourceName(root, context.application.packageName, "ll_tab_device_empty")?.let {
+        context.views.findByResourceName(root, context.application.packageName, "ll_tab_device_empty")?.let {
             if (context.config[SettingsKeys.DEVICE_ADD] == true) ViewTrimmer.collapse(it)
             else ViewTrimmer.restore(it)
         }
     }
 
     private fun applyTipRows(root: View, context: HookContext) {
-        ViewSelectors.walk(root) { view ->
-            if (ViewSelectors.resourceEntryName(view) != "tab_title") return@walk
+        context.views.walk(root) { view ->
+            if (context.views.resourceEntryName(view) != "tab_title") return@walk
             val title = (view as? TextView)?.text?.toString() ?: return@walk
             val key = DeviceContentKeyResolver.arkuiSettings[title] ?: return@walk
             val row = view.parent as? View ?: return@walk

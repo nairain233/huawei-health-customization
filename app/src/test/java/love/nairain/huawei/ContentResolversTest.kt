@@ -48,9 +48,7 @@ class ContentResolversTest {
         assertEquals(SettingsKeys.SPORT_COACHES, SportContentKeyResolver.resolve(null, null, "明星教练"))
         assertEquals(SettingsKeys.MINE_ABOUT, RowKeyResolver().resolve("IDS_settings_about"))
         assertEquals(SettingsKeys.MINE_FEEDBACK, RowKeyResolver().resolve("IDS_user_profile_questions_suggestions"))
-        assertEquals(SettingsKeys.MINE_COURSES, RowKeyResolver().resolve("2130837547", 0x7f02002b))
-        assertEquals(SettingsKeys.MINE_PROFILE, RowKeyResolver().resolve("2130842041", 0x7f0211b9))
-        assertEquals(SettingsKeys.MINE_ABOUT, RowKeyResolver().resolve("2130841985", 0x7f021181))
+        assertNull(RowKeyResolver().resolve("2130841985"))
         assertEquals(SettingsKeys.BOTTOM_MEMBER, BottomTabKeyResolver().resolve("IDS_vip"))
         assertNull(RowKeyResolver().resolve("new_dynamic_row"))
     }
@@ -78,10 +76,7 @@ class ContentResolversTest {
     fun everyDeviceSettingHasVerifiedResourceMapping() {
         val legacy = DeviceContentKeyResolver.resourceMappings.values.toSet()
         val newParent = DeviceContentKeyResolver.newParentMappings.values.toSet()
-        val arkui = DeviceContentKeyResolver.arkuiDelegateKeys.values.toSet()
-        assertTrue(SettingsCatalog.device.map { it.key }.toSet().containsAll(legacy + newParent + arkui))
-        assertEquals(SettingsKeys.DEVICE_PRIMARY,
-            DeviceContentKeyResolver.arkuiDelegateKeys["ssf"])
+        assertTrue(SettingsCatalog.device.map { it.key }.toSet().containsAll(legacy + newParent))
         assertEquals(SettingsKeys.DEVICE_SEARCH,
             DeviceContentKeyResolver.newParentMappings["hwappbarpattern_layout_ok_icon"])
         assertEquals(
@@ -89,20 +84,6 @@ class ContentResolversTest {
             DeviceContentKeyResolver.resolve("hwappbarpattern_layout_ok_icon"),
         )
         assertNull(DeviceContentKeyResolver.resolve("new_server_device_block"))
-    }
-
-    @Test
-    fun maps8300DeviceDelegatesWithoutReusingPreviousVersions() {
-        val delegates = DeviceContentKeyResolver.arkuiDelegateKeys
-        assertEquals(SettingsKeys.DEVICE_LIST, delegates["ssy"])
-        assertEquals(SettingsKeys.DEVICE_TIPS, delegates["sth"])
-        assertEquals(SettingsKeys.DEVICE_WATCH_FACES, delegates["sto"])
-        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["stc"])
-        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["stp"])
-        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["ssb"])
-        assertEquals(SettingsKeys.DEVICE_FEATURES, delegates["ssx"])
-        listOf("rxl", "rya", "ryi", "ryg", "ryr", "rxz", "ryq", "rxg", "ryb").forEach { assertNull(delegates[it]) }
-        assertNull(RowKeyResolver().resolve("2130841985", 0x7f021181, allowStaticIds = false))
     }
 
     @Test

@@ -5,116 +5,108 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.luckypray.dexkit.DexKitBridge
 import java.io.File
-import love.nairain.huawei.config.SettingsKeys
+import love.nairain.huawei.config.SettingsKeys as K
 
-/** 与进程内共用查询规则；桌面测试只证明 Dex 定位，不能替代运行时类加载及设备回归。 */
+/** 两版共用生产规则；桌面 R 字段来自各自 JADX 产物并与各自资源表核对。 */
 class ApkScanTest {
+    private fun resources(): Map<String, Int> {
+        val publicXml = File(requireNotNull(System.getProperty("scan.resources")))
+        val entries = Regex("<public type=\"([^\"]+)\" name=\"([^\"]+)\" id=\"0x([0-9a-fA-F]+)\"")
+            .findAll(publicXml.readText()).map { Triple(it.groupValues[1], it.groupValues[2], it.groupValues[3].toLong(16).toInt()) }.toList()
+        val result = entries.associate { "${it.first}/${it.second}" to it.third }.toMutableMap()
+        val types = entries.groupBy { it.third }.mapValues { it.value.map { row -> row.first }.toSet() }
+        val sources = File(publicXml.toPath().parent.parent.parent.parent.toFile(), "sources")
+        val fields = mutableMapOf<String, MutableSet<Int>>()
+        listOf("com/huawei/ui/main/R.java", "com/huawei/ui/homehealth/R.java", "com/huawei/health/R.java").forEach { owner ->
+            val source = File(sources, owner).readText()
+            val classes = Regex("public static (?:final )?class (\\w+) ").findAll(source).toList()
+            classes.forEachIndexed { index, match ->
+                val kind = match.groupValues[1]
+                if (kind !in setOf("id", "string", "layout")) return@forEachIndexed
+                val body = source.substring(match.range.last + 1, classes.getOrNull(index + 1)?.range?.first ?: source.length)
+                Regex("public static (?:final )?int (\\w+) = (0x[0-9a-fA-F]+|[0-9]+);").findAll(body).forEach { field ->
+                    val raw = field.groupValues[2]
+                    val value = if (raw.startsWith("0x")) raw.drop(2).toLong(16).toInt() else raw.toInt()
+                    if (types[value] == setOf(kind)) fields.getOrPut("$kind/${field.groupValues[1]}") { linkedSetOf() }.add(value)
+                }
+            }
+        }
+        fields.forEach { (key, values) ->
+            val all = values + listOfNotNull(result[key])
+            result[key] = all.singleOrNull() ?: 0
+        }
+        return result
+    }
+
     @Test fun scansRealApkWithProductionRules() {
         val native = System.getProperty("scan.native").orEmpty()
         assumeTrue("未配置桌面 DexKit 库", native.isNotEmpty())
         val library = File(native)
         listOf("libunwind.dll", "libc++.dll").map { File(library.parentFile, it) }.filter { it.isFile }.forEach { System.load(it.absolutePath) }
         System.load(library.absolutePath)
-        val resourceXml = File(requireNotNull(System.getProperty("scan.resources"))).readText()
-        val ids = Regex("<public type=\"([^\"]+)\" name=\"([^\"]+)\" id=\"0x([0-9a-fA-F]+)\"")
-            .findAll(resourceXml).associate { "${it.groupValues[1]}/${it.groupValues[2]}" to it.groupValues[3].toLong(16).toInt() }
+        val ids = resources()
         DexKitBridge.create(requireNotNull(System.getProperty("scan.apk"))).use { bridge ->
-            var checked = emptySet<String>()
-            val result = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, {}, true).scan { p, m ->
-                assertTrue(p.containsAll(checked))
-                assertTrue(p.containsAll(m))
-                checked = p
-            }
-            assertEquals(ScanProtocol.keys, checked)
+            fun scan(verify: (String) -> Unit = {}, bridges: List<DexKitBridge> = listOf(bridge),
+                     missingResources: Set<String> = emptySet()): LayoutResolution =
+                LayoutScanner(bridges, { name, kind -> if ("$kind/$name" in missingResources) 0 else ids["$kind/$name"] ?: 0 }, { descriptor ->
+                    assertFalse("静态初始化器无法用于 Java 反射复核", "-><clinit>" in descriptor)
+                    val exists = when {
+                        '(' in descriptor -> bridges.any { it.getMethodData(descriptor) != null }
+                        "->" in descriptor -> bridges.any { it.getFieldData(descriptor) != null }
+                        else -> bridges.any { it.getClassData(descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')) != null }
+                    }
+                    assertTrue("描述符必须属于当前 APK：$descriptor", exists)
+                    verify(descriptor)
+                }).scan { checked, matched ->
+                    assertTrue(checked.containsAll(matched))
+                }
+            val result = scan()
             val output = System.getProperty("scan.output").orEmpty()
             if (output.isNotEmpty()) File(output).writeText(result.encode())
-            assertEquals("基准 APK 的所有必要条件应命中", ScanProtocol.keys, result.matched)
-            assertTrue(SettingsKeys.HEALTH_QUICK_ENTRIES in result.matched)
-            assertTrue("health.edit-cards" in result.groups)
-            assertFalse("health.health-cards" in result.groups)
-            assertTrue(SettingsKeys.MINE_MARKETING in result.matched)
-            assertTrue("mine.marketing" in result.groups)
-            assertTrue("必须覆盖复用恢复入口", "sport.quick-entry-bind" in result.groups)
-            assertTrue("device.refresh.0" in result.groups)
-            assertTrue("device.refresh.1" in result.groups)
-            assertTrue("device.new.delegates" in result.groups)
+            assertEquals("失败来源：${result.issues}", ScanProtocol.keys, result.matched)
+            listOf("health.edit-cards", "sport.quick-entry-bind", "device.refresh.0", "device.refresh.1",
+                "device.new.delegates", "mine.marketing").forEach { assertTrue("缺少 $it", it in result.groups) }
             assertEquals(10, result.capabilities.getValue("device.new.arkui").size)
-            listOf("ssf", "ssy", "sth", "sse", "sto", "stc", "stp", "ssb", "ssx").forEach {
-                assertTrue("L$it;" in result.descriptors)
+            assertEquals(9, result.identities.keys.count { it.startsWith("delegate:") })
+            assertEquals(result, LayoutResolution.decode(result.encode()))
+            assertTrue(result.bindings.values.all(result.descriptors::contains))
+            result.bindings.values.filter { '(' in it }.forEach {
+                assertTrue("Hook 的类入口同样需要证据", it.substringBefore("->") in result.descriptors)
             }
-            assertTrue("Lcom/huawei/ui/homehealth/threecirclecard/ModelSetCardData;->getCardName()Ljava/lang/String;" in result.descriptors)
-            assertTrue("Lugc;->getCardName()Ljava/lang/String;" in result.descriptors)
-            assertTrue("Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->k()V" in result.descriptors)
-            assertTrue("Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->n:Landroid/widget/LinearLayout;" in result.descriptors)
-            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter;->x(Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$d;I)V" in result.descriptors)
-            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$d;->cm:Landroid/widget/RelativeLayout;" in result.descriptors)
-            assertTrue("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$a\$5;->b(Ljava/util/Map;)V" in result.descriptors)
-            assertTrue("Lcom/huawei/ui/homehealth/device/CardDeviceFragment;->c(Lcom/huawei/health/marketing/api/MarketingApi;Ljava/util/Map;)V" in result.descriptors)
-            assertEquals("xxs", result.mineManager)
-            assertEquals("t", result.aliases["xxs#t#0"])
-            assertEquals("m", result.aliases["xxs#l#0"])
-            assertEquals("e", result.aliases["xwc#a#0"])
-            assertEquals("g", result.aliases["xwc#j#0"])
+            assertTrue(result.resourceIds.values.all { it > 0 })
+            val bind = result.bindings.getValue("com.huawei.health.marketing.views.ColumnLayoutAdapter#quick.bind#2")
+            assertTrue(bind.endsWith(";I)V"))
+            assertTrue(result.bindings.keys.any { it.endsWith("#quick.root#field") })
+            assertEquals(result, scan()) // 扫描 API 不再接收版本或已知版本标记。
 
-            val generic = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, {}, false).scan { _, _ -> }
-            assertTrue(SettingsKeys.MINE_GROUP in generic.matched)
-            assertFalse("未知版本不能使用编辑卡片的静态符号后备", SettingsKeys.HEALTH_EDIT_CARDS in generic.matched)
-            assertFalse(SettingsKeys.MINE_MARKETING in generic.matched)
-            assertFalse(SettingsKeys.DEVICE_PRIMARY in generic.matched)
-            assertFalse("旧设备页命中不能开放 Arkui 混淆委托", "device.new.delegates" in generic.groups)
-            assertFalse("sport.quick-entry-bind" in generic.groups)
-            assertFalse("未知版本不能放宽共享圆环标识的唯一性", SettingsKeys.HEALTH_ACTIVITY_RINGS in generic.matched)
-            if (output.isNotEmpty()) File("$output.generic.json").writeText(generic.encode())
-
-            val missing = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
-                if (symbol.startsWith("Lcom/huawei/ui/homehealth/adapter/HomeCardAdapter;")) throw ClassNotFoundException()
-            }, true).scan { _, _ -> }
-            assertFalse(SettingsKeys.HEALTH_ACTIVITY_RINGS in missing.matched)
-            assertTrue(SettingsKeys.MINE_GROUP in missing.matched)
-
-            val missingField = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
-                if (symbol == "Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->n:Landroid/widget/LinearLayout;") {
-                    throw NoSuchFieldException()
-                }
-            }, true).scan { _, _ -> }
-            assertFalse(SettingsKeys.HEALTH_EDIT_CARDS in missingField.matched)
-            assertTrue(SettingsKeys.HEALTH_QUICK_ENTRIES in missingField.matched)
-            assertTrue(SettingsKeys.MINE_MARKETING in missingField.matched)
-
-            val missingQuickField = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
-                if (symbol == "Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$d;->cm:Landroid/widget/RelativeLayout;") {
-                    throw NoSuchFieldException()
-                }
-            }, true).scan { _, _ -> }
-            assertFalse("缺少复用根字段时不安装绑定 Hook", "sport.quick-entry-bind" in missingQuickField.groups)
-            assertTrue(SettingsKeys.SPORT_LATEST in missingQuickField.matched)
-
-            val missingDelegate = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
-                if (symbol == "Lssf;") throw ClassNotFoundException()
-            }, true).scan { _, _ -> }
-            assertFalse(SettingsKeys.DEVICE_PRIMARY in missingDelegate.matched)
-            assertFalse(SettingsKeys.DEVICE_PRIMARY in missingDelegate.capabilities["device.new.delegates"].orEmpty())
-            assertTrue(SettingsKeys.DEVICE_LIST in missingDelegate.capabilities["device.new.delegates"].orEmpty())
-            assertTrue(SettingsKeys.MINE_GROUP in missingDelegate.matched)
-
-            val missingCallback = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
-                if (symbol.startsWith("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$a\$5;")) {
-                    throw ClassNotFoundException()
-                }
-            }, true).scan { _, _ -> }
-            assertFalse(SettingsKeys.MINE_MARKETING in missingCallback.matched)
-            assertTrue(SettingsKeys.MINE_GROUP in missingCallback.matched)
-            assertTrue(SettingsKeys.DEVICE_PRIMARY in missingCallback.matched)
-
+            val missingRoot = scan({ symbol ->
+                if (symbol == result.bindings.values.single { it.contains("->") && it.endsWith(":Landroid/widget/RelativeLayout;") }) throw NoSuchFieldException()
+            })
+            assertFalse("sport.quick-entry-bind" in missingRoot.groups)
+            assertFalse(K.SPORT_MASTER_YOGA in missingRoot.matched)
+            assertTrue(K.HEALTH_EDIT_CARDS in missingRoot.matched)
+            val missingEdit = scan({ if (it == result.bindings.getValue("com.huawei.ui.homehealth.functionsetcard.FunctionSetCardViewHolder#edit.update#0")) throw NoSuchMethodException() })
+            assertFalse(K.HEALTH_EDIT_CARDS in missingEdit.matched)
+            assertTrue(K.HEALTH_QUICK_ENTRIES in missingEdit.matched)
+            val missingCallback = scan({ if (it == result.bindings.getValue("mine.marketing")) throw NoSuchMethodException() })
+            assertFalse(K.MINE_MARKETING in missingCallback.matched)
+            assertTrue(K.MINE_GROUP in missingCallback.matched)
+            val missingTab = scan(missingResources = setOf("id/track_sport_tab"))
+            assertFalse(K.SPORT_RUN_SUMMARY in missingTab.capabilities["sport.chrome"].orEmpty())
+            assertFalse(K.SPORT_PLAN_CARDS in missingTab.matched)
+            assertTrue(K.SPORT_MASTER_YOGA in missingTab.matched)
+            val missingPage = scan({ if (it == "L${love.nairain.huawei.hook.symbols.HuaweiHealthHookPoints.ANCHORS.deviceFragments[0].replace('.', '/')};") throw ClassNotFoundException() })
+            assertFalse("device.fragment.0" in missingPage.groups)
+            assertTrue("device.fragment.1" in missingPage.groups)
+            assertEquals(10, missingPage.capabilities.getValue("device.new.arkui").size)
             val fixture = System.getProperty("scan.fixture").orEmpty()
             if (fixture.isNotEmpty()) DexKitBridge.create(arrayOf(File(fixture).readBytes())).use { collision ->
-                val ambiguous = LayoutScanner(listOf(bridge, collision), { name, kind -> ids["$kind/$name"] ?: 0 }, {}, true).scan { _, _ -> }
-                assertFalse(SettingsKeys.MINE_GROUP in ambiguous.matched)
-                assertEquals("ambiguous", ambiguous.failures[SettingsKeys.MINE_GROUP])
-                assertTrue(SettingsKeys.MINE_FAMILY in ambiguous.matched)
-                assertFalse(SettingsKeys.HEALTH_ACTIVITY_RINGS in ambiguous.matched)
-                assertEquals("ambiguous", ambiguous.failures[SettingsKeys.HEALTH_ACTIVITY_RINGS])
-                assertTrue(SettingsKeys.HEALTH_EDIT_CARDS in ambiguous.matched)
+                val ambiguous = scan(bridges = listOf(bridge, collision))
+                assertFalse(K.HEALTH_ACTIVITY_RINGS in ambiguous.matched)
+                assertFalse(K.MINE_GROUP in ambiguous.matched)
+                assertTrue(K.HEALTH_QUICK_ENTRIES in ambiguous.matched)
+                assertTrue(K.MINE_FAMILY in ambiguous.matched)
+                assertEquals("ambiguous", ambiguous.failures[K.HEALTH_ACTIVITY_RINGS])
             }
         }
     }

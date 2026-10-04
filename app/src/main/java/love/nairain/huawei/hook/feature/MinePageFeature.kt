@@ -8,36 +8,30 @@ import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.HookContext
 import love.nairain.huawei.hook.HookFeature
 import love.nairain.huawei.hook.InstallResult
-import love.nairain.huawei.hook.installIsolated
+import love.nairain.huawei.hook.installSource
 import love.nairain.huawei.hook.resolver.ListFilters
 import love.nairain.huawei.hook.resolver.MineMarketingContentResolver
-import love.nairain.huawei.hook.resolver.ReflectionTargets
-import love.nairain.huawei.hook.resolver.RowKeyResolver
-import love.nairain.huawei.hook.util.ViewSelectors
-import java.util.concurrent.ConcurrentHashMap
 
 class MinePageFeature : HookFeature {
     override val id = "mine.page"
-    private val rowResolver = RowKeyResolver()
-    private val loggedRows = ConcurrentHashMap.newKeySet<String>()
 
     override fun install(context: HookContext): InstallResult {
         if (!SettingsCatalog.hasHidden(SettingsCategory.MINE, context.config)) {
             return InstallResult.Disabled
         }
         var count = 0
-        count += context.installIsolated("mine.header") { installHeader(context) }
-        count += context.installIsolated("mine.grid") { installGrid(context) }
-        count += context.installIsolated("mine.rows") { installRows(context) }
-        count += context.installIsolated("mine.marketing") { installMarketing(context) }
+        count += context.installSource("mine.header", ::installHeader)
+        count += context.installSource("mine.grid", ::installGrid)
+        count += context.installSource("mine.rows", ::installRows)
+        count += context.installSource("mine.marketing", ::installMarketing)
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified mine symbols unavailable")
     }
 
     private fun installHeader(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.mineFragment) ?: return 0
+        val type = context.targets.type(context.classLoader, context.points.mineFragment) ?: return 0
         var count = 0
-        ReflectionTargets.method(type, "onCreateView", 3)?.let { method ->
+        context.targets.method(type, "onCreateView", 3)?.let { method ->
             context.hooks.hook(method).setId("$id:header:create")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
@@ -47,12 +41,12 @@ class MinePageFeature : HookFeature {
                 }
             count++
         }
-        ReflectionTargets.method(type, "onResume", 0)?.let { method ->
+        context.targets.method(type, "onResume", 0)?.let { method ->
             context.hooks.hook(method).setId("$id:header:resume")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    applyHeader(ReflectionTargets.invokeNoArgs(chain.thisObject, "getView") as? View, context)
+                    applyHeader(context.targets.invokeNoArgs(chain.thisObject, "getView") as? View, context)
                     result
                 }
             count++
@@ -61,9 +55,9 @@ class MinePageFeature : HookFeature {
     }
 
     private fun installGrid(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.mineGridAdapter) ?: return 0
+        val type = context.targets.type(context.classLoader, context.points.mineGridAdapter) ?: return 0
         var count = 0
-        ReflectionTargets.constructor(type, 2)?.let { constructor ->
+        context.targets.constructor(type, 2)?.let { constructor ->
             context.hooks.hook(constructor).setId("$id:grid:init")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
@@ -71,7 +65,7 @@ class MinePageFeature : HookFeature {
                 }
             count++
         }
-        ReflectionTargets.method(type, "c", 1)?.let { method ->
+        context.targets.method(type, "grid.refresh", 1)?.let { method ->
             context.hooks.hook(method).setId("$id:grid:refresh")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
@@ -83,8 +77,8 @@ class MinePageFeature : HookFeature {
     }
 
     private fun installRows(context: HookContext): Int {
-        val type = ReflectionTargets.type(context.classLoader, context.points.mineListManager) ?: return 0
-        val methods = listOf("t", "l").mapNotNull { ReflectionTargets.method(type, it, 0, List::class.java) }
+        val type = context.targets.type(context.classLoader, context.points.mineListManager) ?: return 0
+        val methods = listOf("rows.domestic", "rows.overseas").mapNotNull { context.targets.method(type, it, 0, List::class.java) }
         methods.forEach { method ->
             context.hooks.hook(method).setId("$id:rows:${method.name}")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
@@ -96,9 +90,9 @@ class MinePageFeature : HookFeature {
                     }, context.config)
                     ListFilters.cleanSections(
                         filtered,
-                        isDivider = { row -> ReflectionTargets.invokeNoArgs(row, "j") == 1 },
+                        isDivider = { row -> context.targets.invokeNoArgs(row, "row.type") == 1 },
                         isTitledDivider = { row ->
-                            (ReflectionTargets.invokeNoArgs(row, "a") as? Int ?: 0) > 0
+                            (context.targets.invokeNoArgs(row, "row.title") as? Int ?: 0) > 0
                         },
                     )
                 }
@@ -108,13 +102,7 @@ class MinePageFeature : HookFeature {
 
     private fun installMarketing(context: HookContext): Int {
         if (context.config[SettingsKeys.MINE_MARKETING] != true) return 0
-        val type = ReflectionTargets.type(context.classLoader, context.points.mineMarketingCallback) ?: return 0
-        // Java 编译器把 OnSuccessListener<Map> 的业务实现保留为混淆方法 b(Map)，
-        // onSuccess(Object) 只是桥接方法；Hook 业务方法才能在生成 View 前替换 Map。
-        val method = ReflectionTargets.methods(type, "b", 1).firstOrNull { candidate ->
-            candidate.returnType == Void.TYPE &&
-                candidate.parameterTypes.singleOrNull()?.let(Map::class.java::isAssignableFrom) == true
-        } ?: return 0
+        val method = context.targets.marketing(context.classLoader) ?: return 0
         context.hooks.hook(method).setId("$id:marketing:filter")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
@@ -128,7 +116,7 @@ class MinePageFeature : HookFeature {
 
     private fun applyHeader(root: View?, context: HookContext) {
         if (root == null) return
-        ViewSelectors.applyByResourceNames(
+        context.views.applyByResourceNames(
             root,
             context.application.packageName,
             HEADER_VIEWS,
@@ -140,23 +128,17 @@ class MinePageFeature : HookFeature {
         val replacement = args.toTypedArray()
         val source = args.getOrNull(index) as? List<*> ?: return replacement
         replacement[index] = ListFilters.copyAndFilter(source.filterNotNull(), { model ->
-            ReflectionTargets.aliases["grid:${model.javaClass.name}"]
+            (context.targets.invokeNoArgs(model, "grid.identity") as? String)?.let { identity ->
+                context.targets.identities["grid:${model.javaClass.name}:$identity"]
+            }
         }, context.config)
         return replacement
     }
 
     private fun rowKey(row: Any, context: HookContext): String? {
-        val resourceId = ReflectionTargets.invokeNoArgs(row, "a") as? Int ?: return null
+        val resourceId = context.targets.invokeNoArgs(row, "row.title") as? Int ?: return null
         if (resourceId <= 0) return null
-        val name = runCatching {
-            context.application.resources.getResourceEntryName(resourceId)
-        }.getOrNull()
-        val key = ReflectionTargets.aliases["content:$resourceId"] ?: rowResolver.resolve(name, resourceId,
-            love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode))
-        if (key == null && name != null && loggedRows.add(name)) {
-            context.logger.info("Mine row kept: unmapped resource=$name")
-        }
-        return key
+        return context.targets.identities["content:$resourceId"]
     }
 
     private companion object {

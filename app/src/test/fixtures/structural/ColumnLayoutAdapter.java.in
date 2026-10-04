@@ -1,0 +1,24 @@
+package com.huawei.health.marketing.views;
+
+import android.widget.RelativeLayout;
+import com.huawei.health.marketing.datatype.SingleEntryContent;
+
+/** 两个同类型字段和同日志绑定，根字段只能由实际 accessor 调用确定。 */
+public class ColumnLayoutAdapter {
+    public static class HOLDER {
+        private RelativeLayout ROOT;
+        private RelativeLayout other;
+        public static RelativeLayout take(HOLDER holder) { return holder.ROOT; }
+        public static RelativeLayout distract(HOLDER holder) { return holder.other; }
+    }
+    private SingleEntryContent content(HOLDER holder, int index) { return new SingleEntryContent(); }
+    public void BIND(HOLDER holder, int index) {
+        if (content(holder, index) == null) System.out.println("setQuickEntryLayout content is null.");
+        HOLDER.take(holder).touch();
+    }
+    public void grid(HOLDER holder, int index) {
+        System.out.println("setQuickEntryLayout content is null.");
+        HOLDER.distract(holder).touch();
+    }
+    EXTRA
+}

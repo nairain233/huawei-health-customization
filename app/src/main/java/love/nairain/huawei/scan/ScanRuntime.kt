@@ -5,7 +5,6 @@ import android.content.pm.PackageInfo
 import android.os.SystemClock
 import android.util.AtomicFile
 import androidx.core.net.toUri
-import love.nairain.huawei.hook.HookInstallPolicy
 import love.nairain.huawei.hook.util.ModuleLogger
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.wrap.DexField
@@ -59,16 +58,19 @@ internal object ScanRuntime {
             report = report.copy(identity = identity, sequence = report.sequence + 1, time = System.currentTimeMillis())
             publish()
             val cache = File(dir, "resolution.json")
+            val hostResources = HostResources(app.resources, loader, app.packageName)
             val cached = runCatching {
-                ScanCache.decode(AtomicFile(cache).openRead().bufferedReader().use { it.readText() }, identity, request) { verify(it, loader) }
+                ScanCache.decode(AtomicFile(cache).openRead().bufferedReader().use { it.readText() }, identity, request) { verify(it, loader) }.also { resolution ->
+                    resolution.resourceIds.forEach { (key, value) -> require(hostResources.id(key.substringAfter('/'), key.substringBefore('/')) == value) }
+                }
             }.getOrNull()
             val result = cached ?: run {
                 System.loadLibrary("dexkit")
                 val bridges = mutableListOf<DexKitBridge>()
                 try {
                     paths.forEach { bridges += DexKitBridge.create(it) }
-                    LayoutScanner(bridges, HostResources(app.resources, loader, app.packageName)::id,
-                        { verify(it, loader) }, HookInstallPolicy.acceptsVersion(info.versionName, info.longVersionCode)).scan { checked, matched ->
+                    LayoutScanner(bridges, hostResources::id,
+                        { verify(it, loader) }).scan { checked, matched ->
                         report = report.copy(checked = checked, matched = matched, sequence = report.sequence + 1, time = System.currentTimeMillis())
                         publish()
                     }
@@ -82,6 +84,7 @@ internal object ScanRuntime {
                 sequence = report.sequence + 1, time = System.currentTimeMillis())
             publish()
             logger.info("Scan ${if (cached == null) "finished" else "cached"}: ${result.matched.size}/${ScanProtocol.keys.size}, ${SystemClock.elapsedRealtime() - start}ms")
+            result.issues.forEach { (role, reason) -> logger.info("Scan source kept: $role, $reason") }
             result.failures.forEach { (key, reason) -> logger.info("Scan kept: $key, $reason") }
             try { install(result) } catch (error: Throwable) {
                 logger.warn("Layout installation skipped: ${error.javaClass.simpleName}")

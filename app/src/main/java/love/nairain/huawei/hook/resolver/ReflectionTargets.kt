@@ -3,63 +3,47 @@ package love.nairain.huawei.hook.resolver
 import java.lang.reflect.Executable
 import java.lang.reflect.Method
 import org.luckypray.dexkit.wrap.DexMethod
+import org.luckypray.dexkit.wrap.DexField
+import love.nairain.huawei.scan.LayoutResolution
 
-internal object ReflectionTargets {
-    @Volatile
-    var aliases: Map<String, String> = emptyMap()
-    @Volatile
-    var resolvedDescriptors: Set<String>? = null
-    private fun allowed(method: Method) = resolvedDescriptors?.contains(DexMethod(method).toString()) != false
-    private fun mapped(type: Class<*>, name: String, count: Int): String =
+/** 按完整描述符解析；没有扫描证据时不回退到同名或同参数数量成员。 */
+internal class ReflectionTargets(private val resolution: LayoutResolution, private val loader: ClassLoader) {
+    val identities get() = resolution.identities
+
+    private fun binding(type: Class<*>, role: String, suffix: String): String? =
         generateSequence(type as Class<*>?) { it.superclass }.firstNotNullOfOrNull {
-            aliases["${it.name}#$name#$count"]
-        } ?: name
+            resolution.bindings["${it.name}#$role#$suffix"]
+        }
+
     fun type(classLoader: ClassLoader, name: String): Class<*>? =
-        runCatching { Class.forName(name, false, classLoader) }.getOrNull()
+        if ("L${name.replace('.', '/')};" !in resolution.descriptors) null
+        else runCatching { Class.forName(name, false, classLoader) }.getOrNull()
 
-    fun method(
-        type: Class<*>,
-        name: String,
-        parameterCount: Int,
-        returnType: Class<*>? = null,
-    ): Method? = allMethods(type).firstOrNull {
-        it.name == mapped(type, name, parameterCount) && it.parameterCount == parameterCount &&
-            (returnType == null || it.returnType == returnType) && allowed(it)
-    }?.apply { isAccessible = true }
+    fun method(type: Class<*>, role: String, parameterCount: Int, returnType: Class<*>? = null): Method? =
+        binding(type, role, parameterCount.toString())?.let { descriptor ->
+            runCatching { DexMethod(descriptor).getMethodInstance(loader).apply { isAccessible = true } }
+                .getOrNull()?.takeIf { it.declaringClass.isAssignableFrom(type) &&
+                    it.parameterCount == parameterCount && (returnType == null || it.returnType == returnType) }
+        }
 
-    fun methods(type: Class<*>, name: String, parameterCount: Int): List<Method> =
-        allMethods(type).filter { it.name == mapped(type, name, parameterCount) && it.parameterCount == parameterCount && allowed(it) }
-            .onEach { it.isAccessible = true }
-            .toList()
+    fun methods(type: Class<*>, role: String, parameterCount: Int): List<Method> =
+        listOfNotNull(method(type, role, parameterCount))
 
     fun constructor(type: Class<*>, parameterCount: Int): Executable? =
-        type.declaredConstructors.singleOrNull { it.parameterCount == parameterCount &&
-            resolvedDescriptors?.contains(DexMethod(it).toString()) != false }
-            ?.apply { isAccessible = true }
+        binding(type, "<init>", parameterCount.toString())?.let { descriptor ->
+            runCatching { DexMethod(descriptor).getConstructorInstance(loader).apply { isAccessible = true } }.getOrNull()
+        }
 
-    fun invokeNoArgs(target: Any, name: String): Any? = runCatching {
-        allMethods(target.javaClass).firstOrNull { it.name == mapped(target.javaClass, name, 0) && it.parameterCount == 0 }
-            ?.apply { isAccessible = true }
-            ?.invoke(target)
+    fun invokeNoArgs(target: Any, role: String): Any? = runCatching {
+        method(target.javaClass, role, 0)?.invoke(target)
     }.getOrNull()
 
-    fun fieldValue(target: Any, name: String): Any? = runCatching {
-        var current: Class<*>? = target.javaClass
-        while (current != null) {
-            current.declaredFields.firstOrNull { it.name == (aliases["${current.name}#$name#field"] ?: name) }?.let { field ->
-                field.isAccessible = true
-                return@runCatching field.get(target)
-            }
-            current = current.superclass
-        }
-        null
-    }.getOrNull()
+    fun fieldValue(target: Any, role: String): Any? = binding(target.javaClass, role, "field")?.let { descriptor ->
+        runCatching { DexField(descriptor).getFieldInstance(loader)
+            .apply { isAccessible = true }.get(target) }.getOrNull()
+    }
 
-    private fun allMethods(type: Class<*>): Sequence<Method> = sequence {
-        var current: Class<*>? = type
-        while (current != null) {
-            yieldAll(current.declaredMethods.asSequence())
-            current = current.superclass
-        }
+    fun marketing(classLoader: ClassLoader): Method? = resolution.bindings["mine.marketing"]?.let {
+        runCatching { DexMethod(it).getMethodInstance(classLoader).apply { isAccessible = true } }.getOrNull()
     }
 }
