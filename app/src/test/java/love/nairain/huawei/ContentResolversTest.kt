@@ -49,8 +49,8 @@ class ContentResolversTest {
         assertEquals(SettingsKeys.MINE_ABOUT, RowKeyResolver().resolve("IDS_settings_about"))
         assertEquals(SettingsKeys.MINE_FEEDBACK, RowKeyResolver().resolve("IDS_user_profile_questions_suggestions"))
         assertEquals(SettingsKeys.MINE_COURSES, RowKeyResolver().resolve("2130837547", 0x7f02002b))
-        assertEquals(SettingsKeys.MINE_PROFILE, RowKeyResolver().resolve("2130841992", 0x7f021188))
-        assertEquals(SettingsKeys.MINE_ABOUT, RowKeyResolver().resolve("2130841936", 0x7f021150))
+        assertEquals(SettingsKeys.MINE_PROFILE, RowKeyResolver().resolve("2130842041", 0x7f0211b9))
+        assertEquals(SettingsKeys.MINE_ABOUT, RowKeyResolver().resolve("2130841985", 0x7f021181))
         assertEquals(SettingsKeys.BOTTOM_MEMBER, BottomTabKeyResolver().resolve("IDS_vip"))
         assertNull(RowKeyResolver().resolve("new_dynamic_row"))
     }
@@ -81,7 +81,7 @@ class ContentResolversTest {
         val arkui = DeviceContentKeyResolver.arkuiDelegateKeys.values.toSet()
         assertTrue(SettingsCatalog.device.map { it.key }.toSet().containsAll(legacy + newParent + arkui))
         assertEquals(SettingsKeys.DEVICE_PRIMARY,
-            DeviceContentKeyResolver.arkuiDelegateKeys["rxl"])
+            DeviceContentKeyResolver.arkuiDelegateKeys["ssf"])
         assertEquals(SettingsKeys.DEVICE_SEARCH,
             DeviceContentKeyResolver.newParentMappings["hwappbarpattern_layout_ok_icon"])
         assertEquals(
@@ -92,17 +92,17 @@ class ContentResolversTest {
     }
 
     @Test
-    fun maps320DeviceDelegatesWithoutReusing310Meanings() {
+    fun maps8300DeviceDelegatesWithoutReusingPreviousVersions() {
         val delegates = DeviceContentKeyResolver.arkuiDelegateKeys
-        assertEquals(SettingsKeys.DEVICE_LIST, delegates["rya"])
-        assertEquals(SettingsKeys.DEVICE_TIPS, delegates["ryi"])
-        assertEquals(SettingsKeys.DEVICE_WATCH_FACES, delegates["ryr"])
-        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["rxz"])
-        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["ryq"])
-        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["rxg"])
-        assertEquals(SettingsKeys.DEVICE_FEATURES, delegates["ryb"])
-        listOf("ryd", "ryk", "rys", "ryc", "ryv", "rxn").forEach { assertNull(delegates[it]) }
-        assertNull(RowKeyResolver().resolve("2130841936", 0x7f021150, allowStaticIds = false))
+        assertEquals(SettingsKeys.DEVICE_LIST, delegates["ssy"])
+        assertEquals(SettingsKeys.DEVICE_TIPS, delegates["sth"])
+        assertEquals(SettingsKeys.DEVICE_WATCH_FACES, delegates["sto"])
+        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["stc"])
+        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["stp"])
+        assertEquals(SettingsKeys.DEVICE_FUNCTIONS, delegates["ssb"])
+        assertEquals(SettingsKeys.DEVICE_FEATURES, delegates["ssx"])
+        listOf("rxl", "rya", "ryi", "ryg", "ryr", "rxz", "ryq", "rxg", "ryb").forEach { assertNull(delegates[it]) }
+        assertNull(RowKeyResolver().resolve("2130841985", 0x7f021181, allowStaticIds = false))
     }
 
     @Test

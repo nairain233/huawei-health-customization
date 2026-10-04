@@ -1,6 +1,6 @@
 package love.nairain.huawei.hook.symbols
 
-/** 仅包含 17.0.7.320 静态分析确认过的符号，不提供未知版本兜底。 */
+/** 仅包含 17.0.8.300 静态分析确认过的符号，不提供未知版本兜底。 */
 data class HuaweiHealthHookPoints(
     val versionName: String,
     val versionCode: Long,
@@ -22,9 +22,9 @@ data class HuaweiHealthHookPoints(
     val bottomView: String,
 ) {
     companion object {
-        val V17_0_7_320 = HuaweiHealthHookPoints(
-            versionName = "17.0.7.320",
-            versionCode = 1700007320L,
+        val V17_0_8_300 = HuaweiHealthHookPoints(
+            versionName = "17.0.8.300",
+            versionCode = 1700008300L,
             homeFragment = "com.huawei.ui.homehealth.HomeFragment",
             homeAdapter = "com.huawei.ui.homehealth.adapter.HomeCardAdapter",
             functionSetHolder = "com.huawei.ui.homehealth.functionsetcard.FunctionSetCardViewHolder",
@@ -39,9 +39,9 @@ data class HuaweiHealthHookPoints(
             arkuiDeviceFragment = "com.huawei.ui.homehealth.devicearkui.ArkuiDeviceFragment",
             vmallFragment = "com.huawei.ui.homehealth.device.VMallFragment",
             mineFragment = "com.huawei.ui.main.stories.userprofile.activity.PersonalCenterFragment",
-            mineListManager = "wsl",
+            mineListManager = "xxs",
             mineGridAdapter = "com.huawei.ui.main.stories.userprofile.activity.PersonalGridAdapter",
-            mineMarketingCallback = "com.huawei.ui.main.stories.userprofile.activity.PersonalCenterRecyclerViewAdapter\$b\$4",
+            mineMarketingCallback = "com.huawei.ui.main.stories.userprofile.activity.PersonalCenterRecyclerViewAdapter\$a\$5",
             bottomBase = "com.huawei.uikit.phone.hwbottomnavigationview.widget.HwBottomNavigationView",
             bottomView = "com.huawei.ui.commonui.scrollview.HealthBottomView",
         )

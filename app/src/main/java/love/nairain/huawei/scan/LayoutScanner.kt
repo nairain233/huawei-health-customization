@@ -62,7 +62,7 @@ internal class LayoutScanner(
     private val verifySymbol: (String) -> Unit,
     private val known: Boolean,
 ) {
-    private val points = HuaweiHealthHookPoints.V17_0_7_320
+    private val points = HuaweiHealthHookPoints.V17_0_8_300
     private val aliases = linkedMapOf<String, String>()
     private val descriptors = linkedSetOf<String>()
     private val groups = linkedSetOf<String>()
@@ -202,14 +202,30 @@ internal class LayoutScanner(
                 "OperaMsgCardData",
                 "FunctionMenuCardData",
                 "HealthQuickEntryCardData",
-            ).forEach {
-                method(null, "getCardName", "java.lang.String", emptyList(), it)
+            ).forEach { cardName ->
+                if (known && cardName == "SCUI_TwoModelCardData") {
+                    // 新版两种真实活动圆环卡片共用标识；只接受已核验的完整候选集合。
+                    val owners = setOf("com.huawei.ui.homehealth.threecirclecard.ModelSetCardData", "ugc")
+                    val candidates = bridges.flatMap { bridge -> bridge.findMethod { matcher {
+                        name("getCardName"); returnType("java.lang.String"); paramTypes()
+                        usingEqStrings(listOf(cardName))
+                    } } }.distinctBy { it.descriptor }
+                    require(candidates.size == owners.size && candidates.map { it.className }.toSet() == owners) { "ambiguous" }
+                    candidates.forEach { candidate ->
+                        require(hierarchy(candidate.className).any {
+                            it.name == "com.huawei.health.health.utils.functionsetcard.AbstractBaseCardData"
+                        })
+                        remember(candidate, candidate.className, "getCardName")
+                    }
+                } else {
+                    method(null, "getCardName", "java.lang.String", emptyList(), cardName)
+                }
             }
         }
         run("health.edit-cards", setOf(K.HEALTH_EDIT_CARDS)) {
             require(known)
-            method(points.functionSetHolder, "l", "void", emptyList())
-            field(points.functionSetHolder, "l", "android.widget.LinearLayout")
+            method(points.functionSetHolder, "k", "void", emptyList())
+            field(points.functionSetHolder, "n", "android.widget.LinearLayout")
         }
         val sportControls = SportPageTargets.controls.entries.groupBy({ it.value }, { it.key })
         sportControls.forEach { (key, names) -> run("sport.chrome", setOf(key)) {
@@ -263,7 +279,7 @@ internal class LayoutScanner(
                     matcher {
                         declaredClass(points.sportColumnAdapter)
                         returnType("void")
-                        paramTypes("${points.sportColumnAdapter}\$b", "int")
+                        paramTypes("${points.sportColumnAdapter}\$d", "int")
                         usingEqStrings(listOf("setQuickEntryLayout content is null."))
                     }
                 } }.distinctBy { it.descriptor }.filter { candidate ->
@@ -271,7 +287,7 @@ internal class LayoutScanner(
                 }
                 require(candidates.size == 1) { "ambiguous" }
                 remember(candidates.single(), points.sportColumnAdapter, "x")
-                field("${points.sportColumnAdapter}\$b", "cq", "android.widget.RelativeLayout")
+                field("${points.sportColumnAdapter}\$d", "cm", "android.widget.RelativeLayout")
             }
         }
         DeviceContentKeyResolver.resourceMappings.values.toSet().forEach { key -> run("device.fragment.0", setOf(key)) {
@@ -320,7 +336,7 @@ internal class LayoutScanner(
                 method(points.deviceFragments[0], "a", "void", listOf("java.util.List"), "mContext = null or mMarketingBanner = null")
             }
             group("device.refresh.1", emptySet()) {
-                method(points.deviceFragments[1], "e", "void", listOf("com.huawei.health.marketing.api.MarketingApi", "java.util.Map"))
+                method(points.deviceFragments[1], "c", "void", listOf("com.huawei.health.marketing.api.MarketingApi", "java.util.Map"))
             }
         }
         val headers = mapOf(K.MINE_MESSAGES to "rl_actionbar_right", K.MINE_ACCOUNT to "head_layout", K.MINE_VIP to "vip_layout")
@@ -341,8 +357,8 @@ internal class LayoutScanner(
             // 回调类与营销位置 ID 属于基准 APK 的联合证据，不向未知版本复用。
             require(known)
             val callback = points.mineMarketingCallback
-            // JADX 将该方法还原为 onSuccess(Map)，实际 Dex 中是 d(Map)，并由 onSuccess(Object) 桥接。
-            val success = method(callback, "d", "void", listOf("java.util.Map"))
+            // JADX 将该方法还原为 onSuccess(Map)，实际 Dex 中是 b(Map)，并由 onSuccess(Object) 桥接。
+            val success = method(callback, "b", "void", listOf("java.util.Map"))
             require(success.invokes.any {
                 it.name == "filterMarketingRules" &&
                     it.returnTypeName == "java.util.Map" &&

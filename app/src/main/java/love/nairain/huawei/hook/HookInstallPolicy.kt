@@ -13,8 +13,8 @@ class HookInstallGate {
 
 object HookInstallPolicy {
     const val TARGET_PACKAGE = "com.huawei.health"
-    const val SUPPORTED_VERSION_NAME = "17.0.7.320"
-    const val SUPPORTED_VERSION_CODE = 1700007320L
+    const val SUPPORTED_VERSION_NAME = "17.0.8.300"
+    const val SUPPORTED_VERSION_CODE = 1700008300L
 
     fun acceptsPackage(
         packageName: String?,

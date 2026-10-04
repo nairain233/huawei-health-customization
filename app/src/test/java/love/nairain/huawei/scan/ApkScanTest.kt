@@ -35,16 +35,26 @@ class ApkScanTest {
             assertTrue(SettingsKeys.MINE_MARKETING in result.matched)
             assertTrue("mine.marketing" in result.groups)
             assertTrue("必须覆盖复用恢复入口", "sport.quick-entry-bind" in result.groups)
+            assertTrue("device.refresh.0" in result.groups)
             assertTrue("device.refresh.1" in result.groups)
-            assertTrue("Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->l:Landroid/widget/LinearLayout;" in result.descriptors)
-            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter;->x(Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$b;I)V" in result.descriptors)
-            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$b;->cq:Landroid/widget/RelativeLayout;" in result.descriptors)
-            assertTrue("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$b\$4;->d(Ljava/util/Map;)V" in result.descriptors)
-            assertEquals("wsl", result.mineManager)
-            assertEquals("r", result.aliases["wsl#t#0"])
-            assertEquals("n", result.aliases["wsl#l#0"])
-            assertEquals("e", result.aliases["wqy#a#0"])
-            assertEquals("h", result.aliases["wqy#j#0"])
+            assertTrue("device.new.delegates" in result.groups)
+            assertEquals(10, result.capabilities.getValue("device.new.arkui").size)
+            listOf("ssf", "ssy", "sth", "sse", "sto", "stc", "stp", "ssb", "ssx").forEach {
+                assertTrue("L$it;" in result.descriptors)
+            }
+            assertTrue("Lcom/huawei/ui/homehealth/threecirclecard/ModelSetCardData;->getCardName()Ljava/lang/String;" in result.descriptors)
+            assertTrue("Lugc;->getCardName()Ljava/lang/String;" in result.descriptors)
+            assertTrue("Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->k()V" in result.descriptors)
+            assertTrue("Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->n:Landroid/widget/LinearLayout;" in result.descriptors)
+            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter;->x(Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$d;I)V" in result.descriptors)
+            assertTrue("Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$d;->cm:Landroid/widget/RelativeLayout;" in result.descriptors)
+            assertTrue("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$a\$5;->b(Ljava/util/Map;)V" in result.descriptors)
+            assertTrue("Lcom/huawei/ui/homehealth/device/CardDeviceFragment;->c(Lcom/huawei/health/marketing/api/MarketingApi;Ljava/util/Map;)V" in result.descriptors)
+            assertEquals("xxs", result.mineManager)
+            assertEquals("t", result.aliases["xxs#t#0"])
+            assertEquals("m", result.aliases["xxs#l#0"])
+            assertEquals("e", result.aliases["xwc#a#0"])
+            assertEquals("g", result.aliases["xwc#j#0"])
 
             val generic = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, {}, false).scan { _, _ -> }
             assertTrue(SettingsKeys.MINE_GROUP in generic.matched)
@@ -53,6 +63,7 @@ class ApkScanTest {
             assertFalse(SettingsKeys.DEVICE_PRIMARY in generic.matched)
             assertFalse("旧设备页命中不能开放 Arkui 混淆委托", "device.new.delegates" in generic.groups)
             assertFalse("sport.quick-entry-bind" in generic.groups)
+            assertFalse("未知版本不能放宽共享圆环标识的唯一性", SettingsKeys.HEALTH_ACTIVITY_RINGS in generic.matched)
             if (output.isNotEmpty()) File("$output.generic.json").writeText(generic.encode())
 
             val missing = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
@@ -62,7 +73,7 @@ class ApkScanTest {
             assertTrue(SettingsKeys.MINE_GROUP in missing.matched)
 
             val missingField = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
-                if (symbol == "Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->l:Landroid/widget/LinearLayout;") {
+                if (symbol == "Lcom/huawei/ui/homehealth/functionsetcard/FunctionSetCardViewHolder;->n:Landroid/widget/LinearLayout;") {
                     throw NoSuchFieldException()
                 }
             }, true).scan { _, _ -> }
@@ -70,8 +81,24 @@ class ApkScanTest {
             assertTrue(SettingsKeys.HEALTH_QUICK_ENTRIES in missingField.matched)
             assertTrue(SettingsKeys.MINE_MARKETING in missingField.matched)
 
+            val missingQuickField = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
+                if (symbol == "Lcom/huawei/health/marketing/views/ColumnLayoutAdapter\$d;->cm:Landroid/widget/RelativeLayout;") {
+                    throw NoSuchFieldException()
+                }
+            }, true).scan { _, _ -> }
+            assertFalse("缺少复用根字段时不安装绑定 Hook", "sport.quick-entry-bind" in missingQuickField.groups)
+            assertTrue(SettingsKeys.SPORT_LATEST in missingQuickField.matched)
+
+            val missingDelegate = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
+                if (symbol == "Lssf;") throw ClassNotFoundException()
+            }, true).scan { _, _ -> }
+            assertFalse(SettingsKeys.DEVICE_PRIMARY in missingDelegate.matched)
+            assertFalse(SettingsKeys.DEVICE_PRIMARY in missingDelegate.capabilities["device.new.delegates"].orEmpty())
+            assertTrue(SettingsKeys.DEVICE_LIST in missingDelegate.capabilities["device.new.delegates"].orEmpty())
+            assertTrue(SettingsKeys.MINE_GROUP in missingDelegate.matched)
+
             val missingCallback = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { symbol ->
-                if (symbol.startsWith("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$b\$4;")) {
+                if (symbol.startsWith("Lcom/huawei/ui/main/stories/userprofile/activity/PersonalCenterRecyclerViewAdapter\$a\$5;")) {
                     throw ClassNotFoundException()
                 }
             }, true).scan { _, _ -> }
@@ -85,6 +112,9 @@ class ApkScanTest {
                 assertFalse(SettingsKeys.MINE_GROUP in ambiguous.matched)
                 assertEquals("ambiguous", ambiguous.failures[SettingsKeys.MINE_GROUP])
                 assertTrue(SettingsKeys.MINE_FAMILY in ambiguous.matched)
+                assertFalse(SettingsKeys.HEALTH_ACTIVITY_RINGS in ambiguous.matched)
+                assertEquals("ambiguous", ambiguous.failures[SettingsKeys.HEALTH_ACTIVITY_RINGS])
+                assertTrue(SettingsKeys.HEALTH_EDIT_CARDS in ambiguous.matched)
             }
         }
     }
