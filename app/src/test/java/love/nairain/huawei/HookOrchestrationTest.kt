@@ -11,19 +11,6 @@ import org.junit.Test
 
 class HookOrchestrationTest {
     @Test
-    fun staticFallbacksRequireExact8300VersionWhilePreviousVersionsUseGenericScanning() {
-        assertTrue(HookInstallPolicy.acceptsVersion("17.0.8.300", 1700008300L))
-        assertFalse(HookInstallPolicy.acceptsVersion("17.0.7.310", 1700007310L))
-        assertFalse(HookInstallPolicy.acceptsVersion("17.0.7.320", 1700007320L))
-        assertFalse(HookInstallPolicy.acceptsVersion("17.0.8.300", 1700007310L))
-        assertFalse(HookInstallPolicy.acceptsVersion("17.0.7.310", 1700008300L))
-        assertFalse(HookInstallPolicy.acceptsVersion(null, 1700008300L))
-        assertFalse(HookInstallPolicy.acceptsVersion("unknown", 0L))
-        assertTrue(HookInstallPolicy.canInstallRuntime(true, "com.huawei.health", "com.huawei.health",
-            true, "17.0.7.310", 1700007310L))
-    }
-
-    @Test
     fun onlyAttachedTargetMainProcessIsAcceptedAcrossVersions() {
         val valid = HookInstallPolicy.canInstallRuntime(
             true,

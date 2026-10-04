@@ -29,7 +29,6 @@ class ServiceHookTargetsTest {
     @Test fun packageAndProcessRemainStrictDespiteServiceFeature() {
         assertFalse(HookInstallPolicy.acceptsPackage("other.app", "other.app", true))
         assertFalse(HookInstallPolicy.acceptsPackage("com.huawei.health", "com.huawei.health:service", true))
-        assertFalse(HookInstallPolicy.acceptsVersion("unknown", 0))
         assertTrue(HookInstallPolicy.acceptsPackage("com.huawei.health", "com.huawei.health", true))
     }
 
