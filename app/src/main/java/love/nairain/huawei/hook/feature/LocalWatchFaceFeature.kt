@@ -34,6 +34,16 @@ internal object LocalWatchFaceFeature {
                     scope.run { runtime.detach(chain.thisObject as Activity) }
                     chain.proceed()
                 }
+                hook("pageLoaded") { chain ->
+                    val result = chain.proceed()
+                    scope.run { runtime.pageLoaded(chain.args[0] as android.webkit.WebView) }
+                    result
+                }
+                hook("navigate") { chain ->
+                    var consumed = false
+                    runtime.guarded { consumed = runtime.navigate(chain.args[0] as android.webkit.WebView, chain.args[1] as? String) }
+                    if (consumed) true else chain.proceed()
+                }
                 hook("result") { chain ->
                     var consumed = false
                     runtime.guarded { consumed = runtime.result(chain.thisObject as Activity,
@@ -49,6 +59,11 @@ internal object LocalWatchFaceFeature {
                     runtime.guarded { consumed = runtime.btResponse(chain.args[0] as Int, chain.args[1]) }
                     if (consumed) null else chain.proceed()
                 }
+                hook("report") { chain ->
+                    var consumed = false
+                    runtime.guarded { consumed = runtime.missingIdentityError(chain.args[1] as Int, chain.args[2] as? String) }
+                    if (consumed) null else chain.proceed()
+                }
                 hook("blockApply") { chain ->
                     if (runtime.blockOtherApply()) { runtime.notifyBusy(); null } else chain.proceed()
                 }
@@ -60,7 +75,7 @@ internal object LocalWatchFaceFeature {
                     chain.proceed()
                 }
                 scope.afterActivation { runtime.initialize() }
-                8
+                11
             }
             logger.info("Local watch face hooks installed; device validation pending")
         } catch (error: Throwable) {

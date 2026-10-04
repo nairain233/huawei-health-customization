@@ -8,16 +8,14 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.OpenableColumns
-import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.webkit.WebView
 import android.widget.Toast
 import androidx.annotation.StringRes
 import love.nairain.huawei.R
 import love.nairain.huawei.hook.resolver.LocalWatchFaceTargets
 import love.nairain.huawei.hook.util.ModuleLogger
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.lang.ref.WeakReference
 import java.lang.reflect.Proxy
@@ -34,7 +32,9 @@ internal class LocalWatchFaceRuntime(
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "LocalWatchFaceIO").apply { isDaemon = true } }
-    private val resources = app.createPackageContext("love.nairain.huawei", 0).resources
+    private val moduleContext = app.createPackageContext("love.nairain.huawei", 0)
+    private val resources = moduleContext.resources
+    private var footerScript = ""
     private val root = File(app.filesDir, "huawei_hook_local_faces")
     private val ids = LocalFaceIds(File(root, "ids"))
     private val pages = WeakHashMap<Activity, Page>()
@@ -51,13 +51,12 @@ internal class LocalWatchFaceRuntime(
     private val bt get() = checkNotNull(targets.call("bt", null, app))
     private val config get() = checkNotNull(targets.call("config", null, app))
 
-    private class Page(activity: Activity, bar: LinearLayout, status: TextView, action: Button,
-        val frame: WeakReference<android.view.View>, val originalHeight: Int, val originalWeight: Float) {
+    private class Page(activity: Activity, web: WebView, var message: String) {
         val activity = WeakReference(activity)
-        val bar = WeakReference(bar)
-        val status = WeakReference(status)
-        val action = WeakReference(action)
+        val web = WeakReference(web)
+        val token = UUID.randomUUID().toString()
         var dialog = WeakReference<AlertDialog>(null)
+        val feedback = LocalImportFeedback(activity)
     }
 
     private class Job(val page: Page, val directory: File, val device: String) {
@@ -67,6 +66,8 @@ internal class LocalWatchFaceRuntime(
         @Volatile var lockedHost = false
         @Volatile var cancelled = false
         var commandIssued = false
+        var stage = LocalImportFailure.Stage.READING
+        @Volatile var callback: Any? = null
         var screen = ""
         var deadline = SystemClock.elapsedRealtime() + 60_000
         var started = SystemClock.elapsedRealtime()
@@ -80,7 +81,8 @@ internal class LocalWatchFaceRuntime(
                 check(root.isDirectory || root.mkdirs())
                 root.listFiles().orEmpty().filter { it.name.startsWith("job-") }.forEach { HwtArchive.clean(root, it) }
                 ownedIds.addAll(ids.allocated())
-                post { ready = true; updateButtons() }
+                val script = moduleContext.assets.open("local-watchface-footer.js").bufferedReader().use { it.readText() }
+                post { footerScript = script; ready = true; updateButtons() }
             } catch (error: Exception) {
                 diagnostic("initialize", error)
                 post { quarantined = true; pages.values.forEach { show(it, R.string.wf_restart) }; updateButtons() }
@@ -91,29 +93,14 @@ internal class LocalWatchFaceRuntime(
     @android.annotation.SuppressLint("DiscouragedApi") // 资源属于已核验宿主，模块 R 无法引用；名称失配时跳过入口。
     fun attach(activity: Activity) {
         if (closed || pages.containsKey(activity)) return
-        val rootId = activity.resources.getIdentifier("webview_layout", "id", app.packageName)
-        val frameId = activity.resources.getIdentifier("web_view_frame_layout", "id", app.packageName)
-        val parent = activity.findViewById<LinearLayout>(rootId) ?: return
-        val frame = activity.findViewById<android.view.View>(frameId) ?: return
-        if (frame.parent !== parent) return
-        val params = frame.layoutParams as? LinearLayout.LayoutParams ?: return
-        val bar = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            val padding = (12 * resources.displayMetrics.density).toInt()
-            setPadding(padding, padding / 2, padding, padding / 2)
-        }
-        val status = TextView(activity).apply { text = text(if (serviceConflict) R.string.wf_conflict else R.string.wf_ready) }
-        if (quarantined) status.text = text(R.string.wf_restart)
-        val action = Button(activity).apply { text = text(R.string.wf_import) }
-        bar.addView(status)
-        bar.addView(action)
-        val page = Page(activity, bar, status, action, WeakReference(frame), params.height, params.weight)
+        val webId = activity.resources.getIdentifier("web_view", "id", app.packageName)
+        val web = activity.findViewById<WebView>(webId) ?: return
+        val page = Page(activity, web, text(when {
+            quarantined -> R.string.wf_restart
+            serviceConflict -> R.string.wf_conflict
+            else -> R.string.wf_ready
+        }))
         pages[activity] = page
-        params.height = 0
-        params.weight = 1f
-        frame.layoutParams = params
-        parent.addView(bar, 0, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        action.setOnClickListener { guarded { if (job?.page === page) cancel() else choose(page) } }
         updateButtons()
     }
 
@@ -122,20 +109,27 @@ internal class LocalWatchFaceRuntime(
         if (pending.get() === activity) pending.clear()
         if (job?.page === page) cancel()
         page.dialog.get()?.dismiss()
-        page.bar.get()?.let { (it.parent as? ViewGroup)?.removeView(it) }
-        page.frame.get()?.let { frame ->
-            (frame.layoutParams as? LinearLayout.LayoutParams)?.let { params ->
-                params.height = page.originalHeight; params.weight = page.originalWeight; frame.layoutParams = params
-            }
-        }
+        page.feedback.dismiss()
+        page.web.get()?.evaluateJavascript("window.__huaweiHookLocalFace?.dispose()", null)
         updateButtons()
+    }
+
+    fun pageLoaded(web: WebView) { pages.values.firstOrNull { it.web.get() === web }?.let(::renderPage) }
+
+    fun navigate(web: WebView, url: String?): Boolean {
+        if (url?.startsWith("huawei-local-watchface:") != true) return false
+        val page = pages.values.firstOrNull { it.web.get() === web } ?: return true
+        if (LocalFacePagePolicy.acceptsPage(web.url) && LocalFacePagePolicy.acceptsAction(url, page.token) && web.hasWindowFocus()) {
+            choose(page)
+        }
+        return true
     }
 
     private fun choose(page: Page) {
         val activity = page.activity.get()?.takeUnless { it.isFinishing || it.isDestroyed } ?: return
         if (!ready || quarantined || job != null || pending.get() != null) return
-        if (!connected()) { show(page, R.string.wf_disconnected); return }
-        if (targets.call("state", manager) != 0) { show(page, R.string.wf_busy); return }
+        if (!connected()) { notice(page, R.string.wf_disconnected); return }
+        if (targets.call("state", manager) != 0) { notice(page, R.string.wf_busy); return }
         pending = WeakReference(activity)
         updateButtons()
         try {
@@ -146,10 +140,10 @@ internal class LocalWatchFaceRuntime(
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }, REQUEST)
         } catch (error: android.content.ActivityNotFoundException) {
-            pending.clear(); show(page, R.string.wf_no_picker); updateButtons()
+            pending.clear(); notice(page, R.string.wf_no_picker); updateButtons()
         } catch (error: SecurityException) {
             diagnostic("picker", error)
-            pending.clear(); show(page, R.string.wf_invalid); updateButtons()
+            pending.clear(); notice(page, R.string.wf_invalid); updateButtons()
         }
     }
 
@@ -159,9 +153,9 @@ internal class LocalWatchFaceRuntime(
         val page = pages[activity] ?: return true
         val uri = intent?.data
         if (result != Activity.RESULT_OK || uri == null) { show(page, R.string.wf_cancelled); updateButtons(); return true }
-        if (uri.scheme != "content") { show(page, R.string.wf_invalid); updateButtons(); return true }
+        if (uri.scheme != "content") { notice(page, R.string.wf_invalid); updateButtons(); return true }
         val device = device()
-        if (!connected() || device.isEmpty()) { show(page, R.string.wf_disconnected); updateButtons(); return true }
+        if (!connected() || device.isEmpty()) { notice(page, R.string.wf_disconnected); updateButtons(); return true }
         val task = Job(page, File(root, "job-${UUID.randomUUID()}"), device)
         job = task
         show(page, R.string.wf_preparing)
@@ -190,9 +184,11 @@ internal class LocalWatchFaceRuntime(
         val activity = task.page.activity.get()?.takeUnless { it.isFinishing || it.isDestroyed }
             ?: return finish(task, R.string.wf_cancelled)
         task.deadline = Long.MAX_VALUE // 用户阅读确认框时不计安装超时。
-        val dialog = AlertDialog.Builder(activity)
+        task.stage = LocalImportFailure.Stage.CONFIRMING
+        task.page.feedback.dismiss()
+        val dialog = AlertDialog.Builder(LocalImportFeedback.themed(activity))
             .setTitle(text(R.string.wf_import)).setMessage(text(R.string.wf_confirm))
-            .setPositiveButton(text(R.string.wf_install)) { _, _ -> guarded { if (job === task) begin(task) } }
+            .setPositiveButton(text(R.string.wf_install)) { _, _ -> post { if (job === task) begin(task) } }
             .setNegativeButton(text(R.string.wf_cancel)) { _, _ -> finish(task, R.string.wf_cancelled) }
             .setOnCancelListener { finish(task, R.string.wf_cancelled) }.create()
         task.page.dialog = WeakReference(dialog)
@@ -260,6 +256,20 @@ internal class LocalWatchFaceRuntime(
                 if (signatureRequired && targets.call("requestSignature", targets.call("signature"), id, state.version, 0, false) != true) {
                     post { if (job === task) finish(task, R.string.wf_signature) }; return@execute
                 }
+                if (signatureRequired) {
+                    val signatureCode = LocalImportFailure.signatureResult(targets.call("readSignature", targets.call("signature"), id, state.version) as? String)
+                    event("signature_response", signatureCode)
+                    if (signatureCode != 0) {
+                        targets.call("removeSignature", targets.call("signature"), id, state.version)
+                        post {
+                            if (job === task) {
+                                if (signatureCode == null) finish(task, R.string.wf_signature)
+                                else finish(task, R.string.wf_signature_response, signatureCode)
+                            }
+                        }
+                        return@execute
+                    }
+                }
                 post {
                     if (job !== task) {
                         targets.call("removeSignature", targets.call("signature"), id, state.version)
@@ -289,12 +299,15 @@ internal class LocalWatchFaceRuntime(
         show(task.page, R.string.wf_applying)
         task.deadline = SystemClock.elapsedRealtime() + 60_000
         task.commandIssued = true
+        event("apply")
         val callback = proxy(targets.callbackClass) { _, args ->
             val code = args[0] as Int
             val response = args.getOrNull(1) as? String
             post {
                 if (job !== task || state.terminal || state.phase != expected ||
+                    ((code == 103 || code == 105) && response != task.taskId) ||
                     (!response.isNullOrEmpty() && response != task.taskId)) return@post
+                event("apply_response", code)
                 when (code) {
                     103 -> if (state.applied(expected)) {
                         show(task.page, R.string.wf_verifying)
@@ -307,6 +320,7 @@ internal class LocalWatchFaceRuntime(
                 }
             }
         }
+        task.callback = callback
         // 与原本地导入的 operateType=1、签名标志一致，不修改设备能力或签名结果。
         localOperation.set(true)
         try { targets.call("operate", bt, info, 1, callback, true, true) }
@@ -314,6 +328,7 @@ internal class LocalWatchFaceRuntime(
     }
 
     private fun transfer(task: Job) {
+        event("transfer")
         targets.call("setState", manager, 3)
         show(task.page, R.string.wf_progress, 0)
         val receiver: (String, Array<out Any?>) -> Unit = { name, args ->
@@ -356,6 +371,32 @@ internal class LocalWatchFaceRuntime(
 
     fun blockOtherApply(): Boolean = uncertainTransfer || job?.lockedHost == true
 
+    fun missingIdentityError(code: Int, identity: String?): Boolean {
+        val task = job ?: return false
+        if (!LocalImportFailure.missingIdentityError(task.state, task.lockedHost, task.cancelled,
+                connected() && device() == task.device, code, identity)) return false
+        val expected = task.state?.phase
+        // 与宿主 reportForUi 使用同一把锁，只移除对象身份匹配的本任务回调。
+        if (!removeCallback(task)) return false
+        post {
+            if (job === task && task.state?.phase == expected && connected() && device() == task.device) {
+                event("unidentified_error", code)
+                abort(task, code)
+            }
+        }
+        return true
+    }
+
+    private fun removeCallback(task: Job): Boolean = synchronized(checkNotNull(targets.call("callbackLock"))) {
+        @Suppress("UNCHECKED_CAST")
+        val callbacks = targets.operateCallbacks.get(bt) as MutableMap<String, Any>
+        if (task.callback != null && callbacks[task.taskId] === task.callback) {
+            callbacks.remove(task.taskId)
+            task.callback = null
+            true
+        } else false
+    }
+
     fun blockOtherOperation(): Boolean = blockOtherApply() && localOperation.get() != true
 
     fun notifyBusy() { main.post { Toast.makeText(app, text(R.string.wf_busy), Toast.LENGTH_SHORT).show() } }
@@ -375,8 +416,8 @@ internal class LocalWatchFaceRuntime(
                 if (!connected() || device() != task.device) { abort(task, -1); return@guarded }
                 targets.call("setState", manager, if (task.state?.phase == LocalInstallState.Phase.TRANSFERRING) 3 else 2)
             }
-            if (SystemClock.elapsedRealtime() > task.deadline ||
-                (task.commandIssued && SystemClock.elapsedRealtime() - task.started > 15 * 60_000)) {
+            if (LocalImportFailure.timeoutStage(task.stage, SystemClock.elapsedRealtime(), task.deadline,
+                    task.started, task.commandIssued) != null) {
                 abort(task, -3)
             } else tick(task)
         } }, 2_000)
@@ -386,6 +427,7 @@ internal class LocalWatchFaceRuntime(
 
     private fun abort(task: Job, code: Int) {
         if (job !== task) return
+        event("failed_${task.stage.name.lowercase()}", code)
         task.state?.fail()
         if (task.commandIssued) {
             quarantined = true
@@ -396,12 +438,17 @@ internal class LocalWatchFaceRuntime(
                 catch (error: Exception) { diagnostic("stop", error) }
             }
         }
-        val message = when (code) {
-            140009 -> R.string.wf_no_space
-            140004 -> R.string.wf_face_limit
+        val message = when {
+            LocalImportFailure.signatureRejected(code) -> R.string.wf_device_signature
+            code == -1 || code == 141001 -> R.string.wf_connection_lost
+            code == -3 -> R.string.wf_timeout
+            code == -4 -> R.string.wf_cancelled_pending
+            code == 140009 -> R.string.wf_no_space
+            code == 140004 -> R.string.wf_face_limit
             else -> R.string.wf_failure
         }
-        finish(task, message, code, retainPayload = task.commandIssued)
+        if (code == -3) finish(task, message, stageText(task.stage), retainPayload = task.commandIssued)
+        else finish(task, message, code, retainPayload = task.commandIssued)
     }
 
     private fun finish(task: Job, @StringRes message: Int, vararg args: Any, retainPayload: Boolean = false) {
@@ -411,6 +458,7 @@ internal class LocalWatchFaceRuntime(
         job = null
         task.page.dialog.get()?.dismiss()
         try {
+            removeCallback(task)
             if (task.lockedHost) targets.call("setState", manager, 0)
             task.state?.let { state ->
                 if (targets.call("currentId", manager) == state.id) {
@@ -422,6 +470,9 @@ internal class LocalWatchFaceRuntime(
             }
         } catch (error: Exception) { diagnostic("release", error); quarantined = true }
         show(task.page, message, *args)
+        if (!closed && pages[task.page.activity.get()] === task.page) {
+            task.page.feedback.result(text(R.string.wf_import), text(message, *args), text(R.string.wf_ok))
+        } else task.page.feedback.dismiss()
         updateButtons()
         if (!retainPayload) worker.execute {
             try { HwtArchive.clean(root, task.directory) } catch (error: Exception) { diagnostic("cleanup", error) }
@@ -449,14 +500,51 @@ internal class LocalWatchFaceRuntime(
     private fun entries(): Map<String, String> = (targets.call("list", bt) as Map<*, *>).entries
         .mapNotNull { (key, info) -> if (key is String && info != null) key to (targets.call("infoVersion", info) as? String).orEmpty() else null }.toMap()
     private fun text(@StringRes id: Int, vararg args: Any) = resources.getString(id, *args)
-    private fun show(page: Page, @StringRes id: Int, vararg args: Any) { page.status.get()?.text = text(id, *args) }
-    private fun updateButtons() {
-        pages.values.forEach { page ->
-            page.action.get()?.apply {
-                text = text(if (job?.page === page) R.string.wf_cancel else R.string.wf_import)
-                isEnabled = !closed && ready && !quarantined && (job?.page === page || (job == null && pending.get() == null))
-            }
+    private fun show(page: Page, @StringRes id: Int, vararg args: Any) {
+        page.message = text(id, *args)
+        renderPage(page)
+        val task = job?.takeIf { it.page === page } ?: return
+        val stage = when (id) {
+            R.string.wf_preparing -> LocalImportFailure.Stage.READING
+            R.string.wf_wait -> LocalImportFailure.Stage.DEVICE_LIST
+            R.string.wf_signing -> LocalImportFailure.Stage.SIGNATURE
+            R.string.wf_applying -> LocalImportFailure.Stage.APPLYING
+            R.string.wf_progress -> LocalImportFailure.Stage.TRANSFERRING
+            R.string.wf_verifying -> LocalImportFailure.Stage.VERIFYING
+            else -> return
         }
+        if (task.stage != stage) event("stage_${stage.name.lowercase()}")
+        task.stage = stage
+        page.feedback.progress(text(R.string.wf_import), text(id, *args), text(R.string.wf_cancel),
+            if (id == R.string.wf_progress) args.firstOrNull() as? Int else null) { guarded { if (job === task) cancel() } }
+    }
+    private fun stageText(stage: LocalImportFailure.Stage): String = text(when (stage) {
+        LocalImportFailure.Stage.READING -> R.string.wf_preparing
+        LocalImportFailure.Stage.CONFIRMING -> R.string.wf_confirm
+        LocalImportFailure.Stage.DEVICE_LIST -> R.string.wf_wait
+        LocalImportFailure.Stage.SIGNATURE -> R.string.wf_signing
+        LocalImportFailure.Stage.APPLYING -> R.string.wf_applying
+        LocalImportFailure.Stage.TRANSFERRING -> R.string.wf_transferring
+        LocalImportFailure.Stage.VERIFYING -> R.string.wf_verifying
+    })
+    private fun event(stage: String, code: Int? = null) {
+        val message = "Local watch face $stage" + (code?.let { ": $it" } ?: "")
+        logger.info(message)
+        if (love.nairain.huawei.BuildConfig.DEBUG) android.util.Log.i("HuaweiTrim", message)
+    }
+    private fun updateButtons() {
+        pages.values.forEach(::renderPage)
+    }
+    private fun renderPage(page: Page) {
+        val web = page.web.get() ?: return
+        if (footerScript.isBlank() || !LocalFacePagePolicy.acceptsPage(web.url)) return
+        val data = JSONObject().put("token", page.token).put("title", text(R.string.wf_import))
+            .put("message", page.message).put("enabled", !closed && ready && !quarantined && job == null && pending.get() == null)
+        web.evaluateJavascript("$footerScript($data)", null)
+    }
+    private fun notice(page: Page, @StringRes id: Int) {
+        show(page, id)
+        page.feedback.result(text(R.string.wf_import), text(id), text(R.string.wf_ok))
     }
     private fun proxy(type: Class<*>, action: (String, Array<out Any?>) -> Unit): Any =
         Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { instance, method, args ->

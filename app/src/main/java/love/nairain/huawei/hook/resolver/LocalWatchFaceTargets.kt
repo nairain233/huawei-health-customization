@@ -22,6 +22,10 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
     val fileCallbackClass: Class<*> = Class.forName(FILE_CALLBACK, false, loader)
     val appCallbackClass: Class<*> = Class.forName(APP_CALLBACK, false, loader)
     val webClass: Class<*> = Class.forName(WEB, false, loader)
+    val operateCallbacks = Class.forName(BT, false, loader).getDeclaredField("mOperateCallbacks").apply {
+        require(type == java.util.LinkedHashMap::class.java && !Modifier.isStatic(modifiers))
+        isAccessible = true
+    }
 
     fun method(key: String): Method = methods.getValue(key)
     fun call(key: String, receiver: Any? = null, vararg args: Any?): Any? = method(key).invoke(receiver, *args)
@@ -39,6 +43,7 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
         private const val CONFIG = BASE + "manager.HwDeviceConfigManager"
         private const val STRING = "java.lang.String"
         private const val CONTEXT = "android.content.Context"
+        private const val WEB_CLIENT = BASE + "mvp.ui.view.CustomWebView\$i0"
 
         fun accepts(version: String?, code: Long, enabled: Boolean): Boolean =
             enabled && HookInstallPolicy.acceptsVersion(version, code)
@@ -47,6 +52,8 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
             Spec("page", WEB, "initView", "void"),
             Spec("result", WEB, "onActivityResult", "void", listOf("int", "int", "android.content.Intent")),
             Spec("destroy", WEB, "onDestroy", "void"),
+            Spec("pageLoaded", WEB_CLIENT, "onPageFinished", "void", listOf("android.webkit.WebView", STRING)),
+            Spec("navigate", WEB_CLIENT, "shouldOverrideUrlLoading", "boolean", listOf("android.webkit.WebView", STRING)),
             Spec("manager", MANAGER, "getInstance", MANAGER, listOf(CONTEXT), true),
             Spec("api", BASE + "api.HwWatchFaceApi", "getInstance", BASE + "api.HwWatchFaceApi", listOf(CONTEXT), true),
             Spec("device", BASE + "api.HwWatchFaceApi", "getDeviceInfo", "java.util.Map"),
@@ -68,6 +75,8 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
             Spec("support", BT, "getWatchFaceSupportInfo", SUPPORT),
             Spec("signatureSupported", BT, "isSupportWatchfaceSignature", "boolean"),
             Spec("operate", BT, "operateDevice", "void", listOf(INFO, "int", CALLBACK, "boolean", "boolean")),
+            Spec("report", BT, "reportForUi", "void", listOf("boolean", "int", STRING)),
+            Spec("callbackLock", BT, "getCommandCallbackCallbackList", "java.lang.Object", static = true),
             Spec("screen", SUPPORT, "getWatchFaceScreen", STRING),
             Spec("maxVersion", SUPPORT, "getWatchFaceMaxVersion", STRING),
             Spec("compatible", SUPPORT, "getCompatibleList", "java.util.List"),
@@ -86,6 +95,7 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
             Spec("removeCache", BASE + "s0", "d", "java.util.Map", listOf(STRING)),
             Spec("signature", BASE + "k2", "a", BASE + "k2", static = true),
             Spec("requestSignature", BASE + "k2", "a", "boolean", listOf(STRING, STRING, "int", "boolean")),
+            Spec("readSignature", BASE + "k2", "a", STRING, listOf(STRING, STRING)),
             Spec("removeSignature", BASE + "k2", "b", "void", listOf(STRING, STRING)),
             Spec("transfer", CONFIG, "a", "void", listOf(STRING, STRING, "int", FILE_CALLBACK, APP_CALLBACK)),
             Spec("stop", CONFIG, "a", "void", listOf(STRING, "int", CALLBACK)),

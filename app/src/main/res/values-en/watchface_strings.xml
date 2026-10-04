@@ -24,4 +24,11 @@
     <string name="wf_local_name">Local face %1$s</string>
     <string name="wf_no_space">The watch has insufficient space. Import stopped. Manage existing faces yourself, then restart Huawei Health to retry.</string>
     <string name="wf_face_limit">The watch face limit has been reached. Import stopped. Manage existing faces yourself, then restart Huawei Health to retry.</string>
+    <string name="wf_ok">OK</string>
+    <string name="wf_signature_response">The signature service returned an error (%1$d). No installation request was sent. Check face identity and signature service compatibility.</string>
+    <string name="wf_device_signature">The watch rejected the face signature (%1$d). Installation is unconfirmed. Check face and firmware signature compatibility, then restart Huawei Health to retry.</string>
+    <string name="wf_connection_lost">Device disconnected. Installation is unconfirmed. Check your watch and restart Huawei Health before retrying.</string>
+    <string name="wf_timeout">Stage timed out: %1$s. Installation is unconfirmed. Check your watch and restart Huawei Health before retrying.</string>
+    <string name="wf_cancelled_pending">Cancellation requested. The device result is unconfirmed. Check your watch and restart Huawei Health before retrying.</string>
+    <string name="wf_transferring">Transferring watch face</string>
 </resources>
