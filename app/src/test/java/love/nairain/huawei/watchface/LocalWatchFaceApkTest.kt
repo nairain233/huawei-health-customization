@@ -26,8 +26,11 @@ class LocalWatchFaceApkTest {
                 assertEquals(spec.key, spec.static, Modifier.isStatic(found.single().modifiers))
             }
             assertTrue(bridge.getClassData(LocalWatchFaceTargets.INFO)!!.methods.any { it.name == "<init>" && it.paramTypeNames.isEmpty() })
+            val callbacks = bridge.getClassData(LocalWatchFaceTargets.BT)!!.fields.single { it.name == "mOperateCallbacks" }
+            assertEquals("java.util.LinkedHashMap", callbacks.typeName)
+            assertFalse(Modifier.isStatic(callbacks.modifiers))
         }
         val resources = File(requireNotNull(System.getProperty("scan.resources"))).readText()
-        listOf("webview_layout", "web_view_frame_layout").forEach { assertTrue(resources.contains("name=\"$it\"")) }
+        listOf("web_view").forEach { assertTrue(resources.contains("name=\"$it\"")) }
     }
 }
