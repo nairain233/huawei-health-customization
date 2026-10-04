@@ -2,7 +2,7 @@
 
 ## 使用及统计
 
-仅作用于 `com.huawei.health` 首包主进程。attach 完成后读取一次配置快照，服务独立安装；后台线程校验 APK 内容身份、读取缓存或完整扫描，不在主线程做 Dex/磁盘工作。规则版本 7 包含 96 个布局开关，成功条件为该项必要定位和内容识别均可用，与开关状态无关。扫描晚于页面创建时，Activity 弱引用追踪器对已创建视图重应用规则。
+仅作用于 `com.huawei.health` 首包主进程。attach 完成后读取一次配置快照，服务独立安装；后台线程校验 APK 内容身份、读取缓存或完整扫描，不在主线程做 Dex/磁盘工作。规则版本 8 包含 96 个布局开关，成功条件为该项必要定位和内容识别均可用，与开关状态无关。扫描晚于页面创建时，Activity 弱引用追踪器对已创建视图重应用规则。
 
 设置首页显示已匹配 m/n、已检查 p/n、版本、更新时间及服务状态。尚未扫描、运行中、完成、失败、过期和状态待确认分开展示。两分钟前的运行中报告只作为待确认状态；它不能证明目标进程仍在运行。匹配统计不宣称 Hook 安装或设备回归成功。
 
@@ -10,28 +10,32 @@
 
 ## 定位依据
 
-唯一静态适配基准是仓库“调试”中的 17.0.8.300 APK（versionCode `1700008300`，SHA-256 `6e693fe6051b69fefa68215ce52d1f3ae4a2a7c8e25d09b034c73c20bf6f42fd`）。新版 JADX 产物位于忽略的 `build/host-17.0.8.300`；`调试/jadx-out` 仍属于 17.0.7.310，不能当作新版证据。17.0.7.320、17.0.7.310 与其他未知版本只使用通用扫描能力，不再维护版本专用规则。查询使用唯一候选、完整参数和返回类型；继承入口按最近声明层级定位。扫描器与页面逻辑分离，回调不运行 DexKit。
+规则 8 统一使用实际 APK 的结构证据，不再区分基准版与未知版本。17.0.7.310 的反编译代码、17.0.7.320 和 17.0.8.300 的原始 APK 用于归纳规则；当前两份原包用于生产查询回归，310 尚无原包，不能宣称通过同等扫描验证。版本名与版本号仅影响缓存身份和诊断，不授权任何后备。
 
-| 功能组 | 主要依据 | 未通过时 |
+| 功能组 | 当前主要依据 | 未通过时 |
 | --- | --- | --- |
-| 健康顶部 | HomeFragment 生命周期、health_tab_titlebar、CustomTitleBar 两个可见性入口 | 保留对应控件 |
-| 顶部卡片 | HomeCardAdapter 构造/列表刷新、getCardName 字符串与签名，包括 FunctionMenuCardData、HealthQuickEntryCardData | 保留或移除对应整张卡片 |
-| 编辑卡片 | 基准版本已核验的 k() 与 LinearLayout 字段 n，字段绑定 modify_cards_layout | 未知版本暂不启用 |
-| 运动五子页 | SportEntranceFragment 生命周期、分类栏/搜索/菜单/Banner 资源、已核验子页和区块标题；子页入口不再作为屏蔽项 | 缺少身份的项目保留，标题后备仅用于 17.0.8.300 |
-| 运动区块 | SportTabPageResTrigger 的继承入口、4040 常量证据与运行时范围检查、SectionBean 类型化访问器 | 无法确认的项目保留；仅依赖标题的项目限基准版本 |
-| 运动快捷绑定 | setQuickEntryLayout 日志、x(ColumnLayoutAdapter$d,int)、SingleEntryContent 调用及 holder 的 cm 根容器字段 | 基准版本限定后备，缺失则不安装该入口 |
-| 旧设备页 | DeviceFragment、CardDeviceFragment 生命周期与独立资源名 | 缺少资源的项目保留 |
-| 新设备父页 | NewDeviceFragment 生命周期与设备/商城切换资源 | 隐藏冲突时保留设备入口，先切至仍可见子页 |
-| Arkui 设备页 | ArkuiDeviceFragment、BaseViewDelegate.obtainView、实际 Dex 委托类名及区块资源 | 单个委托或资源缺失时只跳过对应项 |
-| 商城页 | VMallFragment 生命周期与商城卡片资源 | 缺少定位时保留商城 |
-| 我的列表 | initRecyclerList/initOverseaRecyclerList、Adapter 调用的行类型及标题访问器 | 缺少必要访问器或内容身份时保留 |
-| 我的网格 | 四种 getCardName 业务字符串、返回类型与 Adapter 刷新入口 | 独立保留未命中模型 |
-| 我的营销卡片 | `PersonalCenterRecyclerViewAdapter$a$5.b(Map)` 的 Map 签名和 `filterMarketingRules(Map)` 调用关系；调用方只请求 4168/9013 | 未知版本或回调缺失、歧义时保持两张卡片 |
-| 底栏 | 清空入口的 removeAllViews 调用关系、添加/布局完整签名、当前标题资源身份 | 不根据未知版本的位置猜测 Tab |
+| 健康顶部 | HomeFragment 生命周期、当前标题栏资源、完整可见性入口 | 保留对应控件 |
+| 健康卡片 | Adapter 构造/刷新、模型签名与继承；圆环额外要求首页创建关系 | 每种内容身份独立跳过，合法多模型共同启用 |
+| 编辑卡片 | 编辑标题 R 字段或当前常量、可见性调用、无参更新入口；itemView 的最近继承字段及 modify_cards_layout | 保留编辑入口，不依赖 n/l/m 字段 |
+| 运动子页和区块 | 稳定页面、当前容器 ID、选中子页、4040 推荐入口与类型化 SectionBean getter | 标题仅在已确认页面/容器/绑定范围内识别，未知内容保持显示 |
+| 快捷绑定 | 同日志候选的 SingleEntryContent 调用、动态 holder 类型、实际调用的 RelativeLayout accessor | 缺根字段或歧义时关闭单项视图路径，保留其他完整路径和整区功能 |
+| 旧设备页 | 两个 Fragment 各自的生命周期及资源，刷新回调由营销 API 与局部更新调用链定位 | 两页独立，回调失败不授权缺失入口 |
+| Arkui | DeviceDelegateEnum 初始化的工厂、create 的构造关系、委托继承及业务日志/功能布局 | 普通角色唯一，功能角色允许经验证的多个实现；不得借用旧设备页能力 |
+| 我的列表/网格 | 初始化日志、Adapter 调用的完整模型 getter、当前 R.string ID/模型类型身份 | 每项独立保留，无历史数字 ID 后备 |
+| 我的营销 | Adapter 内部 Map 成功回调、OnSuccessListener、filterMarketingRules；唯一请求链同时包含 4168/9013 和回调构造/订阅 | 缺调用关系或歧义时保留；过滤范围仍仅限这两个位置 |
+| 底栏 | 清空/添加/布局完整描述符、添加时的当前标题 ID、原始 itemIndex | 无标题证据时保持显示，不使用固定五项索引 |
 
-资源名压缩时可读取当前 APK 的已知 R 类字段，并核验资源类型及所属包。历史数字 ID 和固定底栏索引仅在基准版本使用。显示文本后备不扩散到未知版本。当前 R 字段允许 `public static int`（不要求 final），仍校验字段类型、当前资源类型及所属包，并拒绝冲突的候选 ID。静态查询命中不保证服务端动态内容均可识别。
+`LayoutResolution` 保存语义角色到完整成员描述符的 bindings、当前 resourceIds、模型/资源/委托 identities、页面 capabilities、requirements 和固定失败原因 issues。HookContext 持有自己的解析器和视图选择器；不再使用进程级可变别名表。方法、模型 getter 和字段均无同名或同参数数量回退。
 
-## 17.0.8.300 的定位变化
+页面安装统一通过 installSource 创建能力配置上下文，再在同一上下文中安装事务和 Hook，避免复制上下文后使用另一份事务状态。扫描复用方法查询和继承链结果；缺少运动子页身份时停用依赖选中子页的路径，单个旧设备页缺失不影响另一页及 Arkui。
+
+Resources 查询与限定 R 类的所有合法候选合并校验，字段支持 public static int；候选必须属于 com.huawei.health、类型正确且无冲突。页面只消费这份快照，同时通过反向 ID 身份支持压缩资源名。快照不持有 Activity、Fragment 或 View。
+
+规则 8 缓存复核完整描述符、资源当前值和绑定/资源/身份依赖，缺失绑定不能由剩余描述符冒充成功。静态初始化器仅作 Dex 关系证据，不进入 Java 反射复核集。旧规则缓存与报告过期，预约重扫流程不变。每个开关存在至少一条完整可安装路径才计入 m/n；页面能力和局部失败另存于定位快照与脱敏日志。扫描命中仍不代表 Hook 安装和设备流程通过。
+
+## 规则 7：17.0.8.300 的历史定位变化
+
+以下内容记录旧规则的证据和限制，当前执行逻辑以规则 8 为准。
 
 - 编辑卡片改为 `FunctionSetCardViewHolder.k()V`，`n:LinearLayout` 绑定 `modify_cards_layout`；旧 `l()` 已是延时任务入口，不得复用。
 - `SCUI_TwoModelCardData` 同时来自 `ModelSetCardData` 和实际 Dex 类 `ugc`，两者均继承 `AbstractBaseCardData`。已知新版只接受这两个完整签名及完整候选集合；新增第三个候选、缺少模型或继承校验失败时整个健康卡片组跳过。未知版本仍执行唯一查询，不能复用新版例外。
@@ -93,3 +97,14 @@ Windows 桌面验证库由官方 DexKit 2.2.0 源码临时编译，位于忽略�
 APK 包含 API 102 入口、唯一运动健康作用域及四种 ABI 的 `libdexkit.so`。旧版 MuMu 扫描属于历史记录；17.0.7.320 的 Provider/RemotePreferences 跨进程通信、进程中断重试及各开关的页面恢复仍须运行时实测。
 
 设备回归仍需启用 API 102 模块，验证首次扫描/缓存/预约重扫、页面重入、列表复用、RTL、关闭后原行为，以及登录、记录、设备连接和同步。没有实际设备证据的版本与业务流程不得标为已验证。
+
+## 规则 8 的重构验证（2026-10-04）
+
+- 两份 APK 使用同一个 LayoutScanner API，扫描不接收版本或 known 标记。分别输出 build/scan-rules8-7320.json 和 build/scan-rules8-8300.json，检查 96 个开关、快捷绑定、设备刷新、10 项 Arkui 页面能力及 9 个实际委托。
+- 17.0.7.320 的 Maca 功能委托继承 BaseFeatureDelegate，新版继承 CommonFeatureDelegate；通用规则使用真实共同父类、工厂关系和功能布局共同核验。
+- 桌面测试以各自 public.xml 校验各自 R.java 的资源值，覆盖压缩资源名与非 final 字段；生产环境使用当前宿主 Resources 和限定 R 字段，不读取反编译文件。
+- app/src/test/fixtures/build_scan_fixtures.py 生成四份忽略目录中的 DEX，覆盖 holder/方法/字段改名、同日志干扰、额外绑定歧义与缺根字段。通过 scan.structure 属性传给 StructuralScanTest；夹具不会打包进模块。
+- JVM 检查还覆盖同参数数量重载、模型 getter/字段无证据不调用、资源快照隔离、反向身份冲突、缓存缺绑定/资源/身份、规则 7 过期和内容候选失败隔离。
+- JVM 共 152 项，0 失败/错误/跳过；Debug/Release 构建、Lint、设备测试编译通过。两份 APK 的 API 102 元数据、唯一 com.huawei.health 作用域、四个 DexKit ABI 和未打包 libxposed API 类定义已核验，记录于 build/verification-rules8.json。
+- 后续检测到 API 37 设备，已安装宿主 17.0.8.300。connectedDebugAndroidTest 在安装测试 APK 时被系统以 INSTALL_FAILED_USER_RESTRICTED 拒绝，执行 0 项测试，不能记为设备通过。UTP 失败清理卸载了原模块，已备份原 APK 到 build/device-before-rules8.apk；恢复安装同样遭到设备安装限制，需要手机端允许安装后恢复。宿主未卸载，模块配置保留情况尚不能核对。用户随后要求不测试设备侧状态，本轮停止设备操作并保留备份。后续不要使用会自动清理已有模块安装的 connectedDebugAndroidTest；需明确保留已有安装和用户配置再做设备测试。
+- 首次扫描/缓存/预约重扫、页面重入、列表复用、关闭开关、RTL 与登录/记录/设备连接/同步仍待运行时验证。310 仅有源码证据，未执行本轮真实 APK 扫描。

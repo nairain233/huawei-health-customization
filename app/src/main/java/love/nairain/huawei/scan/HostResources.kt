@@ -10,7 +10,7 @@ internal class HostResources(private val resources: Resources, private val loade
     @SuppressLint("DiscouragedApi")
     fun id(name: String, kind: String): Int = cache.getOrPut("$kind/$name") {
         val direct = resources.getIdentifier(name, kind, packageName)
-        if (direct != 0) direct else {
+        val reflected = run {
             val owners = listOf("com.huawei.ui.main.R", "com.huawei.ui.homehealth.R", "com.huawei.health.R")
                 .mapNotNull { owner ->
                     try {
@@ -18,8 +18,13 @@ internal class HostResources(private val resources: Resources, private val loade
                     } catch (_: ReflectiveOperationException) { null }
                     catch (_: LinkageError) { null }
                 }
-            HostResourceFields.resolve(owners, name, kind, packageName,
+            HostResourceFields.candidates(owners, name, kind, packageName,
                 resources::getResourceTypeName, resources::getResourcePackageName)
         }
+        val candidates = (listOf(direct) + reflected).filter { value ->
+            value > 0 && runCatching { resources.getResourceTypeName(value) == kind &&
+                resources.getResourcePackageName(value) == packageName }.getOrDefault(false)
+        }.distinct()
+        candidates.singleOrNull() ?: 0
     }
 }

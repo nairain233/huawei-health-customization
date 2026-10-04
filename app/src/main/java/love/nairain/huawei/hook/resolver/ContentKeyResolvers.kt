@@ -3,8 +3,7 @@ package love.nairain.huawei.hook.resolver
 import love.nairain.huawei.config.SettingsKeys
 
 class RowKeyResolver {
-    fun resolve(resourceName: String?, resourceId: Int? = null, allowStaticIds: Boolean = true): String? =
-        resourceName?.let(RESOURCE_NAMES::get) ?: resourceId?.takeIf { allowStaticIds }?.let(RESOURCE_IDS::get)
+    fun resolve(resourceName: String?): String? = resourceName?.let(RESOURCE_NAMES::get)
 
     companion object {
         val RESOURCE_NAMES = mapOf(
@@ -31,30 +30,7 @@ class RowKeyResolver {
             "IDS_settings_about" to SettingsKeys.MINE_ABOUT,
         )
 
-        /** 17.0.8.300 已重新核对 R.string ID；资源名压缩时仅向该版本开放数字后备。 */
-        private val RESOURCE_IDS = mapOf(
-            0x7f0211e3 to SettingsKeys.MINE_MEDALS,
-            0x7f0215b2 to SettingsKeys.MINE_ACHIEVEMENTS,
-            0x7f0211e5 to SettingsKeys.MINE_DATA,
-            0x7f02002b to SettingsKeys.MINE_COURSES,
-            0x7f022391 to SettingsKeys.MINE_COURSES,
-            0x7f021341 to SettingsKeys.MINE_ACTIVITIES,
-            0x7f02050e to SettingsKeys.MINE_ROUTES,
-            0x7f0211b9 to SettingsKeys.MINE_PROFILE,
-            0x7f02370e to SettingsKeys.MINE_PROFILE,
-            0x7f0213d9 to SettingsKeys.MINE_ORDERS,
-            0x7f021f56 to SettingsKeys.MINE_ASSETS,
-            0x7f020288 to SettingsKeys.MINE_ASSETS,
-            0x7f0217d7 to SettingsKeys.MINE_IHEALTH,
-            0x7f02114d to SettingsKeys.MINE_SETTINGS,
-            0x7f021b7e to SettingsKeys.MINE_PRIVACY,
-            0x7f0219dc to SettingsKeys.MINE_HELP,
-            0x7f0213f1 to SettingsKeys.MINE_HELP,
-            0x7f0212f5 to SettingsKeys.MINE_FEEDBACK,
-            0x7f021bca to SettingsKeys.MINE_FEEDBACK,
-            0x7f020091 to SettingsKeys.MINE_UPDATE,
-            0x7f021181 to SettingsKeys.MINE_ABOUT,
-        )
+
     }
 }
 
@@ -225,18 +201,6 @@ object DeviceContentKeyResolver {
         "hwappbarpattern_ok_icon" to SettingsKeys.DEVICE_SEARCH,
     )
 
-    /** 仅限 17.0.8.300 核验的实际 Dex 委托类；未知类不参与折叠。 */
-    val arkuiDelegateKeys = mapOf(
-        "ssf" to SettingsKeys.DEVICE_PRIMARY,
-        "ssy" to SettingsKeys.DEVICE_LIST,
-        "sth" to SettingsKeys.DEVICE_TIPS,
-        "sse" to SettingsKeys.DEVICE_MY_WATCH,
-        "sto" to SettingsKeys.DEVICE_WATCH_FACES,
-        "stc" to SettingsKeys.DEVICE_FUNCTIONS,
-        "stp" to SettingsKeys.DEVICE_FUNCTIONS,
-        "ssb" to SettingsKeys.DEVICE_FUNCTIONS,
-        "ssx" to SettingsKeys.DEVICE_FEATURES,
-    )
     val arkuiSettings = mapOf(
         "通用设置" to SettingsKeys.DEVICE_GENERAL_SETTINGS,
         "手表防断连保护" to SettingsKeys.DEVICE_DISCONNECT_PROTECTION,

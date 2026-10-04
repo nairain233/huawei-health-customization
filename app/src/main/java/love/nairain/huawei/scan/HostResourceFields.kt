@@ -11,7 +11,16 @@ internal object HostResourceFields {
         packageName: String,
         resourceType: (Int) -> String,
         resourcePackage: (Int) -> String,
-    ): Int = owners.mapNotNull { owner ->
+    ): Int = candidates(owners, name, kind, packageName, resourceType, resourcePackage).singleOrNull() ?: 0
+
+    fun candidates(
+        owners: List<Class<*>>,
+        name: String,
+        kind: String,
+        packageName: String,
+        resourceType: (Int) -> String,
+        resourcePackage: (Int) -> String,
+    ): Set<Int> = owners.mapNotNull { owner ->
         try {
             val field = owner.getDeclaredField(name)
             if (field.type != Int::class.javaPrimitiveType || !Modifier.isStatic(field.modifiers) ||
@@ -22,5 +31,5 @@ internal object HostResourceFields {
         } catch (_: ReflectiveOperationException) { null }
         catch (_: RuntimeException) { null } // 缺失资源、权限受限时保持未命中。
         catch (_: LinkageError) { null }
-    }.distinct().singleOrNull() ?: 0
+    }.toSet()
 }

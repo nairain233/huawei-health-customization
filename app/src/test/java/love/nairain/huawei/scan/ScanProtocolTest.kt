@@ -12,7 +12,7 @@ class ScanProtocolTest {
 
     @Test fun countsOnlyLayoutChoicesAndKeepsDisabledChoices() {
         assertEquals(96, ScanProtocol.keys.size)
-        assertEquals(7, ScanProtocol.RULES)
+        assertEquals(8, ScanProtocol.RULES)
         assertFalse(ScanProtocol.keys.any { it.startsWith("hide.sport.tab.") })
         assertFalse(ScanProtocol.keys.contains(SettingsKeys.ENABLED))
         assertFalse(ScanProtocol.keys.contains(SettingsKeys.HIDE_LAUNCHER_ICON))
