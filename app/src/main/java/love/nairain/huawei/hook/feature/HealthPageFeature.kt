@@ -91,13 +91,13 @@ class HealthPageFeature : HookFeature {
 
     private fun installEditCards(context: HookContext): Int {
         val type = ReflectionTargets.type(context.classLoader, context.points.functionSetHolder) ?: return 0
-        ReflectionTargets.method(type, "l", 0, Void.TYPE)?.let { method ->
+        ReflectionTargets.method(type, "k", 0, Void.TYPE)?.let { method ->
             context.hooks.hook(method).setId("$id:edit-cards")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
                     if (context.config[SettingsKeys.HEALTH_EDIT_CARDS] == true) {
-                        (ReflectionTargets.fieldValue(chain.thisObject, "l") as? View)
+                        (ReflectionTargets.fieldValue(chain.thisObject, "n") as? View)
                             ?.let(ViewTrimmer::collapse)
                     }
                     result
