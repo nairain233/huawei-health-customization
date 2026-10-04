@@ -79,7 +79,7 @@ class DevicePageFeature : HookFeature {
                 }
             count++
         }
-        // 17.0.7.320 的营销资源刷新入口；每个入口独立安装，缺失时不影响生命周期 Hook。
+        // 17.0.8.300 的营销资源刷新入口；每个入口独立安装，缺失时不影响生命周期 Hook。
         val refreshMethods = if (!love.nairain.huawei.hook.HookInstallPolicy.acceptsVersion(context.versionName, context.versionCode)) {
             emptyList()
         } else if (index == 0) {
@@ -87,7 +87,7 @@ class DevicePageFeature : HookFeature {
                 List::class.java.isAssignableFrom(it.parameterTypes[0])
             }
         } else {
-            ReflectionTargets.methods(type, "e", 2).filter {
+            ReflectionTargets.methods(type, "c", 2).filter {
                 it.parameterTypes.lastOrNull()?.name == "java.util.Map"
             }
         }

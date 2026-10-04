@@ -109,9 +109,9 @@ class MinePageFeature : HookFeature {
     private fun installMarketing(context: HookContext): Int {
         if (context.config[SettingsKeys.MINE_MARKETING] != true) return 0
         val type = ReflectionTargets.type(context.classLoader, context.points.mineMarketingCallback) ?: return 0
-        // Java 编译器把 OnSuccessListener<Map> 的业务实现保留为混淆方法 d(Map)，
+        // Java 编译器把 OnSuccessListener<Map> 的业务实现保留为混淆方法 b(Map)，
         // onSuccess(Object) 只是桥接方法；Hook 业务方法才能在生成 View 前替换 Map。
-        val method = ReflectionTargets.methods(type, "d", 1).firstOrNull { candidate ->
+        val method = ReflectionTargets.methods(type, "b", 1).firstOrNull { candidate ->
             candidate.returnType == Void.TYPE &&
                 candidate.parameterTypes.singleOrNull()?.let(Map::class.java::isAssignableFrom) == true
         } ?: return 0
