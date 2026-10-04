@@ -28,6 +28,7 @@ object SettingsCatalog {
     val general = listOf(
         SettingDefinition(SettingsKeys.ENABLED, R.string.settings_enabled),
         SettingDefinition(SettingsKeys.HIDE_LAUNCHER_ICON, R.string.settings_hide_launcher_icon),
+        SettingDefinition(SettingsKeys.LOCAL_WATCH_FACE, R.string.watchface_import_title),
     )
 
     val healthGroups = listOf(

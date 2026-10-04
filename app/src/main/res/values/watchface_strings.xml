@@ -1,0 +1,27 @@
+<resources>
+    <string name="wf_import">导入本地表盘</string>
+    <string name="wf_ready">每次选择一个 .hwt，重复导入也新增一份</string>
+    <string name="wf_preparing">正在读取表盘…</string>
+    <string name="wf_confirm">将此文件作为一个新表盘安装？不会覆盖之前导入的表盘。</string>
+    <string name="wf_install">安装</string>
+    <string name="wf_cancel">取消</string>
+    <string name="wf_wait">正在读取设备表盘列表…</string>
+    <string name="wf_signing">正在检查设备兼容性与签名…</string>
+    <string name="wf_applying">正在应用表盘…</string>
+    <string name="wf_progress">正在传输：%1$d%%</string>
+    <string name="wf_verifying">正在确认手表安装结果…</string>
+    <string name="wf_success">安装已确认，可在手表中切换</string>
+    <string name="wf_invalid">无法读取此 .hwt，或表盘包无效、过大</string>
+    <string name="wf_unsupported">表盘分辨率或格式版本与当前设备不兼容</string>
+    <string name="wf_signature">设备需要表盘签名，宿主未能获取有效签名；未开始安装</string>
+    <string name="wf_disconnected">请连接手表后重试</string>
+    <string name="wf_busy">已有表盘任务，请等待完成</string>
+    <string name="wf_no_picker">没有可用的系统文件选择器</string>
+    <string name="wf_failure">安装未确认（代码 %1$d）；请检查手表，重启运动健康后再试</string>
+    <string name="wf_no_space">手表空间不足，已停止导入；请自行管理已有表盘，重启运动健康后再试</string>
+    <string name="wf_face_limit">手表表盘数量已满，已停止导入；请自行管理已有表盘，重启运动健康后再试</string>
+    <string name="wf_restart">任务已中止，结果未确认；请检查手表并重启运动健康</string>
+    <string name="wf_cancelled">已取消</string>
+    <string name="wf_conflict">设备连接相关服务已被屏蔽，可能影响导入；请先检查模块的服务设置</string>
+    <string name="wf_local_name">本地表盘 %1$s</string>
+</resources>
