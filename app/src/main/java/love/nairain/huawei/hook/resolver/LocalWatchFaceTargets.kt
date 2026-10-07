@@ -8,6 +8,7 @@ import love.nairain.huawei.hook.HookInstallPolicy
 internal class LocalWatchFaceTargets(loader: ClassLoader) {
     data class Spec(val key: String, val owner: String, val name: String, val result: String,
         val args: List<String> = emptyList(), val static: Boolean = false)
+    data class FieldSpec(val key: String, val name: String, val type: String)
 
     val methods: Map<String, Method> = specs.associate { spec ->
         val owner = Class.forName(spec.owner, false, loader)
@@ -17,11 +18,13 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
         spec.key to method
     }
     val infoClass: Class<*> = Class.forName(INFO, false, loader)
-    val infoConstructor = infoClass.getDeclaredConstructor()
-    val callbackClass: Class<*> = Class.forName(CALLBACK, false, loader)
-    val fileCallbackClass: Class<*> = Class.forName(FILE_CALLBACK, false, loader)
-    val appCallbackClass: Class<*> = Class.forName(APP_CALLBACK, false, loader)
     val webClass: Class<*> = Class.forName(WEB, false, loader)
+    val callbacks = callbackFields.associate { spec ->
+        spec.key to Class.forName(MANAGER, false, loader).getDeclaredField(spec.name).apply {
+            require(type == type(spec.type, loader) && !Modifier.isStatic(modifiers))
+            isAccessible = true
+        }
+    }
     val operateCallbacks = Class.forName(BT, false, loader).getDeclaredField("mOperateCallbacks").apply {
         require(type == java.util.LinkedHashMap::class.java && !Modifier.isStatic(modifiers))
         isAccessible = true
@@ -29,6 +32,7 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
 
     fun method(key: String): Method = methods.getValue(key)
     fun call(key: String, receiver: Any? = null, vararg args: Any?): Any? = method(key).invoke(receiver, *args)
+    fun callback(key: String, manager: Any): Any? = callbacks.getValue(key).get(manager)
 
     companion object {
         private const val BASE = "com.huawei.watchface."
@@ -44,11 +48,24 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
         private const val STRING = "java.lang.String"
         private const val CONTEXT = "android.content.Context"
         private const val WEB_CLIENT = BASE + "mvp.ui.view.CustomWebView\$i0"
+        private const val DESIGNER = BASE + "e2"
 
         fun accepts(version: String?, code: Long, enabled: Boolean): Boolean =
             enabled && HookInstallPolicy.acceptsVersion(version, code)
 
         val specs = listOf(
+            Spec("nativeDesigner", DESIGNER, "b", DESIGNER, listOf(CONTEXT), true),
+            Spec("nativePayload", DESIGNER, "a", "void", listOf("android.app.Activity", "java.lang.StringBuilder", "java.lang.StringBuffer", STRING, STRING)),
+            Spec("nativeSignatureStep", DESIGNER, "a", "void", listOf("java.lang.String[]", "java.lang.StringBuffer", "java.lang.StringBuilder")),
+            Spec("nativeContinue", DESIGNER, "a", "void", listOf(STRING, STRING, "java.lang.StringBuffer", "java.lang.StringBuilder")),
+            Spec("randomVersion", MANAGER, "getRandomVersion", STRING),
+            Spec("managerTransfer", MANAGER, "transferFile", "void", listOf(STRING, STRING, "int")),
+            Spec("cancel", MANAGER, "cancelInstallWatchFace", "void", listOf(STRING, STRING)),
+            Spec("installResponse", "$MANAGER\$4", "onResponse", "void", listOf("int", "java.lang.Object")),
+            Spec("fileProgressHandler", MANAGER, "handleOnFileTransferState", "void", listOf("int")),
+            Spec("fileResultHandler", MANAGER, "handleOnFileRespond", "void", listOf("int")),
+            Spec("fileFailureHandler", MANAGER, "handleOnUpgradeFailed", "void", listOf("int", STRING)),
+            Spec("stopResponse", "$MANAGER\$14", "onResponse", "void", listOf("int", "java.lang.Object")),
             Spec("page", WEB, "initView", "void"),
             Spec("result", WEB, "onActivityResult", "void", listOf("int", "int", "android.content.Intent")),
             Spec("destroy", WEB, "onDestroy", "void"),
@@ -85,11 +102,6 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
             Spec("infoVersion", INFO, "getWatchInfoVersion", STRING),
             Spec("infoName", INFO, "getWatchInfoName", STRING),
             Spec("infoSetName", INFO, "setWatchInfoName", "void", listOf(STRING)),
-            Spec("infoSetId", INFO, "setWatchInfoId", "void", listOf(STRING)),
-            Spec("infoSetVersion", INFO, "setWatchInfoVersion", "void", listOf(STRING)),
-            Spec("infoSetScreen", INFO, "setWatchScreen", "void", listOf(STRING)),
-            Spec("payload", BASE + "b2", "a", BASE + "b2", static = true),
-            Spec("decode", BASE + "b2", "a", "java.util.Map", listOf(CONTEXT, "byte[]", "boolean", "boolean")),
             Spec("cache", BASE + "s0", "a", BASE + "s0", static = true),
             Spec("putCache", BASE + "s0", "a", "void", listOf(STRING, "java.util.Map")),
             Spec("removeCache", BASE + "s0", "d", "java.util.Map", listOf(STRING)),
@@ -98,14 +110,13 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
             Spec("readSignature", BASE + "k2", "a", STRING, listOf(STRING, STRING)),
             Spec("removeSignature", BASE + "k2", "b", "void", listOf(STRING, STRING)),
             Spec("transfer", CONFIG, "a", "void", listOf(STRING, STRING, "int", FILE_CALLBACK, APP_CALLBACK)),
-            Spec("stop", CONFIG, "a", "void", listOf(STRING, "int", CALLBACK)),
-            Spec("callback", CALLBACK, "onResponse", "void", listOf("int", "java.lang.Object")),
-            Spec("fileResult", FILE_CALLBACK, "onFileRespond", "void", listOf("int")),
-            Spec("fileProgress", FILE_CALLBACK, "onFileTransferState", "void", listOf("int")),
-            Spec("fileFailure", FILE_CALLBACK, "onUpgradeFailed", "void", listOf("int", STRING)),
-            Spec("appResult", APP_CALLBACK, "onFileRespond", "void", listOf("int", STRING)),
-            Spec("appProgress", APP_CALLBACK, "onFileTransferState", "void", listOf("int", STRING)),
-            Spec("appFailure", APP_CALLBACK, "onUpgradeFailed", "void", listOf("int", STRING)),
+        )
+
+        val callbackFields = listOf(
+            FieldSpec("install", "mInstallWatchFaceCallback", CALLBACK),
+            FieldSpec("file", "mFileTransferStateCallback", FILE_CALLBACK),
+            FieldSpec("app", "mAppTransferFileResultAIDLCallback", APP_CALLBACK),
+            FieldSpec("bt", "mBtResponseCallback", CALLBACK),
         )
 
         private fun type(name: String, loader: ClassLoader): Class<*> = when (name) {
@@ -113,6 +124,7 @@ internal class LocalWatchFaceTargets(loader: ClassLoader) {
             "int" -> Integer.TYPE
             "boolean" -> java.lang.Boolean.TYPE
             "byte[]" -> ByteArray::class.java
+            "java.lang.String[]" -> Array<String>::class.java
             else -> Class.forName(name, false, loader)
         }
     }

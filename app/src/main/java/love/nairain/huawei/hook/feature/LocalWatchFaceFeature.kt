@@ -21,9 +21,11 @@ internal object LocalWatchFaceFeature {
             hooks.install("watchface.local") {
                 val scope = hooks.callbacks()
                 scope.onClose { runtime.close() }
+                var installed = 0
                 fun hook(key: String, action: XposedInterface.Hooker) {
                     hooks.hook(targets.method(key)).setId("watchface.local:$key")
                         .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(action)
+                    installed++
                 }
                 hook("page") { chain ->
                     val result = chain.proceed()
@@ -55,27 +57,58 @@ internal object LocalWatchFaceFeature {
                     chain.proceed()
                 }
                 hook("btResponse") { chain ->
-                    var consumed = false
-                    runtime.guarded { consumed = runtime.btResponse(chain.args[0] as Int, chain.args[1]) }
-                    if (consumed) null else chain.proceed()
+                    runtime.nativeBtResponse(chain.thisObject, chain.args[0] as Int, chain.args[1]) { chain.proceed() }
                 }
                 hook("report") { chain ->
-                    var consumed = false
-                    runtime.guarded { consumed = runtime.missingIdentityError(chain.args[1] as Int, chain.args[2] as? String) }
-                    if (consumed) null else chain.proceed()
+                    runtime.guarded { runtime.missingIdentityError(chain.args[1] as Int, chain.args[2] as? String) }
+                    chain.proceed()
                 }
                 hook("blockApply") { chain ->
-                    if (runtime.blockOtherApply()) { runtime.notifyBusy(); null } else chain.proceed()
+                    if (runtime.blockOtherApply(chain.thisObject, chain.args)) null else chain.proceed()
                 }
                 hook("operate") { chain ->
-                    if (runtime.blockOtherOperation()) { runtime.notifyBusy(); null } else chain.proceed()
+                    if (runtime.blockOtherOperation(chain.thisObject, chain.args)) null else chain.proceed()
+                }
+                hook("nativeSignatureStep") { chain ->
+                    runtime.nativeStep(chain.thisObject, chain.args, true) { chain.proceed() }
+                }
+                hook("nativeContinue") { chain ->
+                    runtime.nativeStep(chain.thisObject, chain.args, false) { chain.proceed() }
+                }
+                hook("putCache") { chain ->
+                    if (runtime.cachePayload(chain.args[0] as? String, chain.args[1])) chain.proceed() else null
+                }
+                hook("requestSignature") { chain ->
+                    val result = chain.proceed()
+                    runtime.guarded { runtime.signatureResponse(chain.args[0] as? String, chain.args[1] as? String) }
+                    result
+                }
+                hook("managerTransfer") { chain ->
+                    runtime.nativeTransfer(chain.thisObject, chain.args) { args -> chain.proceed(args.toTypedArray()) }
+                }
+                hook("transfer") { chain ->
+                    runtime.nativeFileTransfer(chain.thisObject, chain.args) { chain.proceed() }
+                }
+                hook("installResponse") { chain ->
+                    runtime.nativeInstallResponse(chain.thisObject, chain.args[0] as Int, chain.args[1]) { chain.proceed() }
+                }
+                listOf("fileProgressHandler", "fileResultHandler", "fileFailureHandler").forEach { key ->
+                    hook(key) { chain ->
+                        runtime.guarded { runtime.fileEvent(chain.thisObject, key, chain.args[0] as Int) }
+                        chain.proceed()
+                    }
+                }
+                hook("stopResponse") { chain ->
+                    val result = chain.proceed()
+                    runtime.guarded { runtime.stopResponse(chain.args[0] as Int, chain.args[1]) }
+                    result
                 }
                 hook("names") { chain ->
                     runtime.guarded { runtime.fillNames(chain.args[0]) }
                     chain.proceed()
                 }
                 scope.afterActivation { runtime.initialize() }
-                11
+                installed
             }
             logger.info("Local watch face hooks installed; device validation pending")
         } catch (error: Throwable) {

@@ -9,7 +9,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.annotation.StringRes
 import love.nairain.huawei.R
 import love.nairain.huawei.hook.resolver.LocalWatchFaceTargets
@@ -18,12 +17,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.lang.ref.WeakReference
-import java.lang.reflect.Proxy
 import java.util.UUID
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
 
-/** 控制器仅保留 Application 与页面弱引用。所有会话状态在主线程更新，磁盘工作串行执行。 */
+/** 页面反馈在主线程更新；原生跨线程许可由独立会话同步，页面只持有弱引用。 */
 internal class LocalWatchFaceRuntime(
     private val app: Context,
     private val targets: LocalWatchFaceTargets,
@@ -39,8 +37,11 @@ internal class LocalWatchFaceRuntime(
     private val ids = LocalFaceIds(File(root, "ids"))
     private val pages = WeakHashMap<Activity, Page>()
     private val ownedIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-    private val finishedTasks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-    private val localOperation = ThreadLocal<Boolean>()
+    // 仅保留小型身份许可，阻止已结束任务的迟到原生续接，不持有页面或文件内容。
+    private val nativeSessions = java.util.concurrent.ConcurrentHashMap<String, NativeLocalInstallSession>()
+    // 仅标记当前同步原生回调的来源，不用它授权跨线程安装操作。
+    private val callbackDispatch = ThreadLocal<NativeLocalInstallSession>()
+    private val payloadDispatch = ThreadLocal<NativeLocalInstallSession>()
     private var ready = false
     private var closed = false
     private var quarantined = false
@@ -65,9 +66,15 @@ internal class LocalWatchFaceRuntime(
         @Volatile var waitingList = false
         @Volatile var lockedHost = false
         @Volatile var cancelled = false
-        var commandIssued = false
+        val commandIssued get() = native?.commandIssued == true
+        @Volatile var native: NativeLocalInstallSession? = null
+        var designer: Any? = null
+        var hostManager: Any? = null
+        var hostBt: Any? = null
+        var hostConfig: Any? = null
+        var resultShown = false
+        var stopRequested = false
         var stage = LocalImportFailure.Stage.READING
-        @Volatile var callback: Any? = null
         var screen = ""
         var deadline = SystemClock.elapsedRealtime() + 60_000
         var started = SystemClock.elapsedRealtime()
@@ -82,7 +89,7 @@ internal class LocalWatchFaceRuntime(
                 root.listFiles().orEmpty().filter { it.name.startsWith("job-") }.forEach { HwtArchive.clean(root, it) }
                 ownedIds.addAll(ids.allocated())
                 val script = moduleContext.assets.open("local-watchface-footer.js").bufferedReader().use { it.readText() }
-                post { footerScript = script; ready = true; updateButtons() }
+                post { if (!closed) { footerScript = script; ready = true; updateButtons() } }
             } catch (error: Exception) {
                 diagnostic("initialize", error)
                 post { quarantined = true; pages.values.forEach { show(it, R.string.wf_restart) }; updateButtons() }
@@ -230,7 +237,6 @@ internal class LocalWatchFaceRuntime(
         val maximum = targets.call("maxVersion", support) as? String ?: ""
         val compatible = (targets.call("compatible", support) as? List<*>).orEmpty().filterNotNull()
             .flatMap { (targets.call("compatibleVersions", it) as? String).orEmpty().split(',') } + maximum
-        val signatureRequired = targets.call("signatureSupported", bt) == true
         task.screen = screen
         task.deadline = SystemClock.elapsedRealtime() + 60_000
         show(task.page, R.string.wf_signing)
@@ -248,39 +254,38 @@ internal class LocalWatchFaceRuntime(
                 if (task.cancelled) return@execute
                 val id = ids.reserve(existing)
                 ownedIds.add(id)
-                val state = LocalInstallState(id, "1.0.0")
-                val payload = targets.call("decode", targets.call("payload"), app, task.payload.readBytes(),
-                    screen == "466*466" && description.version.contains("2.0."), false) as? Map<*, *>
-                require(payload?.get(HwtArchive.PAYLOAD) is ByteArray && (payload[HwtArchive.PAYLOAD] as ByteArray).isNotEmpty())
-                if (task.cancelled) return@execute
-                if (signatureRequired && targets.call("requestSignature", targets.call("signature"), id, state.version, 0, false) != true) {
-                    post { if (job === task) finish(task, R.string.wf_signature) }; return@execute
-                }
-                if (signatureRequired) {
-                    val signatureCode = LocalImportFailure.signatureResult(targets.call("readSignature", targets.call("signature"), id, state.version) as? String)
-                    event("signature_response", signatureCode)
-                    if (signatureCode != 0) {
-                        targets.call("removeSignature", targets.call("signature"), id, state.version)
-                        post {
-                            if (job === task) {
-                                if (signatureCode == null) finish(task, R.string.wf_signature)
-                                else finish(task, R.string.wf_signature_response, signatureCode)
-                            }
-                        }
-                        return@execute
-                    }
-                }
+                val version = targets.call("randomVersion", manager) as String
+                require(version.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+")))
+                val state = LocalInstallState(id, version)
                 post {
-                    if (job !== task) {
-                        targets.call("removeSignature", targets.call("signature"), id, state.version)
-                        return@post
-                    }
-                    task.state = state
+                    if (job !== task || task.cancelled) return@post
                     if (!connected() || device() != task.device) { finish(task, R.string.wf_disconnected); return@post }
-                    targets.call("putCache", targets.call("cache"), task.taskId, payload)
+                    task.state = state
+                    task.hostManager = manager
+                    task.hostBt = bt
+                    task.hostConfig = config
+                    task.designer = checkNotNull(targets.call("nativeDesigner", null, app))
+                    val session = NativeLocalInstallSession(state, task.payload.absolutePath)
+                    task.native = session
+                    nativeSessions[session.taskId] = session
                     targets.call("setId", manager, id)
                     targets.call("setVersion", manager, state.version)
-                    apply(task)
+                    worker.execute {
+                        try {
+                            payloadDispatch.set(session)
+                            if (!session.cancelled) targets.call("nativePayload", task.designer, null,
+                                StringBuilder(session.taskId), StringBuffer(File(task.directory, "unpacked").absolutePath),
+                                screen, description.version)
+                        } catch (error: Exception) {
+                            diagnostic("native_payload", error)
+                            session.cancel()
+                            post { if (job === task) abort(task, -2) }
+                        } finally {
+                            payloadDispatch.remove()
+                            session.payloadReturned()
+                            post { releaseIfFinished(task) }
+                        }
+                    }
                 }
             } catch (error: Exception) {
                 diagnostic("prepare", error)
@@ -289,117 +294,235 @@ internal class LocalWatchFaceRuntime(
         }
     }
 
-    private fun apply(task: Job) {
-        val state = checkNotNull(task.state)
-        val expected = state.phase
-        val info = targets.infoConstructor.newInstance()
-        targets.call("infoSetId", info, state.id)
-        targets.call("infoSetVersion", info, state.version)
-        targets.call("infoSetScreen", info, task.screen)
-        show(task.page, R.string.wf_applying)
-        task.deadline = SystemClock.elapsedRealtime() + 60_000
-        task.commandIssued = true
-        event("apply")
-        val callback = proxy(targets.callbackClass) { _, args ->
-            val code = args[0] as Int
-            val response = args.getOrNull(1) as? String
-            post {
-                if (job !== task || state.terminal || state.phase != expected ||
-                    ((code == 103 || code == 105) && response != task.taskId) ||
-                    (!response.isNullOrEmpty() && response != task.taskId)) return@post
-                event("apply_response", code)
-                when (code) {
-                    103 -> if (state.applied(expected)) {
-                        show(task.page, R.string.wf_verifying)
-                        task.deadline = SystemClock.elapsedRealtime() + 30_000
-                        targets.call("refresh", bt)
-                    }
-                    105 -> if (state.readyToTransfer()) transfer(task)
-                    101 -> Unit
-                    else -> abort(task, code)
-                }
-            }
+    /** 只修改本任务许可；其余原生设计师续接原样执行。 */
+    fun nativeStep(receiver: Any?, args: List<Any?>, signature: Boolean, proceed: () -> Any?): Any? {
+        val identity = (args[if (signature) 2 else 3] as? StringBuilder)?.toString()
+        val session = identity?.let(nativeSessions::get) ?: return proceed()
+        val path = (args[if (signature) 1 else 2] as? StringBuffer)?.toString()
+        val task = job
+        if (path != session.payloadPath || task?.native !== session || receiver !== task.designer) {
+            session.cancel()
+            post { task?.let { if (it.native === session) abort(it, -2) } }
+            return null
         }
-        task.callback = callback
-        // 与原本地导入的 operateType=1、签名标志一致，不修改设备能力或签名结果。
-        localOperation.set(true)
-        try { targets.call("operate", bt, info, 1, callback, true, true) }
-        finally { localOperation.remove() }
-    }
-
-    private fun transfer(task: Job) {
-        event("transfer")
-        targets.call("setState", manager, 3)
-        show(task.page, R.string.wf_progress, 0)
-        val receiver: (String, Array<out Any?>) -> Unit = { name, args ->
-            val code = args[0] as Int
-            post {
-                if (job !== task || task.state?.terminal != false) return@post
-                when (name) {
-                    "onFileTransferState" -> if (code in 0..100 && task.state?.phase == LocalInstallState.Phase.TRANSFERRING) {
-                        task.deadline = SystemClock.elapsedRealtime() + 60_000
-                        show(task.page, R.string.wf_progress, code)
-                    }
-                    "onFileRespond" -> if (code == 0) abort(task, code)
-                    "onUpgradeFailed" -> abort(task, code)
-                }
-            }
+        val parts = if (signature) (args[0] as? Array<*>)?.toList() else args.take(2)
+        if (parts != listOf(session.state.id, session.state.version)) {
+            session.cancel()
+            post { if (job === task) abort(task, -2) }
+            return null
         }
-        val fileCallback = proxy(targets.fileCallbackClass, receiver)
-        val appCallback = proxy(targets.appCallbackClass, receiver)
-        worker.execute {
-            try {
-                if (task.cancelled) return@execute
-                targets.call("transfer", config, task.payload.absolutePath, task.taskId, 1, fileCallback, appCallback)
-            } catch (error: Exception) { diagnostic("transfer", error); post { if (job === task) abort(task, -2) } }
+        val accepted = if (signature) session.beginSignature() else session.beginContinuation()
+        if (!accepted) { post { releaseIfFinished(task) }; return null }
+        try {
+            return proceed()
+        } finally {
+            if (signature) session.signatureReturned() else session.continuationReturned()
+            post { releaseIfFinished(task) }
         }
     }
 
-    /** 只接管本会话的传输完成；其余宿主回调原样放行。 */
-    fun btResponse(code: Int, info: Any?): Boolean {
-        if (code != 107) return false
-        // 已核验的 handleReportStatus 始终传入 WatchResourcesInfo；不以全局当前 ID 猜测无身份回调。
-        if (info == null || !targets.infoClass.isInstance(info)) return blockOtherApply()
-        val id = targets.call("infoId", info) as? String
-        val version = targets.call("infoVersion", info) as? String
-        if ("${id}_${version}" in finishedTasks) return true
-        val current = job ?: return false
-        if (id != current.state?.id || version != current.state?.version) return false
-        post { if (job === current && current.state?.transferred() == true) apply(current) }
-        return true
+    fun cachePayload(identity: String?, value: Any?): Boolean {
+        val session = payloadDispatch.get()?.takeIf { it.taskId == identity } ?: return true
+        val payload = (value as? Map<*, *>)?.get(HwtArchive.PAYLOAD)
+        if (session.cache(payload)) return true
+        val task = job?.takeIf { it.native === session }
+        session.cancel()
+        post { task?.let { if (job === it) abort(it, -2) } }
+        return false
     }
 
-    fun blockOtherApply(): Boolean = uncertainTransfer || job?.lockedHost == true
-
-    fun missingIdentityError(code: Int, identity: String?): Boolean {
-        val task = job ?: return false
-        if (!LocalImportFailure.missingIdentityError(task.state, task.lockedHost, task.cancelled,
-                connected() && device() == task.device, code, identity)) return false
-        val expected = task.state?.phase
-        // 与宿主 reportForUi 使用同一把锁，只移除对象身份匹配的本任务回调。
-        if (!removeCallback(task)) return false
+    /** k2 仍由原生调用；只读取业务码，失败时阻止随后排队的安装续接。 */
+    fun signatureResponse(id: String?, version: String?) {
+        val task = job ?: return
+        val session = task.native ?: return
+        if (!session.matches(id, version) || session.cancelled) return
+        if (targets.call("signatureSupported", task.hostBt) != true) return
+        val code = LocalImportFailure.signatureResult(targets.call("readSignature", targets.call("signature"), id, version) as? String)
+        event("signature_response", code)
+        if (code == 0) return
+        session.cancel()
         post {
-            if (job === task && task.state?.phase == expected && connected() && device() == task.device) {
-                event("unidentified_error", code)
-                abort(task, code)
+            if (job === task) {
+                if (code == null) finish(task, R.string.wf_signature)
+                else finish(task, R.string.wf_signature_response, code)
             }
         }
-        return true
     }
 
-    private fun removeCallback(task: Job): Boolean = synchronized(checkNotNull(targets.call("callbackLock"))) {
-        @Suppress("UNCHECKED_CAST")
-        val callbacks = targets.operateCallbacks.get(bt) as MutableMap<String, Any>
-        if (task.callback != null && callbacks[task.taskId] === task.callback) {
-            callbacks.remove(task.taskId)
-            task.callback = null
-            true
-        } else false
+    fun blockOtherApply(receiver: Any?, args: List<Any?>): Boolean {
+        val dispatch = callbackDispatch.get()
+        if (dispatch?.cancelled == true && dispatch.matches(args[0] as? String, args[1] as? String)) return true
+        val task = job
+        if (task?.lockedHost != true) {
+            if (!uncertainTransfer && dispatch == null && receiver === manager) {
+                nativeSessions["${args[0]}_${args[1]}"]?.reuseByHost()
+            }
+            return uncertainTransfer
+        }
+        val session = task.native ?: return true
+        if (receiver !== task.hostManager || !session.matches(args[0] as? String, args[1] as? String)) return true
+        if (args[2] != 2 || args[3] != "" || args[4] != false || args[5] != 0) return true
+        val allowed = session.apply(args[6] == true)
+        if (allowed) post {
+            if (job === task && !task.resultShown) {
+                task.deadline = SystemClock.elapsedRealtime() + 60_000
+                show(task.page, R.string.wf_applying)
+                event(if (args[6] == true) "native_apply_signed" else "native_apply_transferred")
+            }
+        }
+        return !allowed
     }
 
-    fun blockOtherOperation(): Boolean = blockOtherApply() && localOperation.get() != true
+    fun blockOtherOperation(receiver: Any?, args: List<Any?>): Boolean {
+        val task = job
+        if (task?.lockedHost != true) return uncertainTransfer
+        val session = task.native ?: return true
+        val info = args[0] ?: return true
+        return receiver !== task.hostBt || !targets.infoClass.isInstance(info) ||
+            !session.matches(targets.call("infoId", info) as? String, targets.call("infoVersion", info) as? String) ||
+            args[1] != 1 || args[2] !== targets.callback("install", task.hostManager!!) || args[3] != true ||
+            !session.permitsOperation(args[4] == true)
+    }
 
-    fun notifyBusy() { main.post { Toast.makeText(app, text(R.string.wf_busy), Toast.LENGTH_SHORT).show() } }
+    /** 校正随机 ID 的商城路径，设计师入口及 105 分支最多共同发起一次传输。 */
+    fun nativeTransfer(receiver: Any?, args: List<Any?>, proceed: (List<Any?>) -> Any?): Any? {
+        val session = (args[1] as? String)?.let(nativeSessions::get) ?: return proceed(args)
+        val task = job
+        when (session.transferRoute(task?.native === session, callbackDispatch.get() === session, args[0])) {
+            NativeLocalInstallSession.TransferRoute.ORIGINAL -> return proceed(args)
+            NativeLocalInstallSession.TransferRoute.SKIP -> return null
+            NativeLocalInstallSession.TransferRoute.LOCAL -> Unit
+        }
+        if (task == null) return null
+        if (receiver !== task.hostManager || args[2] != 1 || !session.scheduleTransfer()) return null
+        post {
+            if (job === task && !task.resultShown) {
+                task.deadline = SystemClock.elapsedRealtime() + 60_000
+                show(task.page, R.string.wf_progress, 0)
+                event("native_transfer")
+            }
+        }
+        return proceed(args.toMutableList().apply { this[0] = session.payloadPath })
+    }
+
+    fun nativeFileTransfer(receiver: Any?, args: List<Any?>, proceed: () -> Any?): Any? {
+        val session = (args[1] as? String)?.let(nativeSessions::get) ?: return proceed()
+        val task = job
+        when (session.transferRoute(task?.native === session, false, args[0])) {
+            NativeLocalInstallSession.TransferRoute.ORIGINAL -> return proceed()
+            NativeLocalInstallSession.TransferRoute.SKIP -> {
+                // 已排队但取消的本任务仍需出队，才能解除文件保留。
+                if (task?.native === session) { session.beginTransfer(); post { releaseIfFinished(task) } }
+                return null
+            }
+            NativeLocalInstallSession.TransferRoute.LOCAL -> Unit
+        }
+        if (task == null) return null
+        if (receiver !== task.hostConfig || args[0] != session.payloadPath || args[2] != 1 ||
+            args[3] !== targets.callback("file", task.hostManager!!) || args[4] !== targets.callback("app", task.hostManager!!)) return null
+        val accepted = session.beginTransfer()
+        if (!accepted) { post { releaseIfFinished(task) }; return null }
+        try { return proceed() } finally {
+            session.transferReturned()
+            post { releaseIfFinished(task) }
+        }
+    }
+
+    /** 107 原回调继续执行；只提前记录许可，使其第二次 apply 能通过守卫。 */
+    fun btResponse(receiver: Any?, code: Int, info: Any?) {
+        val task = job ?: return
+        val session = task.native ?: return
+        if (receiver !== targets.callback("bt", task.hostManager!!) || code != 107 ||
+            info == null || !targets.infoClass.isInstance(info)) return
+        if (!session.matches(targets.call("infoId", info) as? String, targets.call("infoVersion", info) as? String)) return
+        session.transferred()
+        event("native_transfer_complete", code)
+        post { releaseIfFinished(task) }
+    }
+
+    fun nativeBtResponse(receiver: Any?, code: Int, info: Any?, proceed: () -> Any?): Any? {
+        val session = if (code == 107 && info != null && targets.infoClass.isInstance(info)) {
+            nativeSessions["${targets.call("infoId", info)}_${targets.call("infoVersion", info)}"]?.takeUnless { it.hostReused }
+        } else null
+        val previous = callbackDispatch.get()
+        if (session != null) callbackDispatch.set(session)
+        try {
+            guarded { btResponse(receiver, code, info) }
+            return proceed()
+        } finally {
+            if (previous == null) callbackDispatch.remove() else callbackDispatch.set(previous)
+        }
+    }
+
+    fun installResponse(receiver: Any?, code: Int, identity: Any?) {
+        val task = job ?: return
+        val session = task.native ?: return
+        if (receiver !== targets.callback("install", task.hostManager!!)) return
+        val response = identity as? String
+        if (response != session.taskId) return
+        event("native_apply_response", code)
+        when (code) {
+            103 -> if (session.applied()) post {
+                if (job === task && !task.resultShown) {
+                    show(task.page, R.string.wf_verifying)
+                    task.deadline = SystemClock.elapsedRealtime() + 30_000
+                    targets.call("refresh", task.hostBt)
+                }
+            }
+            101, 105 -> Unit
+            else -> { session.cancel(); post { if (job === task) abort(task, code) } }
+        }
+    }
+
+    fun nativeInstallResponse(receiver: Any?, code: Int, identity: Any?, proceed: () -> Any?): Any? {
+        val session = (identity as? String)?.let(nativeSessions::get)?.takeUnless { it.hostReused }
+        val previous = callbackDispatch.get()
+        if (session != null) callbackDispatch.set(session)
+        try {
+            guarded { installResponse(receiver, code, identity) }
+            return proceed()
+        } finally {
+            if (previous == null) callbackDispatch.remove() else callbackDispatch.set(previous)
+        }
+    }
+
+    fun fileEvent(receiver: Any?, kind: String, code: Int) {
+        val task = job ?: return
+        val session = task.native ?: return
+        if (!session.observesFileCallbacks) return
+        if (receiver !== task.hostManager || targets.call("currentId", receiver) != session.state.id ||
+            targets.call("currentVersion", receiver) != session.state.version) return
+        if (kind == "fileFailureHandler" || (kind == "fileResultHandler" && code == 0)) {
+            session.cancel()
+            post { if (job === task) abort(task, code) }
+        } else if (kind == "fileProgressHandler" && code in 0..100) post {
+            if (job === task && !task.resultShown && task.state?.phase == LocalInstallState.Phase.TRANSFERRING) {
+                task.deadline = SystemClock.elapsedRealtime() + 60_000
+                show(task.page, R.string.wf_progress, code)
+            }
+        }
+    }
+
+    fun stopResponse(code: Int, identity: Any?) {
+        val task = job ?: return
+        task.native?.stopResponse(code, identity as? String)
+        post { releaseIfFinished(task) }
+    }
+
+    fun missingIdentityError(code: Int, identity: String?) {
+        val task = job ?: return
+        val session = task.native ?: return
+        if (!LocalImportFailure.missingIdentityError(task.state, task.lockedHost, task.cancelled,
+                connected() && device() == task.device, code, identity)) return
+        // 只观察宿主仍登记的原生回调，不移除、不消费 reportForUi。
+        val owned = synchronized(checkNotNull(targets.call("callbackLock"))) {
+            val callbacks = targets.operateCallbacks.get(task.hostBt) as Map<*, *>
+            callbacks[session.taskId] === targets.callback("install", task.hostManager!!)
+        }
+        if (!owned) return
+        session.cancel()
+        post { if (job === task) { event("unidentified_error", code); abort(task, code) } }
+    }
 
     fun fillNames(value: Any?) {
         (value as? Map<*, *>)?.forEach { (key, info) ->
@@ -411,10 +534,9 @@ internal class LocalWatchFaceRuntime(
 
     private fun tick(task: Job) {
         main.postDelayed({ guarded {
-            if (job !== task) return@guarded
+            if (job !== task || task.resultShown) return@guarded
             if (task.lockedHost) {
                 if (!connected() || device() != task.device) { abort(task, -1); return@guarded }
-                targets.call("setState", manager, if (task.state?.phase == LocalInstallState.Phase.TRANSFERRING) 3 else 2)
             }
             if (LocalImportFailure.timeoutStage(task.stage, SystemClock.elapsedRealtime(), task.deadline,
                     task.started, task.commandIssued) != null) {
@@ -426,18 +548,11 @@ internal class LocalWatchFaceRuntime(
     private fun cancel() { job?.let { if (it.commandIssued) abort(it, -4) else finish(it, R.string.wf_cancelled) } }
 
     private fun abort(task: Job, code: Int) {
-        if (job !== task) return
+        if (job !== task || task.resultShown) return
         event("failed_${task.stage.name.lowercase()}", code)
-        task.state?.fail()
-        if (task.commandIssued) {
-            quarantined = true
-            uncertainTransfer = true
-            task.cancelled = true
-            worker.execute {
-                try { targets.call("stop", config, task.taskId, 1, proxy(targets.callbackClass) { _, _ -> }) }
-                catch (error: Exception) { diagnostic("stop", error) }
-            }
-        }
+        task.native?.cancel() ?: task.state?.fail()
+        task.cancelled = true
+        requestNativeCancel(task)
         val message = when {
             LocalImportFailure.signatureRejected(code) -> R.string.wf_device_signature
             code == -1 || code == 141001 -> R.string.wf_connection_lost
@@ -447,36 +562,55 @@ internal class LocalWatchFaceRuntime(
             code == 140004 -> R.string.wf_face_limit
             else -> R.string.wf_failure
         }
-        if (code == -3) finish(task, message, stageText(task.stage), retainPayload = task.commandIssued)
-        else finish(task, message, code, retainPayload = task.commandIssued)
+        if (code == -3) finish(task, message, stageText(task.stage)) else finish(task, message, code)
     }
 
-    private fun finish(task: Job, @StringRes message: Int, vararg args: Any, retainPayload: Boolean = false) {
-        if (job !== task) return
+    private fun finish(task: Job, @StringRes message: Int, vararg args: Any) {
+        if (job !== task || task.resultShown) return
+        task.resultShown = true
         task.cancelled = true
-        task.state?.let { finishedTasks.add(task.taskId) }
-        job = null
+        task.native?.cancel()
         task.page.dialog.get()?.dismiss()
-        try {
-            removeCallback(task)
-            if (task.lockedHost) targets.call("setState", manager, 0)
-            task.state?.let { state ->
-                if (targets.call("currentId", manager) == state.id) {
-                    targets.call("setId", manager, null)
-                    targets.call("setVersion", manager, null)
-                }
-                targets.call("removeSignature", targets.call("signature"), state.id, state.version)
-                if (!retainPayload) targets.call("removeCache", targets.call("cache"), task.taskId)
-            }
-        } catch (error: Exception) { diagnostic("release", error); quarantined = true }
         show(task.page, message, *args)
         if (!closed && pages[task.page.activity.get()] === task.page) {
             task.page.feedback.result(text(R.string.wf_import), text(message, *args), text(R.string.wf_ok))
         } else task.page.feedback.dismiss()
+        uncertainTransfer = task.native?.canRelease() == false
+        releaseIfFinished(task)
         updateButtons()
-        if (!retainPayload) worker.execute {
-            try { HwtArchive.clean(root, task.directory) } catch (error: Exception) { diagnostic("cleanup", error) }
+    }
+
+    private fun releaseIfFinished(task: Job) {
+        if (job === task && task.resultShown) requestNativeCancel(task)
+        if (job !== task || !task.resultShown || task.native?.canRelease() == false) return
+        // 一旦原生发过命令，安装状态只由原生完成或停止回调恢复。
+        if (task.lockedHost && !task.commandIssued && targets.call("state", manager) == 2 &&
+            (task.state == null || targets.call("currentId", manager) == task.state?.id)) {
+            targets.call("setState", manager, 0)
         }
+        job = null
+        uncertainTransfer = false
+        worker.execute {
+            try {
+                task.state?.let {
+                    targets.call("removeSignature", targets.call("signature"), it.id, it.version)
+                    targets.call("removeCache", targets.call("cache"), task.taskId)
+                }
+                HwtArchive.clean(root, task.directory)
+            } catch (error: Exception) {
+                diagnostic("cleanup", error)
+                post { quarantined = true; updateButtons() }
+            }
+        }
+        updateButtons()
+    }
+
+    private fun requestNativeCancel(task: Job) {
+        if (!task.cancelled || !task.commandIssued || task.stopRequested ||
+            task.state?.phase == LocalInstallState.Phase.SUCCEEDED || task.native?.canRequestStop() != true) return
+        task.stopRequested = true
+        try { targets.call("cancel", task.hostManager, task.state!!.id, task.state!!.version) }
+        catch (error: Exception) { diagnostic("native_cancel", error) }
     }
 
     fun close() {
@@ -487,7 +621,7 @@ internal class LocalWatchFaceRuntime(
         pages.keys.toList().forEach(::detach)
         pending.clear()
         ready = false
-        worker.shutdown()
+        // 原生停止和排队续接可能晚于页面销毁；保持守护执行器以完成安全清理。
     }
 
     private fun connected() = targets.call("connected", manager) == true
@@ -546,15 +680,6 @@ internal class LocalWatchFaceRuntime(
         show(page, id)
         page.feedback.result(text(R.string.wf_import), text(id), text(R.string.wf_ok))
     }
-    private fun proxy(type: Class<*>, action: (String, Array<out Any?>) -> Unit): Any =
-        Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { instance, method, args ->
-            when (method.name) {
-                "toString" -> "LocalWatchFaceCallback"
-                "hashCode" -> System.identityHashCode(instance)
-                "equals" -> instance === args?.firstOrNull()
-                else -> { action(method.name, args ?: emptyArray()); null }
-            }
-        }
     fun guarded(action: () -> Unit) {
         try { action() } catch (error: Exception) {
             diagnostic("callback", error)
@@ -565,7 +690,7 @@ internal class LocalWatchFaceRuntime(
             }
         }
     }
-    private fun post(action: () -> Unit) { main.post { if (!closed) guarded(action) } }
+    private fun post(action: () -> Unit) { main.post { guarded(action) } }
     private fun diagnostic(stage: String, error: Exception) { logger.warn("Local watch face $stage: ${error.javaClass.simpleName}") }
     companion object { const val REQUEST = 0x5846 }
 }

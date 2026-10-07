@@ -29,6 +29,11 @@ class LocalWatchFaceApkTest {
             val callbacks = bridge.getClassData(LocalWatchFaceTargets.BT)!!.fields.single { it.name == "mOperateCallbacks" }
             assertEquals("java.util.LinkedHashMap", callbacks.typeName)
             assertFalse(Modifier.isStatic(callbacks.modifiers))
+            LocalWatchFaceTargets.callbackFields.forEach { spec ->
+                val field = bridge.getClassData(LocalWatchFaceTargets.MANAGER)!!.fields.single { it.name == spec.name }
+                assertEquals(spec.key, spec.type, field.typeName)
+                assertFalse(Modifier.isStatic(field.modifiers))
+            }
         }
         val resources = File(requireNotNull(System.getProperty("scan.resources"))).readText()
         listOf("web_view").forEach { assertTrue(resources.contains("name=\"$it\"")) }

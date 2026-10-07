@@ -7,32 +7,32 @@ internal class LocalInstallState(val id: String, val version: String) {
         private set
     val terminal get() = phase == Phase.SUCCEEDED || phase == Phase.FAILED
 
-    fun readyToTransfer(): Boolean {
+    @Synchronized fun readyToTransfer(): Boolean {
         if (phase != Phase.APPLYING) return false
         phase = Phase.TRANSFERRING
         return true
     }
 
-    fun transferred(): Boolean {
+    @Synchronized fun transferred(): Boolean {
         if (phase != Phase.TRANSFERRING) return false
         phase = Phase.APPLYING_TRANSFERRED
         return true
     }
 
-    fun applied(expected: Phase = phase): Boolean {
+    @Synchronized fun applied(expected: Phase = phase): Boolean {
         if (phase != expected) return false
         if (phase != Phase.APPLYING && phase != Phase.APPLYING_TRANSFERRED) return false
         phase = Phase.VERIFYING
         return true
     }
 
-    fun verify(entries: Map<String, String>, observed: Phase? = phase): Boolean {
+    @Synchronized fun verify(entries: Map<String, String>, observed: Phase? = phase): Boolean {
         if (observed != Phase.VERIFYING || phase != Phase.VERIFYING || entries[id] != version) return false
         phase = Phase.SUCCEEDED
         return true
     }
 
-    fun fail(): Boolean {
+    @Synchronized fun fail(): Boolean {
         if (terminal) return false
         phase = Phase.FAILED
         return true

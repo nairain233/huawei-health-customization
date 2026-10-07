@@ -10,7 +10,8 @@ internal object LocalImportFailure {
         sameDevice: Boolean, code: Int, identity: String?): Boolean =
         state != null && locked && !cancelled && sameDevice && code != 0 &&
             (identity.isNullOrEmpty() || identity == "null_null") &&
-            state.phase in setOf(LocalInstallState.Phase.APPLYING, LocalInstallState.Phase.APPLYING_TRANSFERRED)
+            (state.phase in setOf(LocalInstallState.Phase.APPLYING, LocalInstallState.Phase.APPLYING_TRANSFERRED) ||
+                (state.phase == LocalInstallState.Phase.TRANSFERRING && signatureRejected(code)))
 
     fun signatureRejected(code: Int): Boolean = code == 100007 || code == 100014 || code == 100015
 

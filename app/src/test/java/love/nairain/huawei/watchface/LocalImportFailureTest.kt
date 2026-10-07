@@ -20,11 +20,12 @@ class LocalImportFailureTest {
         assertFalse(LocalImportFailure.missingIdentityError(state(), true, false, true, 100007, "other_1.0.0"))
         assertFalse(LocalImportFailure.missingIdentityError(state(), true, false, false, 100007, "null_null"))
     }
-    @Test fun cancelledFailedAndTransferringTasksIgnoreLateError() {
+    @Test fun signatureErrorIsReportedWhileNativeTransferHasAlreadyStarted() {
         val state = state()
         assertFalse(LocalImportFailure.missingIdentityError(state, true, true, true, 100007, "null_null"))
         state.readyToTransfer()
-        assertFalse(LocalImportFailure.missingIdentityError(state, true, false, true, 100007, "null_null"))
+        assertTrue(LocalImportFailure.missingIdentityError(state, true, false, true, 100007, "null_null"))
+        assertFalse(LocalImportFailure.missingIdentityError(state, true, false, true, 104, "null_null"))
         state.transferred()
         assertTrue(LocalImportFailure.missingIdentityError(state, true, false, true, 100007, "null_null"))
         state.fail()
