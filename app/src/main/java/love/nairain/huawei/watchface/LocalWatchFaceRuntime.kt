@@ -74,6 +74,8 @@ internal class LocalWatchFaceRuntime(
         var hostConfig: Any? = null
         var resultShown = false
         var stopRequested = false
+        @Volatile var payloadDigest: String? = null
+        var recordedProgress = -1
         var stage = LocalImportFailure.Stage.READING
         var screen = ""
         var deadline = SystemClock.elapsedRealtime() + 60_000
@@ -87,7 +89,7 @@ internal class LocalWatchFaceRuntime(
             try {
                 check(root.isDirectory || root.mkdirs())
                 root.listFiles().orEmpty().filter { it.name.startsWith("job-") }.forEach { HwtArchive.clean(root, it) }
-                ownedIds.addAll(ids.allocated())
+                ownedIds.addAll(ids.legacyIds())
                 val script = moduleContext.assets.open("local-watchface-footer.js").bufferedReader().use { it.readText() }
                 post { if (!closed) { footerScript = script; ready = true; updateButtons() } }
             } catch (error: Exception) {
@@ -221,17 +223,20 @@ internal class LocalWatchFaceRuntime(
         val observed = task.state?.phase
         if (!awaiting && observed != LocalInstallState.Phase.VERIFYING) return
         val snapshot = entries()
+        if (awaiting && love.nairain.huawei.BuildConfig.DEBUG) {
+            event(if ("000000001" in snapshot) "native_designer_slot_present" else "native_designer_slot_empty")
+        }
         post {
             if (job !== task) return@post
             if (!connected() || device() != task.device) { abort(task, -1); return@post }
             if (awaiting && task.waitingList) {
                 task.waitingList = false
-                prepare(task, snapshot.keys)
+                prepare(task, snapshot[LocalInstallIdentity.ID])
             } else if (task.state?.verify(snapshot, observed) == true) finish(task, R.string.wf_success)
         }
     }
 
-    private fun prepare(task: Job, existing: Set<String>) {
+    private fun prepare(task: Job, currentVersion: String?) {
         val support = targets.call("support", bt) ?: return finish(task, R.string.wf_unsupported)
         val screen = targets.call("screen", support) as? String ?: return finish(task, R.string.wf_unsupported)
         val maximum = targets.call("maxVersion", support) as? String ?: ""
@@ -252,10 +257,12 @@ internal class LocalWatchFaceRuntime(
                     post { if (job === task) finish(task, R.string.wf_unsupported) }; return@execute
                 }
                 if (task.cancelled) return@execute
-                val id = ids.reserve(existing)
+                val id = LocalInstallIdentity.ID
                 ownedIds.add(id)
-                val version = targets.call("randomVersion", manager) as String
-                require(version.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+")))
+                val version = LocalInstallIdentity.version(currentVersion,
+                    nativeSessions.values.filter { it.state.id == id }.map { it.state.version }.toSet()) {
+                    targets.call("randomVersion", manager) as String
+                }
                 val state = LocalInstallState(id, version)
                 post {
                     if (job !== task || task.cancelled) return@post
@@ -324,7 +331,13 @@ internal class LocalWatchFaceRuntime(
     fun cachePayload(identity: String?, value: Any?): Boolean {
         val session = payloadDispatch.get()?.takeIf { it.taskId == identity } ?: return true
         val payload = (value as? Map<*, *>)?.get(HwtArchive.PAYLOAD)
-        if (session.cache(payload)) return true
+        if (session.cache(payload)) {
+            if (love.nairain.huawei.BuildConfig.DEBUG) {
+                job?.takeIf { it.native === session }?.payloadDigest = LocalSignatureEvidence.digest(payload as ByteArray)
+                event("native_payload_ready")
+            }
+            return true
+        }
         val task = job?.takeIf { it.native === session }
         session.cancel()
         post { task?.let { if (job === it) abort(it, -2) } }
@@ -337,8 +350,15 @@ internal class LocalWatchFaceRuntime(
         val session = task.native ?: return
         if (!session.matches(id, version) || session.cancelled) return
         if (targets.call("signatureSupported", task.hostBt) != true) return
-        val code = LocalImportFailure.signatureResult(targets.call("readSignature", targets.call("signature"), id, version) as? String)
+        val raw = targets.call("readSignature", targets.call("signature"), id, version) as? String
+        val code = LocalImportFailure.signatureResult(raw)
         event("signature_response", code)
+        if (love.nairain.huawei.BuildConfig.DEBUG) {
+            val evidence = LocalSignatureEvidence.inspect(raw, session.state.id, session.state.version, task.payloadDigest)
+            event("signature_identity_${evidence.identity}")
+            event("signature_hash_${evidence.hash}")
+            evidence.status?.let { event("signature_content_status", it) }
+        }
         if (code == 0) return
         session.cancel()
         post {
@@ -365,7 +385,8 @@ internal class LocalWatchFaceRuntime(
         val allowed = session.apply(args[6] == true)
         if (allowed) post {
             if (job === task && !task.resultShown) {
-                task.deadline = SystemClock.elapsedRealtime() + 60_000
+                // 早于宿主 60 秒重置，确保取消仍能匹配当前身份并进入原生停止。
+                task.deadline = SystemClock.elapsedRealtime() + 45_000
                 show(task.page, R.string.wf_applying)
                 event(if (args[6] == true) "native_apply_signed" else "native_apply_transferred")
             }
@@ -384,7 +405,25 @@ internal class LocalWatchFaceRuntime(
             !session.permitsOperation(args[4] == true)
     }
 
-    /** 校正随机 ID 的商城路径，设计师入口及 105 分支最多共同发起一次传输。 */
+    /** 观察真正序列化前的对象；false 参数之外，再核实签名字段确实为空。 */
+    fun nativeCommand(receiver: Any?, args: List<Any?>) {
+        if (!love.nairain.huawei.BuildConfig.DEBUG) return
+        val task = job ?: return
+        val session = task.native ?: return
+        val info = args[0] ?: return
+        if (receiver !== task.hostBt || args[1] != 1 || !targets.infoClass.isInstance(info) ||
+            !session.matches(targets.call("infoId", info) as? String, targets.call("infoVersion", info) as? String)) return
+        event(if ((targets.call("infoSignature", info) as? String).isNullOrEmpty()) "native_command_unsigned" else "native_command_signed")
+    }
+
+    fun apiTransfer(args: List<Any?>) {
+        if (!love.nairain.huawei.BuildConfig.DEBUG) return
+        val task = job ?: return
+        if (args[1] == task.taskId && args[0] == task.native?.payloadPath &&
+            args[3] === targets.callback("app", task.hostManager!!)) event("native_api_transfer")
+    }
+
+    /** 当前任务只使用本地载荷路径，设计师入口及重复 105 最多共同发起一次传输。 */
     fun nativeTransfer(receiver: Any?, args: List<Any?>, proceed: (List<Any?>) -> Any?): Any? {
         val session = (args[1] as? String)?.let(nativeSessions::get) ?: return proceed(args)
         val task = job
@@ -397,7 +436,7 @@ internal class LocalWatchFaceRuntime(
         if (receiver !== task.hostManager || args[2] != 1 || !session.scheduleTransfer()) return null
         post {
             if (job === task && !task.resultShown) {
-                task.deadline = SystemClock.elapsedRealtime() + 60_000
+                task.deadline = SystemClock.elapsedRealtime() + 45_000
                 show(task.page, R.string.wf_progress, 0)
                 event("native_transfer")
             }
@@ -422,8 +461,10 @@ internal class LocalWatchFaceRuntime(
             args[3] !== targets.callback("file", task.hostManager!!) || args[4] !== targets.callback("app", task.hostManager!!)) return null
         val accepted = session.beginTransfer()
         if (!accepted) { post { releaseIfFinished(task) }; return null }
+        event("native_file_dispatch")
         try { return proceed() } finally {
             session.transferReturned()
+            event("native_file_dispatch_returned")
             post { releaseIfFinished(task) }
         }
     }
@@ -444,12 +485,17 @@ internal class LocalWatchFaceRuntime(
         val session = if (code == 107 && info != null && targets.infoClass.isInstance(info)) {
             nativeSessions["${targets.call("infoId", info)}_${targets.call("infoVersion", info)}"]?.takeUnless { it.hostReused }
         } else null
+        // 宿主 107 分支仅比较 ID；旧版本仍会关闭新任务弹窗并尝试再次应用。
+        if (session != null && job?.native !== session) return null
         val previous = callbackDispatch.get()
         if (session != null) callbackDispatch.set(session)
+        session?.callbackStarted()
         try {
             guarded { btResponse(receiver, code, info) }
             return proceed()
         } finally {
+            session?.callbackReturned()
+            if (session != null) post { job?.takeIf { it.native === session }?.let(::releaseIfFinished) }
             if (previous == null) callbackDispatch.remove() else callbackDispatch.set(previous)
         }
     }
@@ -476,12 +522,17 @@ internal class LocalWatchFaceRuntime(
 
     fun nativeInstallResponse(receiver: Any?, code: Int, identity: Any?, proceed: () -> Any?): Any? {
         val session = (identity as? String)?.let(nativeSessions::get)?.takeUnless { it.hostReused }
+        // 同一个原生槽位的旧版本回调不能重写新版本的安装身份。
+        if (session != null && job?.native !== session) return null
         val previous = callbackDispatch.get()
         if (session != null) callbackDispatch.set(session)
+        session?.callbackStarted()
         try {
             guarded { installResponse(receiver, code, identity) }
             return proceed()
         } finally {
+            session?.callbackReturned()
+            if (session != null) post { job?.takeIf { it.native === session }?.let(::releaseIfFinished) }
             if (previous == null) callbackDispatch.remove() else callbackDispatch.set(previous)
         }
     }
@@ -493,20 +544,44 @@ internal class LocalWatchFaceRuntime(
         if (receiver !== task.hostManager || targets.call("currentId", receiver) != session.state.id ||
             targets.call("currentVersion", receiver) != session.state.version) return
         if (kind == "fileFailureHandler" || (kind == "fileResultHandler" && code == 0)) {
+            event("native_file_failure", code)
             session.cancel()
             post { if (job === task) abort(task, code) }
         } else if (kind == "fileProgressHandler" && code in 0..100) post {
             if (job === task && !task.resultShown && task.state?.phase == LocalInstallState.Phase.TRANSFERRING) {
-                task.deadline = SystemClock.elapsedRealtime() + 60_000
+                if (task.recordedProgress < 0 || (task.recordedProgress == 0 && code > 0) || code == 100 && task.recordedProgress != 100) {
+                    event("native_file_progress", code)
+                    task.recordedProgress = code
+                }
+                task.deadline = SystemClock.elapsedRealtime() + 45_000
                 show(task.page, R.string.wf_progress, code)
             }
         }
     }
 
-    fun stopResponse(code: Int, identity: Any?) {
+    fun nativeStopDispatch(receiver: Any?, args: List<Any?>) {
         val task = job ?: return
-        task.native?.stopResponse(code, identity as? String)
-        post { releaseIfFinished(task) }
+        val session = task.native ?: return
+        val callback = args[2] ?: return
+        if (!task.stopRequested || !task.cancelled || receiver !== task.hostConfig || args[0] != session.taskId ||
+            args[1] != 1 || !targets.method("stopResponse").declaringClass.isInstance(callback)) return
+        if (session.bindStopCallback(callback)) event("native_stop_dispatch")
+    }
+
+    fun nativeStopResponse(receiver: Any?, code: Int, identity: Any?, proceed: () -> Any?): Any? {
+        val session = (identity as? String)?.let(nativeSessions::get)?.takeIf { it.ownsStopCallback(receiver) }
+            ?: job?.native?.takeIf { it.ownsStopCallback(receiver) } ?: return proceed()
+        if (!session.acceptsStopResponse(receiver, identity as? String)) return null
+        session.callbackStarted()
+        try {
+            val result = proceed()
+            session.stopResponse(code, identity as? String)
+            event("native_stop_response", code)
+            return result
+        } finally {
+            session.callbackReturned()
+            post { job?.takeIf { it.native === session }?.let(::releaseIfFinished) }
+        }
     }
 
     fun missingIdentityError(code: Int, identity: String?) {
@@ -609,6 +684,11 @@ internal class LocalWatchFaceRuntime(
         if (!task.cancelled || !task.commandIssued || task.stopRequested ||
             task.state?.phase == LocalInstallState.Phase.SUCCEEDED || task.native?.canRequestStop() != true) return
         task.stopRequested = true
+        task.native?.requestStop()
+        event("native_stop_requested")
+        if (love.nairain.huawei.BuildConfig.DEBUG) {
+            event(if (targets.call("currentId", task.hostManager) == task.state?.id) "native_cancel_identity_match" else "native_cancel_identity_mismatch")
+        }
         try { targets.call("cancel", task.hostManager, task.state!!.id, task.state!!.version) }
         catch (error: Exception) { diagnostic("native_cancel", error) }
     }
