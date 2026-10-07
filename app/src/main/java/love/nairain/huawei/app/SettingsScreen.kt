@@ -376,7 +376,6 @@ internal fun SettingsScreen(
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
                     SwitchPreference(
                         title = stringResource(R.string.watchface_import_title),
-                        summary = stringResource(R.string.watchface_import_summary),
                         checked = state.valueOf(SettingsKeys.LOCAL_WATCH_FACE),
                         enabled = state.writable,
                         onCheckedChange = { onSettingChange(SettingsKeys.LOCAL_WATCH_FACE, it) },
