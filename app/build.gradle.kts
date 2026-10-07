@@ -83,7 +83,7 @@ dependencies {
 
 // 可选的真实 APK 定位测试：桌面 native 库由验证环境提供，不打包进模块。
 tasks.withType<Test>().configureEach {
-    listOf("scan.native", "scan.apk", "scan.resources", "scan.output", "scan.fixture", "scan.structure").forEach { key ->
+    listOf("scan.native", "scan.apk", "scan.resources", "scan.output", "scan.fixture", "scan.structure", "scan.version").forEach { key ->
         systemProperty(key, providers.gradleProperty(key).getOrElse(""))
     }
 }

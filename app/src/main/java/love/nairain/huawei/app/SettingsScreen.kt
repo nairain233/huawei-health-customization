@@ -372,6 +372,18 @@ internal fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 )
             }
+            item(key = "watchface_import") {
+                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
+                    SwitchPreference(
+                        title = stringResource(R.string.watchface_import_title),
+                        summary = stringResource(R.string.watchface_import_summary),
+                        checked = state.valueOf(SettingsKeys.LOCAL_WATCH_FACE),
+                        enabled = state.writable,
+                        onCheckedChange = { onSettingChange(SettingsKeys.LOCAL_WATCH_FACE, it) },
+                        modifier = Modifier.testTag("setting:${SettingsKeys.LOCAL_WATCH_FACE}"),
+                    )
+                }
+            }
             item(key = "about_navigation") {
                 NavigationCard(
                     title = stringResource(R.string.about_title),

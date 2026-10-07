@@ -1,4 +1,6 @@
 <resources>
+    <string name="watchface_import_title">本地表盘导入</string>
+    <string name="watchface_import_summary">开启后重启运动健康，在表盘页单选 .hwt 安装；每次新增一份。适配 17.0.8.300 和 17.0.7.320，GT4 真机兼容性待验证。</string>
     <string name="scope_settings_title">请求 LSPosed 作用域</string>
     <string name="scope_settings_disconnected">LSPosed 服务未连接</string>
     <string name="scope_settings_loading">正在读取作用域状态…</string>

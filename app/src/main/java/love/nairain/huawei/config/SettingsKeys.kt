@@ -2,6 +2,7 @@ package love.nairain.huawei.config
 
 /** 模块应用与目标进程共享的 schema v3 配置键。 */
 object SettingsKeys {
+    const val LOCAL_WATCH_FACE = "watchface.local_import.enabled"
     const val GROUP = "huawei_health_trim"
     const val SCHEMA_VERSION = "schema_version"
     const val CURRENT_SCHEMA_VERSION = 3
