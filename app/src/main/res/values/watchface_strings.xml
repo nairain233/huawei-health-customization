@@ -28,7 +28,7 @@
     <string name="wf_signature_response">签名服务返回失败（%1$d），未发送安装请求。请检查表盘身份与签名服务的兼容性。</string>
     <string name="wf_device_signature">手表拒绝表盘签名（%1$d）。尚未确认安装成功；请检查表盘与固件的签名兼容性，重启运动健康后再试。</string>
     <string name="wf_connection_lost">设备连接已中断，安装未确认；请检查手表，重启运动健康后再试。</string>
-    <string name="wf_timeout">阶段超时：%1$s。安装未确认，请检查手表，重启运动健康后再试。</string>
-    <string name="wf_cancelled_pending">已请求取消，设备结果尚未确认；请检查手表，重启运动健康后再试。</string>
+    <string name="wf_timeout">阶段超时：%1$s。安装未确认，正在等待停止确认；若一直无法再次导入，请检查手表并重启运动健康。</string>
+    <string name="wf_cancelled_pending">已请求取消，正在等待设备确认；确认后可再次导入。若一直不可用，请检查手表并重启运动健康。</string>
     <string name="wf_transferring">传输表盘</string>
 </resources>
