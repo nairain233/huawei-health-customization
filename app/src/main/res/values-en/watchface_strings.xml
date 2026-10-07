@@ -1,0 +1,34 @@
+<resources>
+    <string name="wf_import">Import local watch face</string>
+    <string name="wf_ready">Select one .hwt; every import adds a separate copy</string>
+    <string name="wf_preparing">Reading watch face…</string>
+    <string name="wf_confirm">Install this file as a new watch face? Previously imported faces will be kept.</string>
+    <string name="wf_install">Install</string>
+    <string name="wf_cancel">Cancel</string>
+    <string name="wf_wait">Reading watch faces from the device…</string>
+    <string name="wf_signing">Checking compatibility and signature…</string>
+    <string name="wf_applying">Applying watch face…</string>
+    <string name="wf_progress">Transferring: %1$d%%</string>
+    <string name="wf_verifying">Confirming installation on the watch…</string>
+    <string name="wf_success">Installation confirmed. Switch faces on your watch.</string>
+    <string name="wf_invalid">Cannot read this .hwt, or the package is invalid or too large</string>
+    <string name="wf_unsupported">The watch face resolution or format version is incompatible with this device</string>
+    <string name="wf_signature">The device requires a signature and Health could not obtain one. Installation has not started.</string>
+    <string name="wf_disconnected">Connect your watch and try again</string>
+    <string name="wf_busy">Another watch face task is in progress</string>
+    <string name="wf_no_picker">No system file picker is available</string>
+    <string name="wf_failure">Installation unconfirmed (code %1$d). Check your watch and restart Health before retrying.</string>
+    <string name="wf_restart">Task stopped; result unconfirmed. Check your watch and restart Health.</string>
+    <string name="wf_cancelled">Cancelled</string>
+    <string name="wf_conflict">Device connection services are blocked. Check the module service settings before importing.</string>
+    <string name="wf_local_name">Local face %1$s</string>
+    <string name="wf_no_space">The watch has insufficient space. Import stopped. Manage existing faces yourself, then restart Huawei Health to retry.</string>
+    <string name="wf_face_limit">The watch face limit has been reached. Import stopped. Manage existing faces yourself, then restart Huawei Health to retry.</string>
+    <string name="wf_ok">OK</string>
+    <string name="wf_signature_response">The signature service returned an error (%1$d). No installation request was sent. Check face identity and signature service compatibility.</string>
+    <string name="wf_device_signature">The watch rejected the face signature (%1$d). Installation is unconfirmed. Check face and firmware signature compatibility, then restart Huawei Health to retry.</string>
+    <string name="wf_connection_lost">Device disconnected. Installation is unconfirmed. Check your watch and restart Huawei Health before retrying.</string>
+    <string name="wf_timeout">Stage timed out: %1$s. Installation is unconfirmed; waiting for stop confirmation. If importing remains unavailable, check your watch and restart Huawei Health.</string>
+    <string name="wf_cancelled_pending">Cancellation requested; waiting for device confirmation. Importing resumes after confirmation. If it remains unavailable, check your watch and restart Huawei Health.</string>
+    <string name="wf_transferring">Transferring watch face</string>
+</resources>
