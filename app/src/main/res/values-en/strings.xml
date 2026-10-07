@@ -1,6 +1,5 @@
 <resources>
     <string name="watchface_import_title">Local watch face import</string>
-    <string name="watchface_import_summary">Restart Health after enabling, then select one .hwt on the watch face page. Each import adds a separate copy. Supports Health 17.0.8.300 and 17.0.7.320; GT4 device compatibility is unverified.</string>
     <string name="scope_settings_title">Request LSPosed scope</string>
     <string name="scope_settings_disconnected">LSPosed service is disconnected</string>
     <string name="scope_settings_loading">Reading scope status…</string>
