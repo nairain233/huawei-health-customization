@@ -1,8 +1,8 @@
 <resources>
     <string name="wf_import">导入本地表盘</string>
-    <string name="wf_ready">每次选择一个 .hwt，重复导入也新增一份</string>
+    <string name="wf_ready">每次选择一个 .hwt，安装会替换已有设计师本地表盘</string>
     <string name="wf_preparing">正在读取表盘…</string>
-    <string name="wf_confirm">将此文件作为一个新表盘安装？不会覆盖之前导入的表盘。</string>
+    <string name="wf_confirm">将此文件安装到原生设计师槽位？这会替换已有设计师本地表盘，仅保留一份。</string>
     <string name="wf_install">安装</string>
     <string name="wf_cancel">取消</string>
     <string name="wf_wait">正在读取设备表盘列表…</string>

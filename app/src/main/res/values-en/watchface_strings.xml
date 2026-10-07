@@ -1,8 +1,8 @@
 <resources>
     <string name="wf_import">Import local watch face</string>
-    <string name="wf_ready">Select one .hwt; every import adds a separate copy</string>
+    <string name="wf_ready">Select one .hwt; installation replaces the existing local designer face</string>
     <string name="wf_preparing">Reading watch face…</string>
-    <string name="wf_confirm">Install this file as a new watch face? Previously imported faces will be kept.</string>
+    <string name="wf_confirm">Install this file in the native designer slot? This replaces the existing local designer face. Only one is kept.</string>
     <string name="wf_install">Install</string>
     <string name="wf_cancel">Cancel</string>
     <string name="wf_wait">Reading watch faces from the device…</string>

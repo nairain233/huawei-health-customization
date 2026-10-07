@@ -1,5 +1,7 @@
 package love.nairain.huawei.watchface
 
+import java.lang.ref.WeakReference
+
 /** 原生异步任务的身份与许可。锁内只更新内存，不调用宿主、磁盘或界面。 */
 internal class NativeLocalInstallSession(val state: LocalInstallState, val payloadPath: String) {
     enum class TransferRoute { ORIGINAL, LOCAL, SKIP }
@@ -18,6 +20,11 @@ internal class NativeLocalInstallSession(val state: LocalInstallState, val paylo
     private var transferDispatchRunning = false
     private var transferEnded = false
     private var stopped = false
+    private var stopRequested = false
+    private var stopReturned = false
+    private var stopCallback = WeakReference<Any>(null)
+    private var stopCallbackBound = false
+    private var callbacksRunning = 0
     @Volatile var cancelled = false
         private set
     @Volatile var hostReused = false
@@ -83,7 +90,7 @@ internal class NativeLocalInstallSession(val state: LocalInstallState, val paylo
     @Synchronized fun permitsOperation(signed: Boolean): Boolean = !cancelled &&
         if (signed) firstApply && !secondApply else secondApply
 
-    /** 设计师入口与随机 ID 的 105 分支共享同一个传输许可。 */
+    /** 设计师入口与可能重复的 105 分支共享同一个传输许可。 */
     @Synchronized fun scheduleTransfer(): Boolean {
         if (cancelled || !firstApply || transferScheduled) return false
         transferScheduled = true
@@ -103,7 +110,22 @@ internal class NativeLocalInstallSession(val state: LocalInstallState, val paylo
     @Synchronized fun transferReturned() { transferDispatchRunning = false }
 
     // 停止命令必须晚于正在进入的原生传输调用，否则停止成功后仍可能启动传输。
-    @Synchronized fun canRequestStop(): Boolean = !transferDispatchRunning && !continuationRunning
+    @Synchronized fun canRequestStop(): Boolean = !transferDispatchRunning && !continuationRunning && callbacksRunning == 0
+
+    @Synchronized fun callbackStarted() { callbacksRunning++ }
+    @Synchronized fun callbackReturned() { check(callbacksRunning > 0); callbacksRunning-- }
+
+    /** 即使已收到 107，发出的停止命令仍可能在稍后重置宿主状态，必须等其回调执行完。 */
+    @Synchronized fun requestStop() { stopRequested = true }
+    @Synchronized fun bindStopCallback(callback: Any): Boolean {
+        if (stopCallbackBound) return false
+        stopCallbackBound = true
+        stopCallback = WeakReference(callback)
+        return true
+    }
+    @Synchronized fun ownsStopCallback(callback: Any?): Boolean = callback != null && stopCallback.get() === callback
+    @Synchronized fun acceptsStopResponse(callback: Any?, identity: String?): Boolean =
+        ownsStopCallback(callback) && !stopped && (!stopReturned || !transferEnded) && identity == taskId
 
     @Synchronized fun transferred(): Boolean {
         if (!transferStarted || transferEnded) return false
@@ -117,11 +139,15 @@ internal class NativeLocalInstallSession(val state: LocalInstallState, val paylo
     @Synchronized fun cancel() { cancelled = true; state.fail() }
 
     @Synchronized fun stopResponse(code: Int, identity: String?) {
-        if (cancelled && code == 20003 && identity == taskId) stopped = true
+        if (cancelled && identity == taskId) {
+            stopReturned = true
+            if (code == 20003) stopped = true
+        }
     }
 
     /** 停止确认之外，还必须等原生排队续接退出，防止清理后重新写缓存或读文件。 */
     @Synchronized fun canRelease(): Boolean = !payloadRunning && !signaturePending && !signatureRunning &&
-        !continuationPending && !continuationRunning && !transferPending && !transferDispatchRunning &&
+        !continuationPending && !continuationRunning && !transferPending && !transferDispatchRunning && callbacksRunning == 0 &&
+        (!stopRequested || stopped || (transferEnded && stopReturned)) &&
         (!firstApply || transferEnded || stopped)
 }

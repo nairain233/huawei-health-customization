@@ -69,6 +69,18 @@ internal object LocalWatchFaceFeature {
                 hook("operate") { chain ->
                     if (runtime.blockOtherOperation(chain.thisObject, chain.args)) null else chain.proceed()
                 }
+                hook("nativeCommand") { chain ->
+                    runtime.guarded { runtime.nativeCommand(chain.thisObject, chain.args) }
+                    chain.proceed()
+                }
+                hook("apiTransfer") { chain ->
+                    runtime.guarded { runtime.apiTransfer(chain.args) }
+                    chain.proceed()
+                }
+                hook("stopDispatch") { chain ->
+                    runtime.guarded { runtime.nativeStopDispatch(chain.thisObject, chain.args) }
+                    chain.proceed()
+                }
                 hook("nativeSignatureStep") { chain ->
                     runtime.nativeStep(chain.thisObject, chain.args, true) { chain.proceed() }
                 }
@@ -99,9 +111,7 @@ internal object LocalWatchFaceFeature {
                     }
                 }
                 hook("stopResponse") { chain ->
-                    val result = chain.proceed()
-                    runtime.guarded { runtime.stopResponse(chain.args[0] as Int, chain.args[1]) }
-                    result
+                    runtime.nativeStopResponse(chain.thisObject, chain.args[0] as Int, chain.args[1]) { chain.proceed() }
                 }
                 hook("names") { chain ->
                     runtime.guarded { runtime.fillNames(chain.args[0]) }

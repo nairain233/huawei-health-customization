@@ -157,17 +157,18 @@ class NativeLocalInstallSessionTest {
         assertTrue(session.canRelease())
     }
 
-    @Test fun subsequentImportUsesIndependentIdAndNativeVersion() {
-        val first = session()
-        val second = session("987654321", "5.2.9")
+    @Test fun subsequentImportUsesSameNativeSlotButIndependentVersion() {
+        val first = session(LocalInstallIdentity.ID)
+        val second = session(LocalInstallIdentity.ID, "5.2.9")
         transferring(first)
         first.transferred()
         first.cancel()
         assertTrue(first.canRelease())
+        assertEquals(first.state.id, second.state.id)
         assertFalse(second.matches(first.state.id, first.state.version))
         assertFalse(second.matches(second.state.id, first.state.version))
-        assertTrue(second.matches("987654321", "5.2.9"))
-        assertEquals("987654321_5.2.9", second.taskId)
+        assertTrue(second.matches("000000001", "5.2.9"))
+        assertEquals("000000001_5.2.9", second.taskId)
         applying(second)
         assertTrue(second.permitsOperation(true))
         assertFalse(first.permitsOperation(true))
@@ -215,5 +216,77 @@ class NativeLocalInstallSessionTest {
         assertTrue(session.observesFileCallbacks)
         session.transferred()
         assertFalse(session.observesFileCallbacks)
+    }
+
+    @Test fun stopAfter107MustFinishBeforeNextImportCanStart() {
+        val session = session()
+        transferring(session)
+        session.transferred()
+        session.apply(false)
+        session.cancel()
+        session.requestStop()
+        val callback = Any()
+        assertTrue(session.bindStopCallback(callback))
+        assertFalse(session.bindStopCallback(Any())) // 后续宿主停止不能替换已发出命令的回调身份。
+        assertFalse(session.canRelease())
+        assertFalse(session.acceptsStopResponse(Any(), session.taskId))
+        assertFalse(session.acceptsStopResponse(callback, "other"))
+        assertTrue(session.acceptsStopResponse(callback, session.taskId))
+        session.callbackStarted()
+        session.stopResponse(20003, session.taskId)
+        assertFalse(session.canRelease())
+        assertFalse(session.acceptsStopResponse(callback, session.taskId)) // 迟到重复停止不能再次重置宿主。
+        session.callbackReturned()
+        assertTrue(session.canRelease())
+    }
+
+    @Test fun failedStopAfterConfirmed107ReleasesOnlyAfterOriginalCallbackReturns() {
+        val session = session()
+        transferring(session)
+        session.transferred()
+        session.apply(false)
+        session.cancel()
+        session.requestStop()
+        val callback = Any()
+        session.bindStopCallback(callback)
+        session.callbackStarted()
+        session.stopResponse(20004, session.taskId)
+        assertFalse(session.canRelease())
+        assertFalse(session.acceptsStopResponse(callback, session.taskId))
+        session.callbackReturned()
+        assertTrue(session.canRelease())
+        assertFalse(session.applied())
+    }
+
+    @Test fun originalInstallCallbackMustReturnBeforeStopAndCleanup() {
+        val session = session()
+        transferring(session)
+        session.transferred()
+        session.callbackStarted()
+        session.cancel()
+        assertFalse(session.canRequestStop())
+        assertFalse(session.canRelease())
+        session.callbackReturned()
+        assertTrue(session.canRequestStop())
+        session.requestStop()
+        assertFalse(session.canRelease())
+    }
+
+    @Test fun uncertainActiveTransferCanAcceptLaterStopConfirmationAfterFailure() {
+        val session = session()
+        transferring(session)
+        session.cancel()
+        session.requestStop()
+        val callback = Any()
+        session.bindStopCallback(callback)
+        session.stopResponse(20004, session.taskId)
+        assertFalse(session.canRelease())
+        assertTrue(session.acceptsStopResponse(callback, session.taskId))
+        session.callbackStarted()
+        session.stopResponse(20003, session.taskId)
+        assertFalse(session.canRelease())
+        session.callbackReturned()
+        assertTrue(session.canRelease())
+        assertFalse(session.acceptsStopResponse(callback, session.taskId))
     }
 }

@@ -20,34 +20,28 @@ import org.junit.rules.TemporaryFolder
 class LocalWatchFaceTest {
     @get:Rule val temporary = TemporaryFolder()
 
-    @Test fun idsAvoidDeviceAndPersistedCollisions() {
-        val directory = temporary.newFolder("ids")
-        val sequence = ArrayDeque(listOf(0, 1, 1, 2))
-        val ids = LocalFaceIds(directory) { sequence.removeFirst() }
-        assertEquals("100000001", ids.reserve(setOf("100000000")))
-        assertEquals("100000002", ids.reserve(emptySet()))
-        val restarted = LocalFaceIds(directory) { 3 }
-        assertTrue(restarted.owns("100000001"))
-        assertEquals(setOf("100000001", "100000002"), restarted.allocated())
-        assertFalse(restarted.owns("../100000001"))
-        assertFalse(restarted.owns("000000001"))
+    @Test fun legacyIdentityRecordsAreReadWithoutAllocatingOrChangingFiles() {
+        val directory = temporary.newFolder()
+        File(directory, "600000001.reserved").writeText("reserved\n")
+        File(directory, "100000002.reserved").writeText("reserved\n")
+        File(directory, "invalid.reserved").writeText("invalid")
+        assertEquals(setOf("600000001", "100000002"), LocalFaceIds(directory).legacyIds())
+        assertEquals(3, directory.listFiles()!!.size)
+        assertEquals("reserved\n", File(directory, "600000001.reserved").readText())
+        assertTrue(LocalFaceIds(File(directory, "absent")).legacyIds().isEmpty())
+        assertFalse(File(directory, "absent").exists())
     }
 
-    @Test fun repeatedImportsAlwaysGetNewIds() {
-        var value = 10
-        val ids = LocalFaceIds(temporary.newFolder()) { value++ }
-        assertNotEquals(ids.reserve(emptySet()), ids.reserve(emptySet()))
+    @Test fun nativeSlotUsesFreshVersionInsteadOfCurrentOrRetiredIdentity() {
+        val sequence = ArrayDeque(listOf("3.7.2", "4.8.3", "5.9.4"))
+        assertEquals("5.9.4", LocalInstallIdentity.version("3.7.2", setOf("4.8.3")) { sequence.removeFirst() })
+        assertEquals("000000001", LocalInstallIdentity.ID)
     }
 
-    @Test fun idWriteFailureDoesNotReturnAnIdentity() {
-        val directory = temporary.newFile()
-        assertThrows(IllegalStateException::class.java) { LocalFaceIds(directory).reserve(emptySet()) }
-    }
-
-    @Test fun boundedIdSearchDoesNotOverwrite() {
-        val ids = LocalFaceIds(temporary.newFolder()) { 0 }
-        ids.reserve(emptySet())
-        assertThrows(IllegalStateException::class.java) { ids.reserve(emptySet()) }
+    @Test fun invalidOrRepeatedNativeVersionsCannotReuseAnInstallationIdentity() {
+        assertThrows(IllegalArgumentException::class.java) { LocalInstallIdentity.version(null, emptySet()) { "invalid" } }
+        assertThrows(IllegalStateException::class.java) { LocalInstallIdentity.version("3.7.2", emptySet()) { "3.7.2" } }
+        assertThrows(IllegalStateException::class.java) { LocalInstallIdentity.version(null, setOf("3.7.2")) { "3.7.2" } }
     }
 
     @Test fun packageExtractsDescriptionAndPayloadWithoutChangingSource() {
