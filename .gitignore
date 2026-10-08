@@ -15,3 +15,5 @@ local.properties
 /.claude/
 /.zcf/
 /tools/
+/AGENTS.md
+/docs/
