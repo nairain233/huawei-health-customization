@@ -44,9 +44,6 @@ class SettingsActivity : AppCompatActivity() {
                     onOpenAbout = {
                         startActivity(AboutActivity.intent(this))
                     },
-                    onOpenServiceBlock = {
-                        startActivity(android.content.Intent(this, ServiceBlockActivity::class.java))
-                    },
                     onOpenExperimentalFeatures = {
                         startActivity(ExperimentalFeaturesActivity.intent(this))
                     },
