@@ -61,6 +61,9 @@ class ExperimentalFeaturesActivity : AppCompatActivity() {
                     state = uiState,
                     onSettingChange = { key, checked -> coordinator.save(key, checked) },
                     onClose = ::finish,
+                    onOpenServiceBlock = {
+                        startActivity(Intent(this, ServiceBlockActivity::class.java))
+                    },
                 )
             }
         }
@@ -86,6 +89,7 @@ internal fun ExperimentalFeaturesScreen(
     state: SettingsUiState,
     onSettingChange: (String, Boolean) -> Unit,
     onClose: () -> Unit,
+    onOpenServiceBlock: () -> Unit = {},
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val layoutDirection = LocalLayoutDirection.current
@@ -136,7 +140,7 @@ internal fun ExperimentalFeaturesScreen(
             }
             item(key = "watchface_import") {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp),
                     insideMargin = PaddingValues(0.dp),
                 ) {
                     SwitchPreference(
@@ -147,6 +151,14 @@ internal fun ExperimentalFeaturesScreen(
                         modifier = Modifier.testTag("setting:${SettingsKeys.LOCAL_WATCH_FACE}"),
                     )
                 }
+            }
+            item(key = "service_block_navigation") {
+                NavigationCard(
+                    title = stringResource(R.string.service_block_title),
+                    testTag = "settings:service-block-nav",
+                    onClick = onOpenServiceBlock,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
             }
             item(key = "navigation_bar_spacer") {
                 Spacer(modifier = Modifier.navigationBarsPadding())

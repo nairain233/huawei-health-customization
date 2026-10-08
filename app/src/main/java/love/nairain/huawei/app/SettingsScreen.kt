@@ -208,7 +208,7 @@ private fun scopeSummary(state: ScopeUiState): Int = when {
 }
 
 @Composable
-private fun NavigationCard(
+internal fun NavigationCard(
     title: String,
     testTag: String,
     onClick: () -> Unit,
@@ -287,7 +287,6 @@ internal fun SettingsScreen(
     onScopeChange: (Boolean) -> Unit = {},
     onOpenThemeSettings: () -> Unit = {},
     onOpenLayoutTrim: () -> Unit = {},
-    onOpenServiceBlock: () -> Unit = {},
     onOpenExperimentalFeatures: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     onRefreshStatus: () -> Unit = {},
@@ -363,14 +362,6 @@ internal fun SettingsScreen(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 8.dp),
-                )
-            }
-            item(key = "service_block_navigation") {
-                NavigationCard(
-                    title = stringResource(R.string.service_block_title),
-                    testTag = "settings:service-block-nav",
-                    onClick = onOpenServiceBlock,
-                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 )
             }
             item(key = "experimental_features_navigation") {

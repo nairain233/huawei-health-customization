@@ -18,7 +18,7 @@ import love.nairain.huawei.app.ServiceBlockUiState
 import love.nairain.huawei.app.ServiceCatalog
 import love.nairain.huawei.app.ServiceItem
 import love.nairain.huawei.app.ServiceSettingsCoordinator
-import love.nairain.huawei.app.SettingsScreen
+import love.nairain.huawei.app.ExperimentalFeaturesScreen
 import love.nairain.huawei.app.SettingsUiState
 import love.nairain.huawei.config.ServiceBlockConfig
 import org.junit.Assert.assertEquals
@@ -36,14 +36,19 @@ class ServiceBlockScreenTest {
     @get:Rule val composeRule = createComposeRule()
     private val component = "com.huawei.health/com.huawei.health.ExampleService"
 
-    @Test fun homeEntryOpensWithoutLayoutSwitch() {
+    @Test fun experimentalEntryOpensWithoutLayoutSwitch() {
         var opened = false
         composeRule.setContent {
             MiuixTheme(colors = lightColorScheme()) {
-                SettingsScreen(SettingsUiState(), onSettingChange = { _, _ -> }, onOpenServiceBlock = { opened = true })
+                ExperimentalFeaturesScreen(
+                    state = SettingsUiState(),
+                    onSettingChange = { _, _ -> },
+                    onClose = {},
+                    onOpenServiceBlock = { opened = true },
+                )
             }
         }
-        composeRule.onNodeWithTag("settings:list").performScrollToNode(hasTestTag("settings:service-block-nav"))
+        composeRule.onNodeWithTag("settings:experimental").performScrollToNode(hasTestTag("settings:service-block-nav"))
         composeRule.onNodeWithTag("settings:service-block-nav").performClick()
         assertTrue(opened)
     }
