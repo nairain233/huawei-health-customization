@@ -49,6 +49,9 @@
             android:name=".app.ServiceBlockActivity"
             android:exported="false" />
         <activity
+            android:name=".app.ExperimentalFeaturesActivity"
+            android:exported="false" />
+        <activity
             android:name=".app.ThemeSettingsActivity"
             android:exported="false" />
         <activity

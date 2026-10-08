@@ -288,6 +288,7 @@ internal fun SettingsScreen(
     onOpenThemeSettings: () -> Unit = {},
     onOpenLayoutTrim: () -> Unit = {},
     onOpenServiceBlock: () -> Unit = {},
+    onOpenExperimentalFeatures: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     onRefreshStatus: () -> Unit = {},
 ) {
@@ -372,16 +373,13 @@ internal fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 )
             }
-            item(key = "watchface_import") {
-                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
-                    SwitchPreference(
-                        title = stringResource(R.string.watchface_import_title),
-                        checked = state.valueOf(SettingsKeys.LOCAL_WATCH_FACE),
-                        enabled = state.writable,
-                        onCheckedChange = { onSettingChange(SettingsKeys.LOCAL_WATCH_FACE, it) },
-                        modifier = Modifier.testTag("setting:${SettingsKeys.LOCAL_WATCH_FACE}"),
-                    )
-                }
+            item(key = "experimental_features_navigation") {
+                NavigationCard(
+                    title = stringResource(R.string.experimental_features_title),
+                    testTag = "settings:experimental-nav",
+                    onClick = onOpenExperimentalFeatures,
+                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
+                )
             }
             item(key = "about_navigation") {
                 NavigationCard(
