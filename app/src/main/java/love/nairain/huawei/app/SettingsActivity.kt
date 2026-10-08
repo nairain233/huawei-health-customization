@@ -47,6 +47,9 @@ class SettingsActivity : AppCompatActivity() {
                     onOpenServiceBlock = {
                         startActivity(android.content.Intent(this, ServiceBlockActivity::class.java))
                     },
+                    onOpenExperimentalFeatures = {
+                        startActivity(ExperimentalFeaturesActivity.intent(this))
+                    },
                     onRefreshStatus = {
                         coordinator.refresh()
                         scopeCoordinator.refresh()
