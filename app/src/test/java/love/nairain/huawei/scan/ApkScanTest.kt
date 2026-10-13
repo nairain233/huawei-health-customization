@@ -100,6 +100,28 @@ class ApkScanTest {
             val output = System.getProperty("scan.output").orEmpty()
             if (output.isNotEmpty()) File(output).writeText(result.encode())
             assertEquals("失败来源：${result.issues}", ScanProtocol.keys, result.matched)
+            listOf("bottom.badges", "mine.badges.header", "mine.badges.rows").forEach {
+                assertTrue("缺少角标能力：$it", it in result.groups)
+            }
+            assertEquals(setOf(K.BOTTOM_BADGES), result.capabilities.getValue("bottom.badges"))
+            assertFalse(K.BOTTOM_BADGES in result.capabilities.getValue("bottom.tabs"))
+            assertFalse(K.MINE_BADGES in result.capabilities.getValue("mine.rows"))
+            val bottomRole = "${love.nairain.huawei.hook.symbols.HuaweiHealthHookPoints.ANCHORS.bottomBase}#badges.update#2"
+            val missingBadgeUpdate = scan({ if (it == result.bindings.getValue(bottomRole)) throw NoSuchMethodException() })
+            assertFalse(K.BOTTOM_BADGES in missingBadgeUpdate.matched)
+            assertTrue(K.BOTTOM_MINE in missingBadgeUpdate.matched)
+            val ambiguousBadgeUpdate = scan({ if (it == result.bindings.getValue(bottomRole)) throw IllegalArgumentException("ambiguous") })
+            assertEquals("ambiguous", ambiguousBadgeUpdate.failures[K.BOTTOM_BADGES])
+            assertTrue(K.BOTTOM_MINE in ambiguousBadgeUpdate.matched)
+            assertTrue(runCatching {
+                LayoutResolution.decode(result.copy(bindings = result.bindings - bottomRole).encode())
+            }.isFailure)
+            val missingMessageBadge = scan(missingResources = setOf("id/txt_message_count_new"))
+            assertFalse("mine.badges.header" in missingMessageBadge.groups)
+            assertTrue("mine.badges.rows" in missingMessageBadge.groups)
+            val missingRowBadge = scan(missingResources = setOf("id/list_content_red_point"))
+            assertFalse("mine.badges.rows" in missingRowBadge.groups)
+            assertTrue("mine.badges.header" in missingRowBadge.groups)
             listOf("health.edit-cards", "sport.quick-entry-bind", "device.refresh.0", "device.refresh.1",
                 "device.new.delegates", "mine.marketing").forEach { assertTrue("缺少 $it", it in result.groups) }
             assertEquals(10, result.capabilities.getValue("device.new.arkui").size)

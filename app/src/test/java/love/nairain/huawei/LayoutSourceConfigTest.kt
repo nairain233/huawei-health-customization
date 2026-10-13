@@ -9,6 +9,21 @@ class LayoutSourceConfigTest {
     private val config = mapOf(SettingsKeys.ENABLED to true, SettingsKeys.DEVICE_LIST to true,
         SettingsKeys.DEVICE_PRIMARY to true, SettingsKeys.DEVICE_TIPS to false)
 
+    @Test fun badgeSourcesNeverBorrowTabOrOtherMineGroupCapabilities() {
+        val values = mapOf(SettingsKeys.ENABLED to true, SettingsKeys.BOTTOM_BADGES to true,
+            SettingsKeys.BOTTOM_MINE to true, SettingsKeys.MINE_BADGES to true)
+        val capabilities = mapOf("bottom.tabs" to setOf(SettingsKeys.BOTTOM_MINE),
+            "bottom.badges" to setOf(SettingsKeys.BOTTOM_BADGES), "mine.badges.rows" to setOf(SettingsKeys.MINE_BADGES))
+        val tabs = sourceLayoutConfig(values, "bottom.tabs", capabilities)
+        assertTrue(tabs.getValue(SettingsKeys.BOTTOM_MINE))
+        assertFalse(tabs.getValue(SettingsKeys.BOTTOM_BADGES))
+        val badges = sourceLayoutConfig(values, "bottom.badges", capabilities)
+        assertTrue(badges.getValue(SettingsKeys.BOTTOM_BADGES))
+        assertFalse(badges.getValue(SettingsKeys.BOTTOM_MINE))
+        assertFalse(sourceLayoutConfig(values, "mine.badges.header", capabilities).getValue(SettingsKeys.MINE_BADGES))
+        assertTrue(sourceLayoutConfig(values, "mine.badges.rows", capabilities).getValue(SettingsKeys.MINE_BADGES))
+    }
+
     @Test fun oldPageSuccessDoesNotEnableFailedSharedKeyInArkuiGroup() {
         val capabilities = mapOf("device.fragment.0" to setOf(SettingsKeys.DEVICE_LIST),
             "device.new.arkui" to setOf(SettingsKeys.DEVICE_PRIMARY))

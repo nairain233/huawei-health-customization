@@ -145,6 +145,7 @@
     <string name="settings_device_features">设备特色功能</string>
 
     <string name="settings_mine_messages">消息入口</string>
+    <string name="settings_hide_badges">屏蔽红点和数字角标</string>
     <string name="settings_mine_account">账号资料</string>
     <string name="settings_mine_vip">会员卡</string>
     <string name="settings_mine_marketing">我的页营销卡片</string>
@@ -175,7 +176,8 @@
     <string name="settings_tab_device">设备</string>
     <string name="settings_tab_mine">我的</string>
     <string name="back">返回</string>
-    <string name="close">关闭</string>
+    <!-- 设置首页设备测试使用此文案确认旧关闭按钮不存在。 -->
+    <string name="close" xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedResources">关闭</string>
     <string name="service_block_title">后台服务精简</string>
     <string name="service_block_enabled">启用服务屏蔽</string>
     <string name="service_block_only_selected">仅看已屏蔽</string>

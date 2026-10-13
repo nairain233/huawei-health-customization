@@ -7,6 +7,7 @@ import love.nairain.huawei.hook.resolver.DeviceContentKeyResolver
 import love.nairain.huawei.hook.resolver.SportPageTargets
 import love.nairain.huawei.hook.resolver.RowKeyResolver
 import love.nairain.huawei.hook.resolver.BottomTabKeyResolver
+import love.nairain.huawei.hook.resolver.BadgeTargets
 import love.nairain.huawei.hook.symbols.HuaweiHealthHookPoints
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
@@ -178,6 +179,31 @@ internal class LayoutScanner(
     }
 
     private fun resource(name: String): Boolean = id(name, "id") != 0
+
+    private fun usesResource(data: MethodData, name: String): Boolean {
+        val value = id(name, "id")
+        require(value != 0) { "resource_missing" }
+        return data.usingFields.any { it.field.name == name && it.field.className.endsWith("R\$id") } ||
+            bridges.any { bridge -> bridge.findMethod { matcher {
+                declaredClass(data.className); name(data.name); paramTypes(*data.paramTypeNames.toTypedArray())
+                usingNumbers(value)
+            } }.any { it.descriptor == data.descriptor } }
+    }
+
+    private fun verifyBadgeBinding(owner: String, name: String, entries: List<MethodData>): MethodData {
+        val initializer = unique(entries.filter { usesResource(it, name) && it.invokes.any { call ->
+            call.name == "findViewById" && call.paramTypeNames == listOf("int")
+        } })
+        return remember(initializer, owner, "badges.init.$name")
+    }
+
+    private fun visibilityUpdate(owner: String, role: String, params: List<String>, anchor: String): MethodData {
+        val update = method(owner, role, "void", params, anchor)
+        require(update.invokes.any { it.name == "setVisibility" && it.paramTypeNames == listOf("int") }) {
+            "dependency_missing"
+        }
+        return update
+    }
 
     private fun contentResource(names: Map<String, String>, key: String): Boolean {
         val found = names.filterValues { it == key }.keys.mapNotNull { name ->
@@ -435,6 +461,52 @@ internal class LayoutScanner(
             // 全部解析后再判断，确保新旧会员容器都进入当前 APK 的证据快照。
             require(names.map(::resource).any { it }) { "resource_missing" }
         } }
+        run("mine.badges.header", setOf(K.MINE_BADGES)) {
+            lifecycle(points.mineFragment)
+            verifyBadgeBinding(points.mineFragment, "txt_message_count_new", type(points.mineFragment).methods)
+            visibilityUpdate(points.mineFragment, "badges.messages", listOf("int"),
+                "Enter setUnreadMessageNum unreadMessageNum:")
+            verifyBadgeBinding(BadgeTargets.MINE_HEAD, "rank_red_point", type(BadgeTargets.MINE_HEAD).methods)
+            visibilityUpdate(BadgeTargets.MINE_HEAD, "badges.rank", listOf("int", "boolean"),
+                "enter updateUserRank(): level = ")
+        }
+        run("mine.badges.rows", setOf(K.MINE_BADGES)) {
+            lifecycle(points.mineFragment)
+            val adapter = BadgeTargets.MINE_ADAPTER
+            val bind = method(adapter, "badges.bind", "void", listOf(BadgeTargets.HOLDER, "int"),
+                "onBindViewHolder model or holder is null")
+            val create = method(adapter, "onCreateViewHolder", BadgeTargets.HOLDER,
+                listOf("android.view.ViewGroup", "int"))
+            val constructors = create.invokes.filter { it.name == "<init>" &&
+                it.className.startsWith("$adapter\$") && it.paramTypeNames.lastOrNull() == "android.view.View" &&
+                it.paramTypeNames.dropLast(1) in listOf(emptyList(), listOf(adapter)) }
+                .distinctBy { it.descriptor }
+            val row = verifyBadgeBinding(adapter, "list_content_red_point", constructors)
+            val medal = verifyBadgeBinding(adapter, "mymedal_red_point", constructors)
+            listOf(row, medal).forEach { constructor ->
+                require(descendants(constructor.className, BadgeTargets.HOLDER)) { "dependency_missing" }
+                require(bind.invokes.any { call -> call.paramTypeNames.contains(constructor.className) &&
+                    call.invokes.any { it.name == "setVisibility" && it.paramTypeNames == listOf("int") } }) {
+                    "dependency_missing"
+                }
+            }
+            // 320 的列表没有数字角标；仅在当前 holder 实际绑定数字容器时要求该路径。
+            val numbers = row.usingFields.any { it.field.name == "number_red_dot" && it.field.className.endsWith("R\$id") } ||
+                (id("number_red_dot", "id") != 0 && usesResource(row, "number_red_dot"))
+            if (numbers) {
+                require(usesResource(row, "number_red_dot") && usesResource(row, "number_red_dot_text")) { "dependency_missing" }
+            } else {
+                // 资源在其他页面存在不能授权旧版列表使用它。
+                resources.remove("id/number_red_dot")
+                evidence?.remove("resource:id/number_red_dot")
+            }
+            val root = hierarchy(BadgeTargets.HOLDER).firstNotNullOfOrNull { level -> level.fields.singleOrNull {
+                it.name == "itemView" && it.typeName == "android.view.View"
+            } } ?: throw IllegalArgumentException("entry_missing")
+            verifySymbol(root.descriptor); descriptors += root.descriptor; evidence?.add(root.descriptor)
+            bindings["${BadgeTargets.HOLDER}#badges.root#field"] = root.descriptor
+            evidence?.add("binding:${BadgeTargets.HOLDER}#badges.root#field")
+        }
         val grid = setOf(K.MINE_GROUP, K.MINE_FAMILY, K.MINE_ANNUAL_GOAL, K.MINE_REPORTS)
         val gridNames = mapOf(K.MINE_GROUP to "MyGroupCardData", K.MINE_FAMILY to "MyFamilyHealthCardData",
             K.MINE_ANNUAL_GOAL to "AnnualFlagCardData", K.MINE_REPORTS to "MyReportCardData")
@@ -470,7 +542,7 @@ internal class LayoutScanner(
             bindings["mine.marketing"] = success.descriptor
             evidence?.add("binding:mine.marketing")
         }
-        (category(SettingsCategory.MINE) - headers.keys - grid - setOf(K.MINE_MARKETING)).forEach { key -> run("mine.rows", setOf(key)) {
+        (category(SettingsCategory.MINE) - headers.keys - grid - setOf(K.MINE_MARKETING, K.MINE_BADGES)).forEach { key -> run("mine.rows", setOf(key)) {
             val domestic = method(null, "rows.domestic", "java.util.List", emptyList(), "initRecyclerList")
             val overseas = method(domestic.className, "rows.overseas", "java.util.List", emptyList(), "initOverseaRecyclerList")
             require(domestic.className == overseas.className)
@@ -486,7 +558,25 @@ internal class LayoutScanner(
             remember(title, title.className, "row.title")
             require(contentResource(RowKeyResolver.RESOURCE_NAMES, key)) { "resource_missing" }
         } }
-        category(SettingsCategory.BOTTOM).forEach { key -> run("bottom.tabs", setOf(key)) {
+        run("bottom.badges", setOf(K.BOTTOM_BADGES)) {
+            type(points.bottomView)
+            method(points.bottomBase, "onLayout", "void", listOf("boolean", "int", "int", "int", "int"))
+            val setter = method(BadgeTargets.BOTTOM_ITEM, "setHasMessage", "void", listOf("boolean"))
+            require(setter.invokes.any { it.name == "invalidate" && it.paramTypeNames.isEmpty() }) { "dependency_missing" }
+            val update = unique(hierarchy(points.bottomBase).flatMap { it.methods }.filter {
+                it.returnTypeName == "void" && it.paramTypeNames == listOf("int", "boolean") &&
+                    it.invokes.any { call -> call.descriptor == setter.descriptor }
+            }.distinctBy { it.descriptor })
+            remember(update, points.bottomBase, "badges.update")
+            val stateField = setter.usingFields.map { it.field }.filter { it.typeName == "boolean" }
+                .distinctBy { it.descriptor }.singleOrNull() ?: throw IllegalArgumentException("ambiguous")
+            val getter = unique(type(BadgeTargets.BOTTOM_ITEM).methods.filter {
+                it.returnTypeName == "boolean" && it.paramTypeNames.isEmpty() &&
+                    it.usingFields.any { field -> field.field.descriptor == stateField.descriptor }
+            })
+            remember(getter, BadgeTargets.BOTTOM_ITEM, "badges.current")
+        }
+        SettingsCatalog.bottomTabKeys.forEach { key -> run("bottom.tabs", setOf(key)) {
             type(points.bottomView)
             val clears = hierarchy(points.bottomBase).flatMap { it.methods }.filter { it.returnTypeName == "void" && it.paramTypeNames.isEmpty() &&
                 it.invokes.any { call -> call.name == "removeAllViews" && call.paramTypeNames.isEmpty() } }

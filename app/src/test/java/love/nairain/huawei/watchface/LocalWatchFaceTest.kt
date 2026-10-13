@@ -180,7 +180,7 @@ class LocalWatchFaceTest {
         val next = SettingsCatalog.normalizeWrite(SettingsKeys.LOCAL_WATCH_FACE, true, SettingsCatalog.defaults)
         assertTrue(next.getValue(SettingsKeys.LOCAL_WATCH_FACE))
         assertFalse(next.getValue(SettingsKeys.ENABLED))
-        assertEquals(96, ScanProtocol.keys.size)
+        assertEquals(98, ScanProtocol.keys.size)
         assertFalse(SettingsKeys.LOCAL_WATCH_FACE in ScanProtocol.keys)
     }
 

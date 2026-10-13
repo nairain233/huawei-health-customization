@@ -9,7 +9,7 @@ import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.hook.HookContext
 import love.nairain.huawei.hook.HookFeature
 import love.nairain.huawei.hook.InstallResult
-import love.nairain.huawei.hook.installIsolated
+import love.nairain.huawei.hook.installSource
 import love.nairain.huawei.hook.util.ViewTrimmer
 
 class BottomTabFeature : HookFeature {
@@ -20,7 +20,9 @@ class BottomTabFeature : HookFeature {
         if (!SettingsCatalog.hasHidden(SettingsCategory.BOTTOM, context.config)) {
             return InstallResult.Disabled
         }
-        val count = context.installIsolated("bottom.tabs") { installNavigation(context) }
+        val count = context.installSource("bottom.tabs") { scoped ->
+            if (SettingsCatalog.bottomTabKeys.none { scoped.config[it] == true }) 0 else installNavigation(scoped)
+        } + context.installSource("bottom.badges", BottomBadgeHooks::install)
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("bottom methods unavailable")
     }

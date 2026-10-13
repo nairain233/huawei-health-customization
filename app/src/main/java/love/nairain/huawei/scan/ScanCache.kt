@@ -29,6 +29,10 @@ internal object ScanCache {
         require(json.getString("identity") == identity && json.getString("request") == request)
         val payload = json.getString("resolution")
         require(json.getString("checksum") == checksum(payload))
-        return LayoutResolution.decode(payload).also { result -> result.descriptors.forEach(verify) }
+        return LayoutResolution.decode(payload).also { result ->
+            // 同一规则版本新增开关时，旧缓存必须重新扫描，不能冒充已检查新能力。
+            require(result.matched + result.failures.keys == ScanProtocol.keys)
+            result.descriptors.forEach(verify)
+        }
     }
 }
