@@ -233,7 +233,8 @@ internal class LayoutScanner(
                 "switch_device_layout", "switch_device", "switch_web", "hw_device_viewpager", "device_scrollview_content",
                 "rl_tab_device", "ll_tab_device_empty", "tab_all_device_layout", "tab_setting_benefit_layout",
                 "tab_title", "card_mywatch_view", "card_mywatch_custom_view", "card_watchface_view", "device_feature_container",
-                "rl_actionbar_right", "rl_message_new", "head_layout", "account_center_customheadview", "vip_layout")
+                "rl_actionbar_right", "rl_message_new", "head_layout", "account_center_customheadview", "vip_layout",
+                "member_benefit_container")
         viewNames.forEach { id(it, "id") }
         setOf(K.HEALTH_SEARCH, K.HEALTH_MORE).forEach { key -> run("health.top", setOf(key)) {
             lifecycle(points.homeFragment)
@@ -427,8 +428,13 @@ internal class LayoutScanner(
             })
             remember(refresh, points.deviceFragments[1], "device.refresh")
         }
-        val headers = mapOf(K.MINE_MESSAGES to "rl_actionbar_right", K.MINE_ACCOUNT to "head_layout", K.MINE_VIP to "vip_layout")
-        headers.forEach { (key, name) -> run("mine.header", setOf(key)) { lifecycle(points.mineFragment); require(resource(name)) } }
+        val headers = mapOf(K.MINE_MESSAGES to listOf("rl_actionbar_right"), K.MINE_ACCOUNT to listOf("head_layout"),
+            K.MINE_VIP to listOf("vip_layout", "member_benefit_container"))
+        headers.forEach { (key, names) -> run("mine.header", setOf(key)) {
+            lifecycle(points.mineFragment)
+            // 全部解析后再判断，确保新旧会员容器都进入当前 APK 的证据快照。
+            require(names.map(::resource).any { it }) { "resource_missing" }
+        } }
         val grid = setOf(K.MINE_GROUP, K.MINE_FAMILY, K.MINE_ANNUAL_GOAL, K.MINE_REPORTS)
         val gridNames = mapOf(K.MINE_GROUP to "MyGroupCardData", K.MINE_FAMILY to "MyFamilyHealthCardData",
             K.MINE_ANNUAL_GOAL to "AnnualFlagCardData", K.MINE_REPORTS to "MyReportCardData")

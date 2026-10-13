@@ -61,7 +61,7 @@ internal object ScanRuntime {
             val hostResources = HostResources(app.resources, loader, app.packageName)
             val cached = runCatching {
                 ScanCache.decode(AtomicFile(cache).openRead().bufferedReader().use { it.readText() }, identity, request) { verify(it, loader) }.also { resolution ->
-                    resolution.resourceIds.forEach { (key, value) -> require(hostResources.id(key.substringAfter('/'), key.substringBefore('/')) == value) }
+                    ScanCache.verifyResources(resolution, hostResources::id)
                 }
             }.getOrNull()
             val result = cached ?: run {

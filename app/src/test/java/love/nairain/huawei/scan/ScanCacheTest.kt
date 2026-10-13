@@ -25,6 +25,22 @@ class ScanCacheTest {
         assertTrue(runCatching { ScanCache.decode(raw, "apk1", "request1") { throw NoSuchMethodException() } }.isFailure)
     }
 
+    @Test fun currentMembershipContainerMissingFromOldCacheRequiresRescan() {
+        val old = resolution.copy(resourceIds = mapOf("id/vip_layout" to 10))
+        val current = mapOf("id/vip_layout" to 10, "id/member_benefit_container" to 20)
+        val lookup: (String, String) -> Int = { name, kind -> current["$kind/$name"] ?: 0 }
+        assertTrue(runCatching { ScanCache.verifyResources(old, lookup) }.isFailure)
+        ScanCache.verifyResources(old.copy(resourceIds = current), lookup)
+    }
+
+    @Test fun hostsWithoutMembershipContainerKeepLegacyCacheAndChangedResourcesAreRejected() {
+        val legacy = resolution.copy(resourceIds = mapOf("id/vip_layout" to 10))
+        ScanCache.verifyResources(legacy) { name, kind -> if ("$kind/$name" == "id/vip_layout") 10 else 0 }
+        assertTrue(runCatching {
+            ScanCache.verifyResources(legacy) { name, kind -> if ("$kind/$name" == "id/vip_layout") 11 else 0 }
+        }.isFailure)
+    }
+
     @Test fun rule7CacheCannotBeUsedAfterStructuralRefactor() {
         val apk = kotlin.io.path.createTempFile().toFile()
         try {

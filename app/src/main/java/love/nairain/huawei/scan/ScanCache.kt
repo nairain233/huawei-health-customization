@@ -5,6 +5,15 @@ import java.security.MessageDigest
 
 /** 缓存损坏和请求变化都视为 miss；持久化由外层 AtomicFile 完成。 */
 internal object ScanCache {
+    fun verifyResources(resolution: LayoutResolution, resourceId: (String, String) -> Int) {
+        resolution.resourceIds.forEach { (key, value) ->
+            require(resourceId(key.substringAfter('/'), key.substringBefore('/')) == value)
+        }
+        // 规则版本保持不变；旧缓存若漏掉当前 APK 的新版会员容器，必须重新扫描。
+        val membership = resourceId("member_benefit_container", "id")
+        require(membership == (resolution.resourceIds["id/member_benefit_container"] ?: 0))
+    }
+
     private fun checksum(value: String) = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
         .joinToString("") { "%02x".format(it) }
 

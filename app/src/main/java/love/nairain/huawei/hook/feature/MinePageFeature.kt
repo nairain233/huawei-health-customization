@@ -11,6 +11,8 @@ import love.nairain.huawei.hook.InstallResult
 import love.nairain.huawei.hook.installSource
 import love.nairain.huawei.hook.resolver.ListFilters
 import love.nairain.huawei.hook.resolver.MineMarketingContentResolver
+import love.nairain.huawei.hook.util.ActivePageObserver
+import love.nairain.huawei.hook.util.applyPage
 
 class MinePageFeature : HookFeature {
     override val id = "mine.page"
@@ -30,13 +32,17 @@ class MinePageFeature : HookFeature {
 
     private fun installHeader(context: HookContext): Int {
         val type = context.targets.type(context.classLoader, context.points.mineFragment) ?: return 0
+        val callbacks = context.hooks.callbacks()
+        fun apply(root: View?) {
+            callbacks.applyPage(root) { view -> applyHeader(view, context) }
+        }
         var count = 0
         context.targets.method(type, "onCreateView", 3)?.let { method ->
             context.hooks.hook(method).setId("$id:header:create")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    applyHeader(result as? View, context)
+                    apply(result as? View)
                     result
                 }
             count++
@@ -46,11 +52,12 @@ class MinePageFeature : HookFeature {
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val result = chain.proceed()
-                    applyHeader(context.targets.invokeNoArgs(chain.thisObject, "getView") as? View, context)
+                    apply(context.targets.invokeNoArgs(chain.thisObject, "getView") as? View)
                     result
                 }
             count++
         }
+        if (count > 0) ActivePageObserver.observeFragment(callbacks, type, ::apply)
         return count
     }
 
@@ -148,6 +155,8 @@ class MinePageFeature : HookFeature {
             "account_center_customheadview" to SettingsKeys.MINE_ACCOUNT,
             "head_layout" to SettingsKeys.MINE_ACCOUNT,
             "vip_layout" to SettingsKeys.MINE_VIP,
+            // 新版会员权益区包含“活力人生会员”标题和会员卡，复用同一开关。
+            "member_benefit_container" to SettingsKeys.MINE_VIP,
         )
     }
 }
