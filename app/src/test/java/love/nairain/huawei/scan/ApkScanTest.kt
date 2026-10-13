@@ -38,14 +38,50 @@ class ApkScanTest {
         return result
     }
 
-    @Test fun scansRealApkWithProductionRules() {
+    private fun bridge(): DexKitBridge {
         val native = System.getProperty("scan.native").orEmpty()
         assumeTrue("未配置桌面 DexKit 库", native.isNotEmpty())
         val library = File(native)
         listOf("libunwind.dll", "libc++.dll").map { File(library.parentFile, it) }.filter { it.isFile }.forEach { System.load(it.absolutePath) }
         System.load(library.absolutePath)
-        val ids = resources()
-        DexKitBridge.create(requireNotNull(System.getProperty("scan.apk"))).use { bridge ->
+        return DexKitBridge.create(requireNotNull(System.getProperty("scan.apk")))
+    }
+
+    @Test fun membershipContainersAndMissingResourcesUseTheSameSwitch() {
+        bridge().use { bridge ->
+            val ids = resources()
+            fun scan(missing: Set<String> = emptySet()) = LayoutScanner(listOf(bridge), { name, kind ->
+                if ("$kind/$name" in missing) 0 else ids["$kind/$name"] ?: 0
+            }, { descriptor ->
+                val exists = when {
+                    '(' in descriptor -> bridge.getMethodData(descriptor) != null
+                    "->" in descriptor -> bridge.getFieldData(descriptor) != null
+                    else -> bridge.getClassData(descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')) != null
+                }
+                assertTrue("描述符必须属于当前 APK：$descriptor", exists)
+            }).scan { _, _ -> }
+            val result = scan()
+            val output = System.getProperty("scan.output").orEmpty()
+            if (output.isNotEmpty()) File(output).writeText(result.encode())
+            assertTrue(K.MINE_VIP in result.capabilities.getValue("mine.header"))
+            val membership = ids["id/member_benefit_container"] ?: 0
+            if (membership != 0) {
+                assertEquals(membership, result.resourceIds["id/member_benefit_container"])
+                assertTrue("resource:id/member_benefit_container" in result.requirements.getValue("mine.header"))
+            }
+            ScanCache.verifyResources(result) { name, kind -> ids["$kind/$name"] ?: 0 }
+            assertEquals("新版会员容器应独立支持原会员卡开关", membership != 0,
+                K.MINE_VIP in scan(setOf("id/vip_layout")).matched)
+            assertTrue("缺少新版容器时保留旧版路径", K.MINE_VIP in scan(setOf("id/member_benefit_container")).matched)
+            val missingMembership = scan(setOf("id/vip_layout", "id/member_benefit_container"))
+            assertFalse(K.MINE_VIP in missingMembership.matched)
+            assertTrue(K.MINE_ACCOUNT in missingMembership.matched)
+        }
+    }
+
+    @Test fun scansRealApkWithProductionRules() {
+        bridge().use { bridge ->
+            val ids = resources()
             fun scan(verify: (String) -> Unit = {}, bridges: List<DexKitBridge> = listOf(bridge),
                      missingResources: Set<String> = emptySet()): LayoutResolution =
                 LayoutScanner(bridges, { name, kind -> if ("$kind/$name" in missingResources) 0 else ids["$kind/$name"] ?: 0 }, { descriptor ->
