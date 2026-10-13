@@ -180,6 +180,7 @@ object SettingsCatalog {
             SettingsKeys.MINE_MESSAGES to R.string.settings_mine_messages,
             SettingsKeys.MINE_ACCOUNT to R.string.settings_mine_account,
             SettingsKeys.MINE_VIP to R.string.settings_mine_vip,
+            SettingsKeys.MINE_BADGES to R.string.settings_hide_badges,
         ),
         group(
             id = "cards-primary",
@@ -221,6 +222,11 @@ object SettingsCatalog {
     )
     val mine = mineGroups.flatMap { it.settings }
 
+    val bottomTabKeys = setOf(
+        SettingsKeys.BOTTOM_HEALTH, SettingsKeys.BOTTOM_SPORT, SettingsKeys.BOTTOM_MEMBER,
+        SettingsKeys.BOTTOM_DEVICE, SettingsKeys.BOTTOM_MINE,
+    )
+
     val bottomGroups = listOf(
         group(
             id = "tabs",
@@ -230,6 +236,7 @@ object SettingsCatalog {
             SettingsKeys.BOTTOM_MEMBER to R.string.settings_tab_member,
             SettingsKeys.BOTTOM_DEVICE to R.string.settings_tab_device,
             SettingsKeys.BOTTOM_MINE to R.string.settings_tab_mine,
+            SettingsKeys.BOTTOM_BADGES to R.string.settings_hide_badges,
         ),
     )
     val bottom = bottomGroups.flatMap { it.settings }
@@ -270,7 +277,7 @@ object SettingsCatalog {
 
     fun normalizeBottomTabs(values: Map<String, Boolean>): Map<String, Boolean> {
         val normalized = values.toMutableMap()
-        if (bottom.all { normalized[it.key] == true }) {
+        if (bottomTabKeys.all { normalized[it] == true }) {
             normalized[SettingsKeys.BOTTOM_HEALTH] = false
         }
         return normalized.toMap()

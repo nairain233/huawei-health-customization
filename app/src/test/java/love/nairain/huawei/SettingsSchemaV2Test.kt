@@ -244,4 +244,24 @@ class SettingsSchemaV2Test {
         )
         assertTrue(healthOnlyHidden.getValue(SettingsKeys.BOTTOM_HEALTH))
     }
+
+    @Test
+    fun badgeChoicesAreIndependentAndCannotDisableTabNormalization() {
+        assertTrue(SettingsCatalog.mine.any { it.key == SettingsKeys.MINE_BADGES })
+        assertTrue(SettingsCatalog.bottom.any { it.key == SettingsKeys.BOTTOM_BADGES })
+        assertFalse(SettingsCatalog.defaults.getValue(SettingsKeys.MINE_BADGES))
+        assertFalse(SettingsCatalog.defaults.getValue(SettingsKeys.BOTTOM_BADGES))
+        listOf(false, true).forEach { badges ->
+            val values = SettingsCatalog.defaults + SettingsCatalog.bottomTabKeys.associateWith { true } +
+                (SettingsKeys.BOTTOM_BADGES to badges)
+            val normalized = SettingsCatalog.normalize(values)
+            assertFalse(normalized.getValue(SettingsKeys.BOTTOM_HEALTH))
+            assertEquals(badges, normalized.getValue(SettingsKeys.BOTTOM_BADGES))
+            assertTrue((SettingsCatalog.bottomTabKeys - SettingsKeys.BOTTOM_HEALTH).all { normalized[it] == true })
+        }
+        val onlyBadges = SettingsCatalog.normalizeWrite(SettingsKeys.BOTTOM_BADGES, true, SettingsCatalog.defaults)
+        assertTrue(onlyBadges.getValue(SettingsKeys.BOTTOM_BADGES))
+        assertTrue(SettingsCatalog.bottomTabKeys.none { onlyBadges[it] == true })
+        assertFalse(onlyBadges.getValue(SettingsKeys.MINE_BADGES))
+    }
 }

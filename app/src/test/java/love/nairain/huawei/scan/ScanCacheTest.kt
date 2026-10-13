@@ -41,6 +41,19 @@ class ScanCacheTest {
         }.isFailure)
     }
 
+    @Test fun rule8CacheMissingNewBadgeChoicesIsRejectedBeforeSymbolVerification() {
+        val old = resolution.copy(failures = resolution.failures - setOf(
+            love.nairain.huawei.config.SettingsKeys.MINE_BADGES,
+            love.nairain.huawei.config.SettingsKeys.BOTTOM_BADGES,
+        ))
+        var verified = false
+        assertTrue(runCatching {
+            ScanCache.decode(ScanCache.encode("apk1", "request1", old), "apk1", "request1") { verified = true }
+        }.isFailure)
+        assertFalse(verified)
+        assertEquals(8, ScanProtocol.RULES)
+    }
+
     @Test fun rule7CacheCannotBeUsedAfterStructuralRefactor() {
         val apk = kotlin.io.path.createTempFile().toFile()
         try {

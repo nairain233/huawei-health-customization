@@ -82,6 +82,7 @@ object SettingsKeys {
     const val DEVICE_FEATURES = "hide.device.features"
 
     const val MINE_MESSAGES = "hide.mine.messages"
+    const val MINE_BADGES = "hide.mine.badges"
     const val MINE_ACCOUNT = "hide.mine.account"
     const val MINE_VIP = "hide.mine.vip"
     const val MINE_MARKETING = "hide.mine.marketing"
@@ -107,6 +108,7 @@ object SettingsKeys {
     const val MINE_ABOUT = "hide.mine.about"
 
     const val BOTTOM_HEALTH = "hide.bottom.health"
+    const val BOTTOM_BADGES = "hide.bottom.badges"
     const val BOTTOM_SPORT = "hide.bottom.sport"
     const val BOTTOM_MEMBER = "hide.bottom.member"
     const val BOTTOM_DEVICE = "hide.bottom.device"

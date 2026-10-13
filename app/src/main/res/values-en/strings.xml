@@ -142,6 +142,7 @@
     <string name="settings_device_features">Device features</string>
 
     <string name="settings_mine_messages">Messages</string>
+    <string name="settings_hide_badges">Hide notification dots and number badges</string>
     <string name="settings_mine_account">Account profile</string>
     <string name="settings_mine_vip">Health+ card</string>
     <string name="settings_mine_marketing">Marketing cards</string>

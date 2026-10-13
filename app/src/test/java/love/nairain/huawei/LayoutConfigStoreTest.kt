@@ -14,6 +14,24 @@ class LayoutConfigStoreTest {
     private val store = LayoutConfigStore()
 
     @Test
+    fun badgeSaveIsIndependentAndFailedWriteRestoresAbsentKey() {
+        val current = SettingsCatalog.defaults + (SettingsKeys.MINE_BADGES to true)
+        val preferences = ScriptedPreferences(completePreferences(current))
+        val saved = store.save(preferences, current, SettingsKeys.BOTTOM_BADGES, true)
+        assertEquals(LayoutWriteOutcome.SUCCESS, saved.outcome)
+        assertTrue(saved.values.getValue(SettingsKeys.MINE_BADGES))
+        assertTrue(saved.values.getValue(SettingsKeys.BOTTOM_BADGES))
+        assertTrue(SettingsCatalog.bottomTabKeys.none { saved.values[it] == true })
+        val initial = completePreferences(current) - SettingsKeys.BOTTOM_BADGES
+        val failedPreferences = ScriptedPreferences(initial, CommitAction.RETURN_FALSE, CommitAction.RETURN_TRUE)
+        val failed = store.save(failedPreferences, current, SettingsKeys.BOTTOM_BADGES, true)
+        assertEquals(LayoutWriteOutcome.FAILED_RESTORED, failed.outcome)
+        assertEquals(initial, failedPreferences.all)
+        assertFalse(failed.values.getValue(SettingsKeys.BOTTOM_BADGES))
+        assertTrue(failed.values.getValue(SettingsKeys.MINE_BADGES))
+    }
+
+    @Test
     fun loadCommitsSchemaAndMissingDefaults() {
         val preferences = ScriptedPreferences(mapOf(SettingsKeys.ENABLED to true))
 
