@@ -212,7 +212,7 @@ internal class ScanStatusController(
         @Suppress("DEPRECATION")
         private fun reportReader(app: Context): () -> ScanUiState = {
             val report = runCatching {
-                app.getSharedPreferences(ScanProtocol.STORE, 0).getString("report", null)?.let(ScanReport::decode)
+                love.nairain.huawei.scan.ScanReportStore.read(app)?.let(ScanReport::decode)
             }.getOrNull()
             val target = runCatching {
                 app.packageManager.getPackageInfo(HookInstallPolicy.TARGET_PACKAGE, 0)

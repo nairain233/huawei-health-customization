@@ -41,6 +41,6 @@ internal object ScanRequests {
 }
 
 internal object ReportAdmission {
-    fun allows(uid: Int, ownUid: Int, packages: List<String>): Boolean = uid == ownUid ||
-        "com.huawei.health" in packages
+    fun allows(uid: Int, ownUid: Int, packages: List<String>): Boolean = uid >= 0 && ownUid >= 0 &&
+        uid / 100000 == ownUid / 100000 && (uid == ownUid || "com.huawei.health" in packages)
 }

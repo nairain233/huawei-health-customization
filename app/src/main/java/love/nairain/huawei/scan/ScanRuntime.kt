@@ -15,6 +15,9 @@ import java.util.UUID
 
 /** 全部磁盘、Dex 与报告 IPC 均由一次性工作线程执行。 */
 internal object ScanRuntime {
+    // 此字段专门为弱监听器保活，Release 不能因字段无读取而移除它。
+    @field:androidx.annotation.Keep
+    private var reportSender: ScanReportSender? = null
     private fun verify(descriptor: String, loader: ClassLoader) {
         when {
             "(" in descriptor -> DexMethod(descriptor).let {
@@ -25,15 +28,16 @@ internal object ScanRuntime {
         }
     }
     fun start(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-              logger: ModuleLogger, install: (LayoutResolution) -> Unit) {
+              logger: ModuleLogger, sender: ScanReportSender?, install: (LayoutResolution) -> Unit) {
+        reportSender = sender
         Thread({
-            try { execute(app, info, loader, request, service, logger, install) }
+            try { execute(app, info, loader, request, service, logger, sender, install) }
             catch (error: Throwable) { logger.warn("Scan worker unavailable: ${error.javaClass.simpleName}") }
         }, "huawei-dex-scan").start()
     }
 
     private fun execute(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-                        logger: ModuleLogger, install: (LayoutResolution) -> Unit) {
+                        logger: ModuleLogger, sender: ScanReportSender?, install: (LayoutResolution) -> Unit) {
         val dir = File(app.filesDir, "huawei_trim_scan")
         var report = ScanReport("pending", info.versionName.orEmpty(), info.longVersionCode, info.lastUpdateTime,
             request, UUID.randomUUID().toString(), System.currentTimeMillis(), service = service)
@@ -41,8 +45,11 @@ internal object ScanRuntime {
         fun publish() {
             runCatching {
                 write(File(dir, "report.json"), report.encode())
-                app.contentResolver.call("content://${ScanProtocol.AUTHORITY}".toUri(), "report", report.encode(), null)
-            }.onFailure { logger.warn("Scan report deferred: ${it.javaClass.simpleName}") }
+            }.onFailure { logger.warn("Scan report persistence deferred: ${it.javaClass.simpleName}") }
+            sender?.update(report.encode())
+            runCatching {
+                checkNotNull(app.contentResolver.call("content://${ScanProtocol.AUTHORITY}".toUri(), "report", report.encode(), null))
+            }.onFailure { logger.warn("Scan report deferred: ${it.javaClass.simpleName}"); sender?.retry() }
         }
         try {
             check(dir.isDirectory || dir.mkdirs())

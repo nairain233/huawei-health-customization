@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="scan_title">dexkit扫描</string>
-    <string name="scan_not_started">尚未扫描，请启动运动健康</string>
+    <string name="scan_not_started">尚未收到扫描报告，请启动运动健康；报告未收到不代表功能未生效</string>
     <string name="scan_running">扫描中</string>
     <string name="scan_complete">扫描完成</string>
     <string name="scan_complete_all">扫描完成，已发现%1$d/%2$d，全部完成</string>

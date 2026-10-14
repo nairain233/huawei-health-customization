@@ -8,19 +8,40 @@ import love.nairain.huawei.hook.TransactionalHooks
 import love.nairain.huawei.hook.resolver.LocalWatchFaceTargets
 import love.nairain.huawei.hook.util.ModuleLogger
 import love.nairain.huawei.watchface.LocalWatchFaceRuntime
+import love.nairain.huawei.watchface.ModuleResources
 
 /** 仅主进程 attach 后调用，默认关闭；精确版本及全部契约通过后才安装入口。 */
 internal object LocalWatchFaceFeature {
     fun install(framework: XposedInterface, loader: ClassLoader, app: Context,
         version: String?, code: Long, enabled: Boolean, serviceConflict: Boolean, logger: ModuleLogger) {
         if (!LocalWatchFaceTargets.accepts(version, code, enabled)) return
+        // 资源加载可能读取 APK；不在 Application.attach 的主线程执行。
+        Thread({
+            try {
+                val resources = ModuleResources.load(app.packageManager, framework.moduleApplicationInfo)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    installReady(framework, loader, app, version, code, serviceConflict, logger, resources)
+                }
+            } catch (error: Throwable) {
+                logger.warn("Local watch face resources unavailable: ${error.javaClass.simpleName}")
+            }
+        }, "LocalWatchFaceResources").apply { isDaemon = true }.start()
+    }
+
+    private fun installReady(framework: XposedInterface, loader: ClassLoader, app: Context,
+        version: String?, code: Long, serviceConflict: Boolean, logger: ModuleLogger,
+        resources: android.content.res.Resources) {
         try {
             val targets = LocalWatchFaceTargets(loader, version, code)
-            val runtime = LocalWatchFaceRuntime(app, targets, logger, serviceConflict)
+            val runtime = LocalWatchFaceRuntime(app, targets, logger, serviceConflict, resources)
             val hooks = TransactionalHooks(framework, logger)
             hooks.install("watchface.local") {
                 val scope = hooks.callbacks()
                 scope.onClose { runtime.close() }
+                // 后台资源准备期间页面可能已经打开，只回放已核验的表盘 Activity。
+                love.nairain.huawei.hook.util.ActivePageObserver.observe(scope) { activity ->
+                    if (targets.webClass.isInstance(activity)) runtime.attach(activity)
+                }
                 var installed = 0
                 fun hook(key: String, action: XposedInterface.Hooker) {
                     hooks.hook(targets.method(key)).setId("watchface.local:$key")
@@ -117,7 +138,7 @@ internal object LocalWatchFaceFeature {
                     runtime.guarded { runtime.fillNames(chain.args[0]) }
                     chain.proceed()
                 }
-                scope.afterActivation { runtime.initialize() }
+                scope.afterActivation { runtime.initialize(scope::close) }
                 installed
             }
             logger.info("Local watch face hooks installed; device validation pending")
