@@ -47,22 +47,27 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 汇总布局精简入口与布局适配状态。 */
 class LayoutTrimActivity : AppCompatActivity(), ModuleApplication.ServiceStateListener {
+    private val reportOwner = Any()
+    private val reportBridge get() = (application as ModuleApplication).scanReportReceiver.lifecycle
     private var scanState by mutableStateOf(ScanUiState())
     private val scanController by lazy { ScanStatusController(this) { scanState = it } }
 
     override fun onStart() {
         super.onStart()
         (application as ModuleApplication).addServiceStateListener(this)
+        reportBridge.start(reportOwner, ModuleApplication.service)
         scanController.start()
     }
 
     override fun onStop() {
+        reportBridge.stop(reportOwner)
         scanController.stop()
         (application as ModuleApplication).removeServiceStateListener(this)
         super.onStop()
     }
 
     override fun onServiceStateChanged(service: XposedService?) {
+        reportBridge.bind(reportOwner, service)
         scanController.bind(service)
     }
 

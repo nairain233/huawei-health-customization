@@ -27,11 +27,10 @@ internal class LocalWatchFaceRuntime(
     private val targets: LocalWatchFaceTargets,
     private val logger: ModuleLogger,
     private val serviceConflict: Boolean,
+    private val resources: android.content.res.Resources,
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "LocalWatchFaceIO").apply { isDaemon = true } }
-    private val moduleContext = app.createPackageContext("love.nairain.huawei", 0)
-    private val resources = moduleContext.resources
     private var footerScript = ""
     private val root = File(app.filesDir, "huawei_hook_local_faces")
     private val ids = LocalFaceIds(File(root, "ids"))
@@ -84,17 +83,17 @@ internal class LocalWatchFaceRuntime(
         val taskId get() = state?.let { "${it.id}_${it.version}" }.orEmpty()
     }
 
-    fun initialize() {
+    fun initialize(onFailure: () -> Unit) {
         worker.execute {
             try {
                 check(root.isDirectory || root.mkdirs())
                 root.listFiles().orEmpty().filter { it.name.startsWith("job-") }.forEach { HwtArchive.clean(root, it) }
                 ownedIds.addAll(ids.legacyIds())
-                val script = moduleContext.assets.open("local-watchface-footer.js").bufferedReader().use { it.readText() }
+                val script = resources.assets.open("local-watchface-footer.js").bufferedReader().use { it.readText() }
                 post { if (!closed) { footerScript = script; ready = true; updateButtons() } }
             } catch (error: Exception) {
                 diagnostic("initialize", error)
-                post { quarantined = true; pages.values.forEach { show(it, R.string.wf_restart) }; updateButtons() }
+                post { onFailure() }
             }
         }
     }
@@ -696,11 +695,13 @@ internal class LocalWatchFaceRuntime(
     fun close() {
         if (Looper.myLooper() != Looper.getMainLooper()) { main.post { close() }; return }
         if (closed) return
+        val initializing = !ready && job == null
         closed = true
         cancel()
         pages.keys.toList().forEach(::detach)
         pending.clear()
         ready = false
+        if (initializing) worker.shutdown()
         // 原生停止和排队续接可能晚于页面销毁；保持守护执行器以完成安全清理。
     }
 

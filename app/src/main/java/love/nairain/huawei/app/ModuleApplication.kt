@@ -16,6 +16,7 @@ import java.util.concurrent.Executors
  * 模块应用：负责与 LSPosed 服务建立连接并通知设置界面。
  */
 class ModuleApplication : Application(), XposedServiceHelper.OnServiceListener {
+    internal val scanReportReceiver by lazy { love.nairain.huawei.scan.ScanReportReceiver(this) }
     private val listeners = CopyOnWriteArraySet<ServiceStateListener>()
     internal lateinit var layoutSettingsCoordinator: LayoutSettingsCoordinator
         private set

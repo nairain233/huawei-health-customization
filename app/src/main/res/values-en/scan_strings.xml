@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="scan_title">DexKit scan</string>
-    <string name="scan_not_started">Not scanned yet. Start Huawei Health to begin</string>
+    <string name="scan_not_started">No scan report received. Open Huawei Health; missing reports do not mean features are inactive</string>
     <string name="scan_running">Scanning</string>
     <string name="scan_complete">Scan complete</string>
     <string name="scan_complete_all">Scan complete. Found %1$d/%2$d; all items are available</string>

@@ -104,7 +104,13 @@ internal object HookCoordinator {
             logger.warn("Scan request unavailable: ${error.javaClass.simpleName}")
             ""
         }
-        ScanRuntime.start(application, packageInfo, classLoader, request, serviceStatus, logger) { resolution ->
+        val reportSender = runCatching {
+            love.nairain.huawei.scan.ScanReportSender(
+                { framework.getRemotePreferences(love.nairain.huawei.scan.ScanBridgeProtocol.GROUP) },
+                framework.moduleApplicationInfo.uid, logger,
+            )
+        }.onFailure { logger.warn("Scan report bridge unavailable: ${it.javaClass.simpleName}") }.getOrNull()
+        ScanRuntime.start(application, packageInfo, classLoader, request, serviceStatus, logger, reportSender) { resolution ->
             val points = HuaweiHealthHookPoints.ANCHORS.copy(
                 mineListManager = resolution.mineManager,
             )
