@@ -28,6 +28,8 @@ class MinePageFeature : HookFeature {
         count += context.installSource("mine.marketing", ::installMarketing)
         count += context.installSource("mine.badges.header", MineBadgeHooks::installHeader)
         count += context.installSource("mine.badges.rows", MineBadgeHooks::installRows)
+        count += context.installSource("mine.badges.grid", MineBadgeHooks::installGrid)
+        count += context.installSource("mine.badges.kaka", MineBadgeHooks::installKaka)
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified mine symbols unavailable")
     }

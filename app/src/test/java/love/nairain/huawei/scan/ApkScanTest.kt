@@ -100,7 +100,7 @@ class ApkScanTest {
             val output = System.getProperty("scan.output").orEmpty()
             if (output.isNotEmpty()) File(output).writeText(result.encode())
             assertEquals("失败来源：${result.issues}", ScanProtocol.keys, result.matched)
-            listOf("bottom.badges", "mine.badges.header", "mine.badges.rows").forEach {
+            listOf("bottom.badges", "mine.badges.header", "mine.badges.rows", "mine.badges.grid", "mine.badges.kaka").forEach {
                 assertTrue("缺少角标能力：$it", it in result.groups)
             }
             assertEquals(setOf(K.BOTTOM_BADGES), result.capabilities.getValue("bottom.badges"))
@@ -122,6 +122,34 @@ class ApkScanTest {
             val missingRowBadge = scan(missingResources = setOf("id/list_content_red_point"))
             assertFalse("mine.badges.rows" in missingRowBadge.groups)
             assertTrue("mine.badges.header" in missingRowBadge.groups)
+            listOf("mine.badges.grid" to setOf("item_channel_red_point", "item_channel_red_point_vertical"),
+                "mine.badges.kaka" to setOf("kaka_to_be_collected_text")).forEach { (source, resources) ->
+                assertEquals(setOf(K.MINE_BADGES), result.capabilities.getValue(source))
+                resources.forEach { name ->
+                    assertTrue("resource:id/$name" in result.requirements.getValue(source))
+                    val missing = scan(missingResources = setOf("id/$name"))
+                    assertFalse(source in missing.groups)
+                    listOf("mine.badges.header", "mine.badges.rows", "mine.badges.grid", "mine.badges.kaka")
+                        .filter { it != source }.forEach { assertTrue(it in missing.groups) }
+                    // 单路径失败不阻止其他路径共享开关，也不使明确的失败缓存反复重扫。
+                    assertTrue(K.MINE_BADGES in missing.matched)
+                    assertEquals(missing, ScanCache.decode(ScanCache.encode("apk", "", missing), "apk", "") {})
+                }
+                val role = if (source.endsWith("grid"))
+                    "com.huawei.ui.main.stories.userprofile.card.PersonalGridCardViewHolder#badges.grid.update#1"
+                else "com.huawei.ui.main.stories.userprofile.scroll.CustomHeadView#badges.kaka.update#1"
+                val update = result.bindings.getValue(role)
+                val missing = scan({ if (it == update) throw NoSuchMethodException() })
+                assertFalse(source in missing.groups)
+                assertTrue(K.MINE_BADGES in missing.matched)
+                val ambiguous = scan({ if (it == update) throw IllegalArgumentException("ambiguous") })
+                assertEquals("ambiguous", ambiguous.issues["$source:${K.MINE_BADGES}"])
+                assertFalse(source in ambiguous.groups)
+                assertTrue(runCatching {
+                    LayoutResolution.decode(result.copy(bindings = result.bindings - role).encode())
+                }.isFailure)
+            }
+            assertEquals(result, ScanCache.decode(ScanCache.encode("apk", "", result), "apk", "") {})
             listOf("health.edit-cards", "sport.quick-entry-bind", "device.refresh.0", "device.refresh.1",
                 "device.new.delegates", "mine.marketing").forEach { assertTrue("缺少 $it", it in result.groups) }
             assertEquals(10, result.capabilities.getValue("device.new.arkui").size)
