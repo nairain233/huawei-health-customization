@@ -2,11 +2,13 @@ package love.nairain.huawei
 
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import love.nairain.huawei.hook.util.BadgeViews
 import love.nairain.huawei.hook.util.LayoutCallbackScope
 import love.nairain.huawei.hook.util.ViewSelectors
+import love.nairain.huawei.hook.resolver.BadgeTargets
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -14,6 +16,65 @@ import org.junit.runner.RunWith
 /** 验证真实 Android View 可见性及恢复；仅编译不能记为设备通过。 */
 @RunWith(AndroidJUnit4::class)
 class BadgeViewsTest {
+    @Test fun fourCardsAndKakaKeepContentAndClicksAcrossRefreshAndIndependentCleanup() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            val context = instrumentation.targetContext
+            val page = FrameLayout(context)
+            val selectors = ViewSelectors(mapOf("id/item_channel_red_point" to 51,
+                "id/item_channel_red_point_vertical" to 52, "id/kaka_to_be_collected_text" to 53))
+            val gridScope = LayoutCallbackScope { fail(it) }.apply { activate() }
+            val kakaScope = LayoutCallbackScope { fail(it) }.apply { activate() }
+            val grid = BadgeViews(gridScope, selectors, BadgeTargets.GRID_RESOURCES)
+            val kaka = BadgeViews(kakaScope, selectors, BadgeTargets.KAKA_RESOURCES)
+            var clicks = 0
+            val entries = (0..3).map { index ->
+                FrameLayout(context).apply {
+                    addView(TextView(context).apply { text = "card-$index" })
+                    listOf(51, 52).forEach { resource -> addView(View(context).apply { id = resource }) }
+                    setOnClickListener { clicks++ }
+                    page.addView(this)
+                }
+            }
+            val value = TextView(context).apply { text = "123" }
+            val claim = TextView(context).apply { id = 53; text = "领取" }
+            val kakaEntry = FrameLayout(context).apply {
+                addView(value); addView(claim)
+                setOnClickListener { clicks++ }
+                page.addView(this)
+            }
+            grid.hide(page); kaka.hide(page)
+            entries.forEach { entry ->
+                assertEquals(View.VISIBLE, entry.visibility)
+                assertEquals(View.GONE, entry.getChildAt(1).visibility)
+                assertEquals(View.GONE, entry.getChildAt(2).visibility)
+                entry.performClick()
+            }
+            kakaEntry.performClick()
+            assertEquals(5, clicks)
+            assertEquals("123", value.text.toString())
+            assertEquals(View.GONE, claim.visibility)
+            val reused = entries.first()
+            page.removeView(reused)
+            grid.beforeUpdate(reused)
+            reused.getChildAt(1).visibility = View.INVISIBLE
+            reused.getChildAt(2).visibility = View.VISIBLE
+            grid.hide(reused)
+            page.addView(reused)
+            kaka.beforeUpdate(kakaEntry)
+            claim.visibility = View.VISIBLE
+            kaka.hide(kakaEntry)
+            gridScope.close()
+            assertEquals(View.INVISIBLE, reused.getChildAt(1).visibility)
+            assertEquals(View.VISIBLE, reused.getChildAt(2).visibility)
+            assertEquals(View.GONE, claim.visibility)
+            kakaScope.close()
+            assertEquals(View.VISIBLE, claim.visibility)
+            grid.hide(page); kaka.hide(page)
+            assertEquals(View.VISIBLE, claim.visibility)
+        }
+    }
+
     @Test fun repeatedIdsAndAsyncUpdatesStayHiddenWithoutChangingEntryOrDimensions() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.runOnMainSync {

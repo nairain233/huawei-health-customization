@@ -6,7 +6,21 @@ import org.json.JSONObject
 
 class ScanCacheTest {
     private val resolution = LayoutResolution(emptySet(), emptySet(), emptyMap(), setOf("Lsample/Target;->run()V"), "manager",
-        ScanProtocol.keys.associateWith { "unresolved" })
+        ScanProtocol.keys.associateWith { "unresolved" }, issues = listOf("mine.badges.grid", "mine.badges.kaka")
+            .associate { "$it:${love.nairain.huawei.config.SettingsKeys.MINE_BADGES}" to "entry_missing" })
+
+    @Test fun oldCacheMustHaveCheckedBothAdditionalMineBadgePaths() {
+        resolution.issues.keys.forEach { missing ->
+            val old = resolution.copy(issues = resolution.issues - missing)
+            var verified = false
+            assertTrue(runCatching {
+                ScanCache.decode(ScanCache.encode("apk1", "", old), "apk1", "") { verified = true }
+            }.isFailure)
+            assertFalse(verified)
+        }
+        assertEquals(8, ScanProtocol.RULES)
+        assertEquals(98, ScanProtocol.keys.size)
+    }
 
     @Test fun cachedNegativeResultsAvoidRescanningUntilIdentityOrRequestChanges() {
         val raw = ScanCache.encode("apk1", "request1", resolution)

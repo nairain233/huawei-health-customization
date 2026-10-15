@@ -12,6 +12,8 @@ import love.nairain.huawei.hook.symbols.HuaweiHealthHookPoints
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
 import org.luckypray.dexkit.result.ClassData
+import org.luckypray.dexkit.result.FieldData
+import org.luckypray.dexkit.result.FieldUsingType
 
 /** 按页面和业务关系定位；除明确的模型/委托集合外只接受唯一候选。 */
 internal class LayoutScanner(
@@ -203,6 +205,34 @@ internal class LayoutScanner(
             "dependency_missing"
         }
         return update
+    }
+
+    private fun badgeField(field: FieldData, role: String) {
+        type(field.className)
+        verifySymbol(field.descriptor)
+        descriptors += field.descriptor
+        evidence?.add(field.descriptor)
+        val binding = "${field.className}#$role#field"
+        bindings[binding] = field.descriptor
+        evidence?.add("binding:$binding")
+    }
+
+    private fun badgeRoot() {
+        val root = hierarchy(BadgeTargets.HOLDER).firstNotNullOfOrNull { level -> level.fields.singleOrNull {
+            it.name == "itemView" && it.typeName == "android.view.View"
+        } } ?: throw IllegalArgumentException("entry_missing")
+        badgeField(root, "badges.root")
+    }
+
+    /** 简单显示方法只允许读取本类角标字段并调用 setVisibility，不凭混淆名称匹配。 */
+    private fun badgeVisibilityFields(method: MethodData, viewType: String): List<FieldData> {
+        if (method.invokes.isEmpty() || method.invokes.any {
+            it.name != "setVisibility" || it.returnTypeName != "void" || it.paramTypeNames != listOf("int")
+        }) return emptyList()
+        val fields = method.usingFields
+        if (fields.any { it.usingType != FieldUsingType.Read || it.field.className != method.className ||
+            it.field.typeName != viewType }) return emptyList()
+        return fields.map { it.field }.distinctBy { it.descriptor }.sortedBy { it.descriptor }
     }
 
     private fun contentResource(names: Map<String, String>, key: String): Boolean {
@@ -500,12 +530,56 @@ internal class LayoutScanner(
                 resources.remove("id/number_red_dot")
                 evidence?.remove("resource:id/number_red_dot")
             }
-            val root = hierarchy(BadgeTargets.HOLDER).firstNotNullOfOrNull { level -> level.fields.singleOrNull {
-                it.name == "itemView" && it.typeName == "android.view.View"
-            } } ?: throw IllegalArgumentException("entry_missing")
-            verifySymbol(root.descriptor); descriptors += root.descriptor; evidence?.add(root.descriptor)
-            bindings["${BadgeTargets.HOLDER}#badges.root#field"] = root.descriptor
-            evidence?.add("binding:${BadgeTargets.HOLDER}#badges.root#field")
+            badgeRoot()
+        }
+        run("mine.badges.grid", setOf(K.MINE_BADGES)) {
+            lifecycle(points.mineFragment)
+            val holder = BadgeTargets.MINE_GRID_HOLDER
+            require(descendants(holder, BadgeTargets.HOLDER)) { "dependency_missing" }
+            val initializers = BadgeTargets.GRID_RESOURCES.map { name ->
+                verifyBadgeBinding(holder, name, type(holder).methods)
+            }
+            val init = unique(initializers.distinctBy { it.descriptor })
+            require(init.returnTypeName == "void" && init.paramTypeNames.isEmpty()) { "dependency_missing" }
+            remember(init, holder, "badges.grid.init")
+            val bind = method(points.mineGridAdapter, "badges.grid.bind", "void",
+                listOf(BadgeTargets.HOLDER, "int"), "onBindViewHolder model or holder is null")
+            require(bind.invokes.any { it.descriptor == init.descriptor }) { "dependency_missing" }
+            val update = unique(candidates(holder, "void", listOf("boolean")).filter {
+                badgeVisibilityFields(it, "android.widget.ImageView").size == 2
+            })
+            remember(update, holder, "badges.grid.update")
+            badgeVisibilityFields(update, "android.widget.ImageView").forEachIndexed { index, field ->
+                require(init.usingFields.any { it.usingType == FieldUsingType.Write &&
+                    it.field.descriptor == field.descriptor }) { "dependency_missing" }
+                badgeField(field, "badges.grid.view.$index")
+            }
+            val refresh = unique(candidates(holder, "void", null, "updateCardDesc = ").filter {
+                it.invokes.any { call -> call.descriptor == update.descriptor }
+            })
+            remember(refresh, holder, "badges.grid.refresh")
+            badgeRoot()
+        }
+        run("mine.badges.kaka", setOf(K.MINE_BADGES)) {
+            lifecycle(points.mineFragment)
+            val head = BadgeTargets.MINE_HEAD
+            val init = verifyBadgeBinding(head, "kaka_to_be_collected_text", type(head).methods)
+            val update = unique(candidates(head, "void", listOf("int")).filter {
+                badgeVisibilityFields(it, "com.huawei.ui.commonui.healthtextview.HealthTextView").size == 1
+            })
+            remember(update, head, "badges.kaka.update")
+            val field = badgeVisibilityFields(update, "com.huawei.ui.commonui.healthtextview.HealthTextView").single()
+            require(init.usingFields.any { it.usingType == FieldUsingType.Write &&
+                it.field.descriptor == field.descriptor }) { "dependency_missing" }
+            badgeField(field, "badges.kaka.view")
+            val callers = type(points.mineFragment).methods.filter {
+                it.invokes.any { call -> call.descriptor == update.descriptor }
+            }.distinctBy { it.descriptor }.sortedBy { it.descriptor }
+            // 登录状态重置和领取状态刷新都调用同一个已唯一核验的显示方法，属于合法多入口。
+            require(callers.isNotEmpty()) { "dependency_missing" }
+            callers.forEachIndexed { index, caller ->
+                remember(caller, points.mineFragment, "badges.kaka.refresh.$index")
+            }
         }
         val grid = setOf(K.MINE_GROUP, K.MINE_FAMILY, K.MINE_ANNUAL_GOAL, K.MINE_REPORTS)
         val gridNames = mapOf(K.MINE_GROUP to "MyGroupCardData", K.MINE_FAMILY to "MyFamilyHealthCardData",

@@ -22,6 +22,11 @@ class LayoutSourceConfigTest {
         assertFalse(badges.getValue(SettingsKeys.BOTTOM_MINE))
         assertFalse(sourceLayoutConfig(values, "mine.badges.header", capabilities).getValue(SettingsKeys.MINE_BADGES))
         assertTrue(sourceLayoutConfig(values, "mine.badges.rows", capabilities).getValue(SettingsKeys.MINE_BADGES))
+        listOf("mine.badges.grid", "mine.badges.kaka").forEach { source ->
+            assertFalse(sourceLayoutConfig(values, source, capabilities).getValue(SettingsKeys.MINE_BADGES))
+            assertTrue(sourceLayoutConfig(values, source, capabilities +
+                (source to setOf(SettingsKeys.MINE_BADGES))).getValue(SettingsKeys.MINE_BADGES))
+        }
     }
 
     @Test fun oldPageSuccessDoesNotEnableFailedSharedKeyInArkuiGroup() {

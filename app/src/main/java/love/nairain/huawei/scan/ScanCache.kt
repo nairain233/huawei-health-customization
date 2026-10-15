@@ -32,6 +32,11 @@ internal object ScanCache {
         return LayoutResolution.decode(payload).also { result ->
             // 同一规则版本新增开关时，旧缓存必须重新扫描，不能冒充已检查新能力。
             require(result.matched + result.failures.keys == ScanProtocol.keys)
+            // 开关键未变也必须确认检查过新增路径；明确失败的扫描结果仍可缓存。
+            listOf("mine.badges.grid", "mine.badges.kaka").forEach { group ->
+                require(love.nairain.huawei.config.SettingsKeys.MINE_BADGES in result.capabilities[group].orEmpty() ||
+                    "$group:${love.nairain.huawei.config.SettingsKeys.MINE_BADGES}" in result.issues)
+            }
             result.descriptors.forEach(verify)
         }
     }
