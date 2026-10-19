@@ -14,7 +14,6 @@
     <string name="host_scan_service_disabled">Disabled</string>
     <string name="host_scan_service_unsupported">Unsupported; services allowed</string>
     <string name="host_scan_limit">Scan matches do not confirm hook installation or device regression results.</string>
-    <string name="host_settings_local_ready">Local settings available</string>
     <string name="host_settings_local_error">Could not read local settings. The original file has been preserved. Reload settings to retry.</string>
     <string name="host_settings_local_uncertain">The save or recovery could not be confirmed. Editing is paused. Reload and verify local settings.</string>
     <string name="host_settings_retry">Reload settings</string>

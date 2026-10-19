@@ -14,7 +14,6 @@
     <string name="host_scan_service_disabled">已关闭</string>
     <string name="host_scan_service_unsupported">入口未适配，保持放行</string>
     <string name="host_scan_limit">扫描匹配不代表 Hook 安装或真机回归成功。</string>
-    <string name="host_settings_local_ready">本地配置可用</string>
     <string name="host_settings_local_error">本地配置读取失败，未覆盖原文件。请重新读取配置。</string>
     <string name="host_settings_local_uncertain">配置写入或恢复结果无法确认，编辑已暂停。请重新读取并确认本地配置。</string>
     <string name="host_settings_retry">重新读取配置</string>

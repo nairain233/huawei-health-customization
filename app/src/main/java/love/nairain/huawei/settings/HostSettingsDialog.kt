@@ -267,7 +267,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
     }
     private fun update() {
         if (disposed) return
-        summary.text = s(when (notice) {
+        val summaryResource = when (notice) {
             HostSettingsNotice.LOADING -> R.string.settings_status_loading
             HostSettingsNotice.SAVING -> if (state.route == "scan") R.string.scan_saving else R.string.settings_status_saving
             HostSettingsNotice.SAVED -> R.string.settings_restart_notice
@@ -275,8 +275,10 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
             HostSettingsNotice.UNCERTAIN -> R.string.host_settings_local_uncertain
             HostSettingsNotice.FAILED -> R.string.settings_status_save_error
             HostSettingsNotice.UNAVAILABLE -> R.string.host_settings_local_error
-            HostSettingsNotice.READY -> R.string.host_settings_local_ready
-        })
+            HostSettingsNotice.READY -> null
+        }
+        summary.text = summaryResource?.let { s(it) } ?: ""
+        summary.visibility = if (summaryResource == null) View.GONE else View.VISIBLE
         if (state.route == "services" || state.route == "custom") {
             val signature = snapshot.configuration.services.toString() + snapshot.catalog.services.toString()
             if (serviceSignature != signature) {
