@@ -15,7 +15,6 @@ import love.nairain.huawei.R
 import love.nairain.huawei.app.visibleServices
 import love.nairain.huawei.config.ServicePreset
 import love.nairain.huawei.config.ServiceSection
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -23,7 +22,7 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun HostSettingsServices(model: HostSettingsUiState, strings: Resources, action: (HostSettingsAction) -> Unit) {
-    SettingsNote(strings.getString(R.string.service_block_notice))
+    SettingsNotice(strings.getString(R.string.service_block_notice), strings)
     TextButton(text = strings.getString(R.string.service_block_refresh), onClick = { action(HostSettingsAction.Refresh) })
     SettingsCard {
         SwitchPreference(title = strings.getString(R.string.service_block_enabled), checked = model.services.enabled,
@@ -31,8 +30,7 @@ internal fun HostSettingsServices(model: HostSettingsUiState, strings: Resources
     }
     val declared = model.declared
     ServiceSection.entries.forEach { section ->
-        SmallTitle(text = strings.getString(if (section == ServiceSection.CORE) R.string.service_block_core_title else R.string.service_block_low_title))
-        SettingsCard {
+        SettingsGroup(strings.getString(if (section == ServiceSection.CORE) R.string.service_block_core_title else R.string.service_block_low_title)) {
             ServicePreset.visible(section).forEach { group ->
                 val available = group.components.any(declared::contains)
                 val summary = buildList {

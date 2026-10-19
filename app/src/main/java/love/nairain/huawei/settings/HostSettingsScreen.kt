@@ -25,11 +25,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
@@ -47,6 +52,7 @@ import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.scan.ScanProtocol
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -114,7 +120,7 @@ internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources
                                 ArrowPreference(title = strings.getString(category.title), onClick = { action(HostSettingsAction.Navigate(category.name)) })
                             } }
                             "experimental" -> {
-                                SettingsNote(strings.getString(R.string.host_watchface_location))
+                                SettingsNotice(strings.getString(R.string.host_watchface_location), strings)
                                 SettingsCard { LayoutSwitch(SettingsKeys.LOCAL_WATCH_FACE, strings.getString(R.string.watchface_import_title), model, action) }
                                 SettingsCard { ArrowPreference(title = strings.getString(R.string.service_block_title), onClick = { action(HostSettingsAction.Navigate("services")) }) }
                             }
@@ -126,10 +132,9 @@ internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources
                                     onClick = { action(HostSettingsAction.OpenLink(library.url)) })
                             } }
                             else -> SettingsCategory.entries.firstOrNull { it.name == model.route }?.let { category ->
-                                if (category == SettingsCategory.BOTTOM && model.needsHealthRoute) SettingsNote(strings.getString(R.string.host_settings_health_route))
+                                if (category == SettingsCategory.BOTTOM && model.needsHealthRoute) SettingsNotice(strings.getString(R.string.host_settings_health_route), strings)
                                 SettingsCatalog.groupsFor(category).forEach { group ->
-                                    group.title?.let { SmallTitle(text = strings.getString(it)) }
-                                    SettingsCard { group.settings.forEach { setting ->
+                                    SettingsGroup(group.title?.let(strings::getString)) { group.settings.forEach { setting ->
                                         LayoutSwitch(setting.key, strings.getString(setting.title), model, action,
                                             if (setting.key == SettingsKeys.BOTTOM_HEALTH && model.needsHealthRoute) strings.getString(R.string.host_settings_health_route) else null)
                                     } }
@@ -200,6 +205,40 @@ internal fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Card(modifier = Modifier.fillMaxWidth(), content = content)
 }
 
+/** 标题和卡片作为一个分组，避免再叠加外层列表的项目间距。 */
+@Composable
+internal fun SettingsGroup(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        title?.let { SmallTitle(text = it) }
+        SettingsCard(content)
+    }
+}
+
+/** 关闭仅影响当前提示的显示；文案变化时重新显示，不写入功能配置。 */
+@Composable
+internal fun SettingsNotice(text: String, strings: Resources, modifier: Modifier = Modifier) {
+    var dismissed by remember(text) { mutableStateOf(false) }
+    if (dismissed) return
+    val colors = MiuixTheme.colorScheme
+    Card(modifier = modifier.fillMaxWidth(), colors = CardDefaults.defaultColors(
+        color = colors.primary.copy(alpha = .16f).compositeOver(colors.surface), contentColor = colors.onTertiaryContainer)) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            SelectionContainer(Modifier.weight(1f)) {
+                Text(text = text, modifier = Modifier.padding(vertical = 8.dp),
+                    style = MiuixTheme.textStyles.body2, color = colors.onTertiaryContainer)
+            }
+            IconButton(onClick = { dismissed = true },
+                modifier = Modifier.size(48.dp).semantics { contentDescription = strings.getString(R.string.host_ui_dismiss_notice) }) {
+                Canvas(Modifier.size(14.dp)) {
+                    drawLine(colors.onTertiaryContainer, Offset.Zero, Offset(size.width, size.height), 1.5.dp.toPx(), StrokeCap.Round)
+                    drawLine(colors.onTertiaryContainer, Offset(size.width, 0f), Offset(0f, size.height), 1.5.dp.toPx(), StrokeCap.Round)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun SettingsNote(text: String) {
     SelectionContainer {
@@ -227,11 +266,13 @@ private fun SettingsStatus(model: HostSettingsUiState, strings: Resources, actio
         HostSettingsNotice.UNCERTAIN -> R.string.host_ui_uncertain
         HostSettingsNotice.READY -> null
     }
-    notice?.let { SettingsNote(strings.getString(it)) }
+    notice?.let { SettingsNotice(strings.getString(it), strings,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
     if (model.settings.notice in setOf(HostSettingsNotice.FAILED, HostSettingsNotice.UNAVAILABLE, HostSettingsNotice.UNCERTAIN)) {
         TextButton(text = strings.getString(R.string.host_settings_retry), modifier = Modifier.padding(horizontal = 16.dp), onClick = { action(HostSettingsAction.Refresh) })
     }
-    if (model.watchFaceBusy) SettingsNote(strings.getString(R.string.host_restart_watchface_busy))
+    if (model.watchFaceBusy) SettingsNotice(strings.getString(R.string.host_restart_watchface_busy), strings,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
 }
 
 @Composable
@@ -242,8 +283,7 @@ private fun AboutPage(strings: Resources, action: (HostSettingsAction) -> Unit) 
             Text(text = strings.getString(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE))
         }
     }
-    SmallTitle(text = strings.getString(R.string.about_section_developer))
-    SettingsCard {
+    SettingsGroup(strings.getString(R.string.about_section_developer)) {
         ArrowPreference(title = strings.getString(R.string.about_developer_name), summary = strings.getString(R.string.about_platform_github),
             onClick = { action(HostSettingsAction.OpenLink("https://github.com/nairain233")) })
         ArrowPreference(title = strings.getString(R.string.about_repository), onClick = { action(HostSettingsAction.OpenLink("https://github.com/nairain233/huawei-health-customization")) })

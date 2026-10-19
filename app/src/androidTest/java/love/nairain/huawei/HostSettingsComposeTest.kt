@@ -214,6 +214,47 @@ class HostSettingsComposeTest {
         }
     }
 
+    @Test fun noticesDismissWithoutConfigurationActionsAndNewResultsReappear() {
+        for (variant in listOf("light", "dark", "english", "rtl-large")) {
+            val configuration = Configuration(strings.configuration).apply {
+                setLocale(if (variant == "english" || variant == "rtl-large") Locale.ENGLISH else Locale.SIMPLIFIED_CHINESE)
+                uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                    (if (variant == "dark") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
+                if (variant == "rtl-large") { fontScale = 1.7f; setLayoutDirection(Locale.forLanguageTag("ar")) }
+            }
+            @Suppress("DEPRECATION")
+            val localized = Resources(strings.assets, strings.displayMetrics, configuration)
+            val actions = mutableListOf<HostSettingsAction>()
+            val initial = ready("HEALTH").let { it.copy(settings = it.settings.copy(notice = HostSettingsNotice.SAVED)) }
+            withHost(initial, action = actions::add, configuration = configuration) { host ->
+                val saved = localized.getString(R.string.host_ui_saved)
+                val dismiss = localized.getString(R.string.host_ui_dismiss_notice)
+                compose.onNodeWithText(saved).assertIsDisplayed()
+                compose.onNodeWithContentDescription(dismiss).assertIsDisplayed()
+                captureNoticeScreenshot(variant)
+                compose.onNodeWithContentDescription(dismiss).performClick()
+                compose.onNodeWithText(saved).assertDoesNotExist()
+                compose.runOnIdle { host.update(initial) }
+                compose.onNodeWithText(saved).assertDoesNotExist()
+                compose.onNodeWithText(localized.getString(android.R.string.cancel)).assertIsDisplayed()
+                compose.onNodeWithText(localized.getString(R.string.host_restart)).assertIsDisplayed()
+                captureNoticeScreenshot("$variant-closed")
+                compose.runOnIdle { host.update(initial.copy(settings = initial.settings.copy(notice = HostSettingsNotice.SCHEDULED))) }
+                compose.onNodeWithText(localized.getString(R.string.host_ui_scheduled)).assertIsDisplayed()
+                compose.onNodeWithContentDescription(dismiss).assertIsDisplayed()
+                compose.runOnIdle { assertTrue(actions.isEmpty()) }
+            }
+        }
+    }
+
+    private fun captureNoticeScreenshot(name: String) {
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        assertNotNull(bitmap)
+        File(instrumentation.targetContext.cacheDir, "settings-notice-$name.png").outputStream().use {
+            assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+        }
+    }
+
     private fun withHost(model: HostSettingsUiState, page: HostSettingsPageState = HostSettingsPageState(),
         action: (HostSettingsAction) -> Unit = {}, failure: (Throwable) -> Unit = { throw AssertionError(it) },
         configuration: Configuration? = null,
