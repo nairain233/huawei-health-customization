@@ -79,8 +79,9 @@ internal object HookCoordinator {
             return
         }
         val client = love.nairain.huawei.settings.HostSettingsController(application) { logger.warn(it) }
+        val restarter = love.nairain.huawei.settings.HostRestarter.create(application, { client.canRestart }) { logger.warn(it) }
         love.nairain.huawei.hook.feature.HostSettingsFeature.install(
-            framework, classLoader, application, versionName, versionCode, logger, client,
+            framework, classLoader, application, versionName, versionCode, logger, client, restarter,
         )
         client.initialize { startup ->
             val serviceConfig = startup.services
@@ -99,7 +100,7 @@ internal object HookCoordinator {
                 config[SettingsKeys.LOCAL_WATCH_FACE] == true,
                 serviceConfig.effectiveComponents(declaredServices).any {
                     it in love.nairain.huawei.config.ServicePreset.DEVICE_CORE.components
-                }, logger,
+                }, logger, restarter,
             )
             ScanRuntime.start(application, packageInfo, classLoader, startup.scanRequest, serviceStatus, logger) { resolution ->
                 val points = HuaweiHealthHookPoints.ANCHORS.copy(

@@ -1,4 +1,9 @@
 <resources>
+    <string name="host_restart">Restart</string>
+    <string name="host_restart_description">Restart Huawei Health</string>
+    <string name="host_restart_starting">Restarting. If Huawei Health does not reopen automatically, open it manually.</string>
+    <string name="host_restart_failed">Unable to restart automatically. Close Huawei Health and reopen it manually.</string>
+    <string name="host_restart_watchface_busy">A watch face task is still active. Wait for installation or cancellation to be confirmed before restarting.</string>
     <string name="host_settings_apply_filter">Apply filter</string>
     <string name="host_watchface_location">After enabling, open Me in the watch face store and select Import local watch face between Device and Settings.</string>
     <string name="host_scan_matched">Matched: %1$d/%2$d</string>

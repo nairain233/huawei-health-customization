@@ -21,6 +21,7 @@ import love.nairain.huawei.hook.util.ActivePageObserver
 import love.nairain.huawei.hook.util.LayoutCallbackScope
 import love.nairain.huawei.hook.util.ModuleLogger
 import love.nairain.huawei.settings.HostSettingsController
+import love.nairain.huawei.settings.HostRestarter
 import love.nairain.huawei.settings.HostSettingsDialog
 import love.nairain.huawei.settings.HostSettingsPageState
 import love.nairain.huawei.watchface.ModuleResources
@@ -30,7 +31,7 @@ import java.util.WeakHashMap
 /** 独立于精简开关及 DexKit 安装；只作用于已核验版本的原生设置 Activity。 */
 internal object HostSettingsFeature {
     fun install(framework: XposedInterface, loader: ClassLoader, app: Application,
-        version: String?, code: Long, logger: ModuleLogger, client: HostSettingsController) {
+        version: String?, code: Long, logger: ModuleLogger, client: HostSettingsController, restarter: HostRestarter) {
         if (!HostSettingsTargets.accepts(version, code)) {
             logger.info("Host settings unsupported; original settings retained")
             return
@@ -43,7 +44,7 @@ internal object HostSettingsFeature {
                 main.post {
                     val scope = LayoutCallbackScope { reason -> logger.warn("Host settings disabled: $reason") }
                     scope.afterActivation {
-                        Runtime(app, targets, resources, client, scope, logger).register()
+                        Runtime(app, targets, resources, client, restarter, scope, logger).register()
                     }
                     scope.activate()
                 }
@@ -52,7 +53,7 @@ internal object HostSettingsFeature {
     }
 
     private class Runtime(private val app: Application, private val targets: HostSettingsTargets,
-        private val moduleResources: Resources, private val client: HostSettingsController,
+        private val moduleResources: Resources, private val client: HostSettingsController, private val restarter: HostRestarter,
         private val scope: LayoutCallbackScope, private val logger: ModuleLogger) : Application.ActivityLifecycleCallbacks {
         private class Page {
             val state = HostSettingsPageState()
@@ -122,7 +123,7 @@ internal object HostSettingsFeature {
         private fun show(activity: Activity, page: Page) {
             if (activity.isFinishing || activity.isDestroyed) return
             page.dialog.get()?.takeIf { it.isShowing }?.let { return }
-            val dialog = HostSettingsDialog(activity, targets, moduleResources, client, page.state) { error ->
+            val dialog = HostSettingsDialog(activity, targets, moduleResources, client, page.state, restarter) { error ->
                 scope.run { throw error }
             }
             page.dialog = WeakReference(dialog)

@@ -25,7 +25,8 @@ class HostSettingsApkTest {
                 .forEach { widget -> assertNotNull(widget, bridge.getMethodData("$base$widget;-><init>(Landroid/content/Context;)V")) }
             assertNotNull(bridge.getMethodData("${base}titlebar/CustomTitleBar;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V"))
             listOf("setTitleText(Ljava/lang/String;)V", "setLeftButtonOnClickListener(Landroid/view/View\$OnClickListener;)V",
-                "setLeftButtonVisibility(I)V").forEach { method ->
+                "setLeftButtonVisibility(I)V", "setRightTextVisible(I)V", "setRightTextContent(Ljava/lang/String;)V",
+                "setRightTextOnClickListener(Landroid/view/View\$OnClickListener;)V").forEach { method ->
                 assertNotNull(method, bridge.getMethodData("${base}titlebar/CustomTitleBar;->$method"))
             }
         }
@@ -41,6 +42,11 @@ class HostSettingsApkTest {
         assertEquals("RelativeLayout", goal.tagName)
         assertSame(goal, named("goal_text_view").parentNode)
         assertSame(goal, named("goal_image_view").parentNode)
+        val appBar = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(File(resources, "layout/health_commonui_app_bar.xml")).getElementsByTagName("*")
+        val restart = (0 until appBar.length).map { appBar.item(it) as Element }
+            .single { it.getAttribute("id") == "@+id/hwtoolbar_right_text" }
+        assertEquals("com.huawei.ui.commonui.healthtextview.HealthTextView", restart.tagName)
         assertEquals(8, ScanProtocol.RULES)
     }
 }

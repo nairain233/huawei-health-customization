@@ -15,7 +15,10 @@ internal data class HostSettingsState(
     val catalog: ServiceCatalog = ServiceCatalog(),
     val writable: Boolean = false,
     val notice: HostSettingsNotice = HostSettingsNotice.LOADING,
-)
+) {
+    val canRestart: Boolean get() = writable && notice in setOf(
+        HostSettingsNotice.READY, HostSettingsNotice.SAVED, HostSettingsNotice.SCHEDULED)
+}
 
 /** 宿主进程唯一协调器；窗口只订阅状态，关闭窗口不会中断保存。 */
 internal class HostSettingsController(application: Context, private val diagnostic: (String) -> Unit) {
@@ -30,6 +33,7 @@ internal class HostSettingsController(application: Context, private val diagnost
     private var busy = true
     val writable: Boolean get() = listener != null && state.writable && !busy
     val saving: Boolean get() = state.notice == HostSettingsNotice.SAVING
+    val canRestart: Boolean get() = listener != null && startup != null && !busy && state.canRestart
 
     /** 在 attach 后异步初始化；业务只取得这一次启动快照。 */
     fun initialize(ready: (HostConfiguration) -> Unit) {

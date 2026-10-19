@@ -64,6 +64,7 @@ internal class HostSettingsPageState {
 @Suppress("DEPRECATION")
 internal class HostSettingsDialog(private val activity: Activity, private val targets: HostSettingsTargets,
     moduleResources: Resources, private val client: HostSettingsController, private val state: HostSettingsPageState,
+    private val restarter: HostRestarter,
     private val failed: (Throwable) -> Unit) : Dialog(activity) {
     private val strings = love.nairain.huawei.watchface.ModuleResources.localized(moduleResources, activity.resources)
     private val main = Handler(Looper.getMainLooper())
@@ -76,6 +77,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
     private var report: ScanReport? = null
     private var expired = false
     private var subscription: AutoCloseable? = null
+    private var restartSubscription: AutoCloseable? = null
     private var active = false
     private var disposed = false
     private var backCallback: Any? = null
@@ -141,6 +143,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         if (active || disposed) return
         active = true
         subscription = client.start { value -> safely { snapshot = value; notice = value.notice; update() } }
+        restartSubscription = restarter.observe { if (active && !disposed) update() }
         main.post(refreshReport)
     }
     fun pause() {
@@ -149,6 +152,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         confirmation?.dismiss(); confirmation = null
         rememberScroll()
         subscription?.close(); subscription = null
+        restartSubscription?.close(); restartSubscription = null
         main.removeCallbacks(refreshReport)
     }
     fun captureState() = rememberScroll()
@@ -200,7 +204,9 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
             snapshot.configuration.services.toString() + snapshot.catalog.services.toString()
         root.removeAllViews()
         content.removeAllViews()
-        root.addView(targets.title(activity, title()) { navigate(parent(state.route)) })
+        val titleBar = targets.title(activity, title()) { navigate(parent(state.route)) }
+        root.addView(titleBar)
+        if (state.route == "home") bindRestart(titleBar)
         (scroll.parent as? ViewGroup)?.removeView(scroll)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         (summary.parent as? ViewGroup)?.removeView(summary)
@@ -210,6 +216,8 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
                 val retry = action(s(R.string.host_settings_retry)) { client.refresh() }
                 bindings += { retry.visibility = if (notice in setOf(HostSettingsNotice.UNAVAILABLE,
                     HostSettingsNotice.UNCERTAIN, HostSettingsNotice.FAILED)) View.VISIBLE else View.GONE }
+                val restartBusy = note(s(R.string.host_restart_watchface_busy))
+                bindings += { restartBusy.visibility = if (restarter.waitingForWatchFace) View.VISIBLE else View.GONE }
                 layoutSwitch(SettingsKeys.ENABLED, s(R.string.settings_enabled))
                 navigation(R.string.settings_layout_trim_title, "layout")
                 navigation(R.string.experimental_features_title, "experimental")
@@ -279,6 +287,28 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
             }
         }
         bindings.toList().forEach { it() }
+    }
+    private fun bindRestart(titleBar: View) {
+        runCatching {
+            val button = targets.restartButton(titleBar, s(R.string.host_restart), s(R.string.host_restart_description)) {
+                if (!active || disposed || state.route != "home") return@restartButton
+                val result = restarter.restart {
+                    Toast.makeText(activity, s(R.string.host_restart_starting), Toast.LENGTH_LONG).show()
+                }
+                when (result) {
+                    HostRestarter.Result.WATCH_FACE_BUSY -> Toast.makeText(activity,
+                        s(R.string.host_restart_watchface_busy), Toast.LENGTH_LONG).show()
+                    HostRestarter.Result.FAILED -> Toast.makeText(activity,
+                        s(R.string.host_restart_failed), Toast.LENGTH_LONG).show()
+                    else -> Unit // 配置错误沿用当前页面已确认的状态提示。
+                }
+                update()
+            }
+            bindings += {
+                button.isEnabled = active && restarter.available
+                button.alpha = if (button.isEnabled) 1f else 0.4f
+            }
+        }.onFailure(restarter::buttonUnavailable)
     }
     private fun layoutSwitch(key: String, title: String) {
         switch(title, { snapshot.configuration.layout.getValue(key) },

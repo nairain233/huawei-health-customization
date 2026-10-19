@@ -1,4 +1,9 @@
 <resources>
+    <string name="host_restart">重启</string>
+    <string name="host_restart_description">重启华为运动健康</string>
+    <string name="host_restart_starting">正在重启；若未自动打开，请手动启动华为运动健康。</string>
+    <string name="host_restart_failed">无法自动重启，请手动关闭并重新打开华为运动健康。</string>
+    <string name="host_restart_watchface_busy">表盘任务尚未结束，请等待安装或取消确认完成后重启。</string>
     <string name="host_settings_apply_filter">应用筛选</string>
     <string name="host_watchface_location">启用后，请到表盘商店“我的”页，在“设备”和“设置”之间选择“导入本地表盘”。</string>
     <string name="host_scan_matched">已匹配 %1$d/%2$d 项</string>

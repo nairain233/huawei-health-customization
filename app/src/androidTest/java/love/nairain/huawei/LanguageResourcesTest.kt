@@ -28,6 +28,8 @@ class LanguageResourcesTest {
         assertEquals("卡片", chinese.getString(R.string.settings_group_cards))
         assertEquals("数据", chinese.getString(R.string.settings_group_data))
         assertEquals("我的页营销卡片", chinese.getString(R.string.settings_mine_marketing))
+        assertEquals("重启", chinese.getString(R.string.host_restart))
+        assertEquals("重启华为运动健康", chinese.getString(R.string.host_restart_description))
 
         assertEquals("Huawei Health Customization", english.getString(R.string.app_name))
         assertEquals("Layout customization", english.getString(R.string.settings_layout_trim_title))
@@ -43,6 +45,8 @@ class LanguageResourcesTest {
         assertEquals("DexKit scan", english.getString(R.string.scan_title))
         assertEquals("About", english.getString(R.string.about_title))
         assertEquals("Developer", english.getString(R.string.about_section_developer))
+        assertEquals("Restart", english.getString(R.string.host_restart))
+        assertEquals("Restart Huawei Health", english.getString(R.string.host_restart_description))
     }
 
     @Test

@@ -8,6 +8,7 @@ import android.util.AttributeSet
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import android.view.View
+import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.CompoundButton
 import android.widget.TextView
@@ -51,6 +52,31 @@ internal class HostSettingsTargets(loader: ClassLoader, version: String?, code: 
     fun text(context: Context): TextView = textConstructor.newInstance(context)
     fun toggle(context: Context): CompoundButton = switchConstructor.newInstance(context)
     fun divider(context: Context): View = dividerConstructor.newInstance(context)
+
+    /** 17.0.8.300 的 CustomTitleBar 右侧文字接口；失败只隐藏本按钮。 */
+    fun restartButton(bar: View, label: String, description: String, clicked: () -> Unit): TextView {
+        val id = bar.resources.getIdentifier("hwtoolbar_right_text", "id", bar.context.packageName)
+        require(id != 0)
+        val button = descendants(bar).filter { it.id == id }.singleOrNull() as? TextView
+            ?: error("Verified right text unavailable")
+        try {
+            title.getMethod("setRightTextContent", String::class.java).invoke(bar, label)
+            title.getMethod("setRightTextOnClickListener", View.OnClickListener::class.java)
+                .invoke(bar, View.OnClickListener { clicked() })
+            button.contentDescription = description
+            button.isFocusable = true
+            button.gravity = Gravity.CENTER
+            val touchSize = (48 * bar.resources.displayMetrics.density).toInt()
+            button.minWidth = maxOf(button.minWidth, touchSize)
+            button.minHeight = maxOf(button.minHeight, touchSize)
+            title.getMethod("setRightTextVisible", Int::class.javaPrimitiveType).invoke(bar, View.VISIBLE)
+            return button
+        } catch (error: Throwable) {
+            button.setOnClickListener(null)
+            button.visibility = View.GONE
+            throw error
+        }
+    }
 
     fun container(activity: Activity): Pair<ViewGroup, View>? {
         if (!this.activity.isInstance(activity)) return null

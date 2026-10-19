@@ -65,6 +65,7 @@ class HostLocalConfigurationTest {
         val startup = AtomicReference<HostConfiguration>()
         instrumentation.runOnMainSync {
             client.initialize { startup.set(it); initialized.countDown() }
+            assertFalse(client.canRestart)
         }
         assertTrue(initialized.await(5, TimeUnit.SECONDS))
         val saved = CountDownLatch(1)
@@ -73,7 +74,9 @@ class HostLocalConfigurationTest {
         var subscription: AutoCloseable? = null
         instrumentation.runOnMainSync {
             val old = client.start { oldCallbacks++ }
+            assertTrue(client.canRestart)
             client.saveLayout(SettingsKeys.HEALTH_SEARCH, true)
+            assertFalse(client.canRestart)
             old.close()
             oldCount = oldCallbacks
             subscription = client.start {
@@ -85,8 +88,10 @@ class HostLocalConfigurationTest {
         instrumentation.runOnMainSync {
             assertEquals(oldCount, oldCallbacks)
             assertTrue(client.writable)
+            assertTrue(client.canRestart)
             subscription?.close()
             assertFalse(client.writable)
+            assertFalse(client.canRestart)
         }
         val persisted = HostConfigStore(AtomicHostConfigStorage(context)).load()
         assertTrue(persisted.layout.getValue(SettingsKeys.HEALTH_SEARCH))

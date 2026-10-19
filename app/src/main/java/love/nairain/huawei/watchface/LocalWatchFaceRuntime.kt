@@ -28,6 +28,7 @@ internal class LocalWatchFaceRuntime(
     private val logger: ModuleLogger,
     private val serviceConflict: Boolean,
     private val resources: android.content.res.Resources,
+    private val restartStateChanged: () -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "LocalWatchFaceIO").apply { isDaemon = true } }
@@ -50,6 +51,9 @@ internal class LocalWatchFaceRuntime(
     private val manager get() = checkNotNull(targets.call("manager", null, app))
     private val bt get() = checkNotNull(targets.call("bt", null, app))
     private val config get() = checkNotNull(targets.call("config", null, app))
+
+    /** 仅主线程查询；结果展示、页面销毁及隔离标记不代表原生会话已释放。 */
+    fun isRestartBlocked(): Boolean = pending.get() != null || job != null || uncertainTransfer
 
     private class Page(activity: Activity, web: WebView, var message: String) {
         val activity = WeakReference(activity)
@@ -748,6 +752,7 @@ internal class LocalWatchFaceRuntime(
         if (love.nairain.huawei.BuildConfig.DEBUG) android.util.Log.i("HuaweiTrim", message)
     }
     private fun updateButtons() {
+        restartStateChanged()
         pages.values.forEach(::renderPage)
     }
     private fun renderPage(page: Page) {

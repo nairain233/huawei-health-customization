@@ -9,18 +9,19 @@ import love.nairain.huawei.hook.resolver.LocalWatchFaceTargets
 import love.nairain.huawei.hook.util.ModuleLogger
 import love.nairain.huawei.watchface.LocalWatchFaceRuntime
 import love.nairain.huawei.watchface.ModuleResources
+import love.nairain.huawei.settings.HostRestarter
 
 /** 仅主进程 attach 后调用，默认关闭；精确版本及全部契约通过后才安装入口。 */
 internal object LocalWatchFaceFeature {
     fun install(framework: XposedInterface, loader: ClassLoader, app: Context,
-        version: String?, code: Long, enabled: Boolean, serviceConflict: Boolean, logger: ModuleLogger) {
+        version: String?, code: Long, enabled: Boolean, serviceConflict: Boolean, logger: ModuleLogger, restarter: HostRestarter) {
         if (!LocalWatchFaceTargets.accepts(version, code, enabled)) return
         // 资源加载可能读取 APK；不在 Application.attach 的主线程执行。
         Thread({
             try {
                 val resources = ModuleResources.load(app.packageManager, framework.moduleApplicationInfo)
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    installReady(framework, loader, app, version, code, serviceConflict, logger, resources)
+                    installReady(framework, loader, app, version, code, serviceConflict, logger, resources, restarter)
                 }
             } catch (error: Throwable) {
                 logger.warn("Local watch face resources unavailable: ${error.javaClass.simpleName}")
@@ -30,10 +31,11 @@ internal object LocalWatchFaceFeature {
 
     private fun installReady(framework: XposedInterface, loader: ClassLoader, app: Context,
         version: String?, code: Long, serviceConflict: Boolean, logger: ModuleLogger,
-        resources: android.content.res.Resources) {
+        resources: android.content.res.Resources, restarter: HostRestarter) {
         try {
             val targets = LocalWatchFaceTargets(loader, version, code)
-            val runtime = LocalWatchFaceRuntime(app, targets, logger, serviceConflict, resources)
+            val runtime = LocalWatchFaceRuntime(app, targets, logger, serviceConflict, resources, restarter::watchFaceStateChanged)
+            restarter.setWatchFaceBusyCheck(runtime::isRestartBlocked)
             val hooks = TransactionalHooks(framework, logger)
             hooks.install("watchface.local") {
                 val scope = hooks.callbacks()
