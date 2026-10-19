@@ -3,11 +3,7 @@
     <string name="experimental_features_title">Experimental features</string>
     <string name="app_name">Huawei Health Customization</string>
     <string name="settings_title">Huawei Health Customization</string>
-    <string name="settings_status_loading">Loading configuration…</string>
-    <string name="settings_status_saving">Saving configuration. The current value remains until saving finishes</string>
-    <string name="settings_status_save_error">Save failed. The configuration was not changed</string>
     <string name="settings_enabled">Enable interface customization</string>
-    <string name="settings_restart_notice">Changes take effect the next time Huawei Health starts</string>
 
     <string name="settings_layout_trim_title">Layout customization</string>
 

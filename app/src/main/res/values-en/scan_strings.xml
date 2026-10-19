@@ -11,6 +11,5 @@
     <string name="scan_uncertain">Scan status is uncertain. Restart Huawei Health</string>
     <string name="scan_checked">Scan progress: %1$d/%2$d</string>
     <string name="scan_scheduled">Scheduled to scan the next time Huawei Health starts</string>
-    <string name="scan_saving">Scheduling</string>
     <string name="scan_rescan">Scan again</string>
 </resources>

@@ -86,7 +86,6 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
     private var selectedOnly = false
     private val bindings = mutableListOf<() -> Unit>()
     private var serviceSignature = ""
-    private val summary by lazy { targets.text(activity).apply { textSize = 14f; setPadding(dp(16), dp(10), dp(16), dp(10)) } }
     private val refreshReport = object : Runnable {
         override fun run() {
             if (!active) return
@@ -209,8 +208,6 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         if (state.route == "home") bindRestart(titleBar)
         (scroll.parent as? ViewGroup)?.removeView(scroll)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        (summary.parent as? ViewGroup)?.removeView(summary)
-        content.addView(summary)
         when (state.route) {
             "home" -> {
                 val retry = action(s(R.string.host_settings_retry)) { client.refresh() }
@@ -267,18 +264,6 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
     }
     private fun update() {
         if (disposed) return
-        val summaryResource = when (notice) {
-            HostSettingsNotice.LOADING -> R.string.settings_status_loading
-            HostSettingsNotice.SAVING -> if (state.route == "scan") R.string.scan_saving else R.string.settings_status_saving
-            HostSettingsNotice.SAVED -> R.string.settings_restart_notice
-            HostSettingsNotice.SCHEDULED -> R.string.scan_scheduled
-            HostSettingsNotice.UNCERTAIN -> R.string.host_settings_local_uncertain
-            HostSettingsNotice.FAILED -> R.string.settings_status_save_error
-            HostSettingsNotice.UNAVAILABLE -> R.string.host_settings_local_error
-            HostSettingsNotice.READY -> null
-        }
-        summary.text = summaryResource?.let { s(it) } ?: ""
-        summary.visibility = if (summaryResource == null) View.GONE else View.VISIBLE
         if (state.route == "services" || state.route == "custom") {
             val signature = snapshot.configuration.services.toString() + snapshot.catalog.services.toString()
             if (serviceSignature != signature) {

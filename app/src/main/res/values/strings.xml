@@ -3,11 +3,7 @@
     <string name="experimental_features_title">实验性功能</string>
     <string name="app_name">华为运动精简</string>
     <string name="settings_title">华为运动精简</string>
-    <string name="settings_status_loading">正在读取配置…</string>
-    <string name="settings_status_saving">正在保存配置，完成前保持当前值</string>
-    <string name="settings_status_save_error">保存失败，配置未更改</string>
     <string name="settings_enabled">启用界面精简</string>
-    <string name="settings_restart_notice">下次启动华为运动健康生效</string>
 
     <string name="settings_layout_trim_title">布局精简</string>
 

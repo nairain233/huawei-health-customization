@@ -11,6 +11,5 @@
     <string name="scan_uncertain">扫描状态待确认，请重新启动运动健康</string>
     <string name="scan_checked">已检查 %1$d/%2$d 项</string>
     <string name="scan_scheduled">已安排，下次启动运动健康时扫描</string>
-    <string name="scan_saving">正在预约</string>
     <string name="scan_rescan">重新扫描</string>
 </resources>
