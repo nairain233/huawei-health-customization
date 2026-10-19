@@ -16,7 +16,8 @@ import android.widget.TextView
 /** 依据两版 AppSettingActivity.onCreate、hw_show_settings_app 与宿主公开控件方法核验。 */
 internal class HostSettingsTargets(loader: ClassLoader, version: String?, code: Long) {
     init { require(accepts(version, code)) }
-    val activity = Class.forName(ACTIVITY, false, loader).asSubclass(Activity::class.java)
+    // 设置页定位失败不能阻止其他入口复用公共控件契约。
+    val activity by lazy { Class.forName(ACTIVITY, false, loader).asSubclass(Activity::class.java) }
     private val title = Class.forName("com.huawei.ui.commonui.titlebar.CustomTitleBar", false, loader)
     private val text = Class.forName("com.huawei.ui.commonui.healthtextview.HealthTextView", false, loader)
     private val toggle = Class.forName("com.huawei.ui.commonui.switchbutton.HealthSwitchButton", false, loader)

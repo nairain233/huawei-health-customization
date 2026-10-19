@@ -22,13 +22,12 @@ import love.nairain.huawei.hook.util.LayoutCallbackScope
 import love.nairain.huawei.hook.util.ModuleLogger
 import love.nairain.huawei.settings.HostSettingsController
 import love.nairain.huawei.settings.HostRestarter
-import love.nairain.huawei.settings.HostSettingsDialog
-import love.nairain.huawei.settings.HostSettingsPageState
+import love.nairain.huawei.settings.HostSettingsWindows
 import love.nairain.huawei.watchface.ModuleResources
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
-/** 独立于精简开关及 DexKit 安装；只作用于已核验版本的原生设置 Activity。 */
+/** 独立于精简开关及 DexKit 安装；公共窗口与两个入口分别管理。 */
 internal object HostSettingsFeature {
     fun install(framework: XposedInterface, loader: ClassLoader, app: Application,
         version: String?, code: Long, logger: ModuleLogger, client: HostSettingsController, restarter: HostRestarter) {
@@ -42,36 +41,35 @@ internal object HostSettingsFeature {
                 val targets = HostSettingsTargets(loader, version, code)
                 val resources = ModuleResources.load(app.packageManager, framework.moduleApplicationInfo)
                 main.post {
+                    val windows = HostSettingsWindows(targets, resources, client, restarter, logger::warn)
+                    app.registerActivityLifecycleCallbacks(windows)
                     val scope = LayoutCallbackScope { reason -> logger.warn("Host settings disabled: $reason") }
                     scope.afterActivation {
-                        Runtime(app, targets, resources, client, restarter, scope, logger).register()
+                        Runtime(app, targets, resources, windows, scope, logger).register()
                     }
                     scope.activate()
+                    HomeMoreSettingsFeature.install(framework, loader, windows, resources, logger)
                 }
             }.onFailure { logger.warn("Host settings unavailable: ${it.javaClass.simpleName}") }
         }, "HostSettingsPrepare").apply { isDaemon = true }.start()
     }
 
     private class Runtime(private val app: Application, private val targets: HostSettingsTargets,
-        private val moduleResources: Resources, private val client: HostSettingsController, private val restarter: HostRestarter,
+        private val moduleResources: Resources, private val windows: HostSettingsWindows,
         private val scope: LayoutCallbackScope, private val logger: ModuleLogger) : Application.ActivityLifecycleCallbacks {
         private class Page {
-            val state = HostSettingsPageState()
-            var dialog = WeakReference<HostSettingsDialog>(null)
             var entry = WeakReference<View>(null)
         }
-        // 值只保留弱窗口引用及基础类型状态，不形成 WeakHashMap 的 value→key 强引用环。
+        // 值只保留入口弱引用，不形成 WeakHashMap 的 value→key 强引用环。
         private val pages = WeakHashMap<Activity, Page>()
         fun register() {
             app.registerActivityLifecycleCallbacks(this)
             scope.onClose {
                 app.unregisterActivityLifecycleCallbacks(this)
                 pages.values.toList().forEach { page ->
-                    page.dialog.get()?.dispose()
                     page.entry.get()?.let { entry -> (entry.parent as? ViewGroup)?.removeView(entry) }
                 }
                 pages.clear()
-                client.stop()
             }
             ActivePageObserver.observe(scope, ::apply)
             logger.info("Host settings observer ready")
@@ -109,7 +107,7 @@ internal object HostSettingsFeature {
                     imageTintList = arrow.imageTintList
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 }, LinearLayout.LayoutParams(-2, -2))
-                row.setOnClickListener { scope.run { show(activity, page) } }
+                row.setOnClickListener { scope.run { windows.show(activity) } }
                 val wrapper = LinearLayout(activity).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(row, LinearLayout.LayoutParams(-1, -2))
@@ -120,33 +118,13 @@ internal object HostSettingsFeature {
                 page.entry = WeakReference(wrapper)
                 logger.info("Host settings entry attached")
             }
-            if (page.state.open && page.dialog.get() == null) show(activity, page)
-            else page.dialog.get()?.resume()
         }
-        private fun show(activity: Activity, page: Page) {
-            if (activity.isFinishing || activity.isDestroyed) return
-            page.dialog.get()?.takeIf { it.isShowing }?.let { return }
-            val dialog = HostSettingsDialog(activity, targets, moduleResources, client, page.state, restarter,
-                composeFailed = { error -> logger.info("Host settings Miuix fallback: " + error.javaClass.simpleName) }) { error ->
-                scope.run { throw error }
-            }
-            page.dialog = WeakReference(dialog)
-            dialog.show()
-        }
-        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
-            if (targets.activity.isInstance(activity)) pages.getOrPut(activity) { Page() }.state.restore(savedInstanceState?.getBundle(STATE))
-        }
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
         override fun onActivityResumed(activity: Activity) = apply(activity)
-        override fun onActivityStopped(activity: Activity) { pages[activity]?.dialog?.get()?.pause() }
-        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {
-            pages[activity]?.let { page ->
-                page.dialog.get()?.captureState()
-                outState.putBundle(STATE, page.state.save())
-            }
-        }
-        override fun onActivityDestroyed(activity: Activity) { pages.remove(activity)?.dialog?.get()?.dispose() }
+        override fun onActivityStopped(activity: Activity) = Unit
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+        override fun onActivityDestroyed(activity: Activity) { pages.remove(activity) }
         override fun onActivityStarted(activity: Activity) = Unit
         override fun onActivityPaused(activity: Activity) = Unit
     }
-    private const val STATE = "love.nairain.huawei.host-settings-state"
 }

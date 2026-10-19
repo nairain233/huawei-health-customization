@@ -1,4 +1,5 @@
 <resources>
+    <string name="host_settings_open_failed">Unable to open module settings. Reopen the Health page and try again.</string>
     <string name="host_restart">Restart</string>
     <string name="host_restart_description">Restart Huawei Health</string>
     <string name="host_restart_starting">Restarting. If Huawei Health does not reopen automatically, open it manually.</string>

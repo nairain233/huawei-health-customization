@@ -63,13 +63,14 @@ internal class HostSettingsPageState {
         SettingsCategory.entries.map { it.name } }
 }
 
-/** 只依附本设置 Activity；首页逐步迁入 Miuix，二级页面及标题栏继续复用宿主控件。 */
+/** 依附打开入口所在 Activity；首页逐步迁入 Miuix，二级页面及标题栏继续复用宿主控件。 */
 @Suppress("DEPRECATION")
 internal class HostSettingsDialog(private val activity: Activity, private val targets: HostSettingsTargets,
     moduleResources: Resources, private val client: HostSettingsController, private val state: HostSettingsPageState,
     private val restarter: HostRestarter,
     private val composeFailed: (Throwable) -> Unit = {},
-    private val failed: (Throwable) -> Unit) : Dialog(activity) {
+    private val failed: (Throwable) -> Unit) : Dialog(activity), HostSettingsWindow {
+    override val visible: Boolean get() = isShowing
     private val strings = love.nairain.huawei.watchface.ModuleResources.localized(moduleResources, activity.resources)
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "HostSettingsReport").apply { isDaemon = true } }
@@ -135,8 +136,11 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         render()
     }
     override fun show() {
+        if (disposed) return
         state.open = true
         super.show()
+        // onCreate 的安全回调可能已处置窗口；不能在 show 返回后留下失效窗口。
+        if (disposed) { dismiss(); return }
         window?.apply {
             setBackgroundDrawableResource(android.R.color.transparent)
             setGravity(Gravity.CENTER)
@@ -154,7 +158,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         }
         resume()
     }
-    fun resume() {
+    override fun resume() {
         if (active || disposed) return
         active = true
         composeHome?.resume()
@@ -162,7 +166,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         restartSubscription = restarter.observe { if (active && !disposed) update() }
         main.post(refreshReport)
     }
-    fun pause() {
+    override fun pause() {
         if (!active) return
         active = false
         confirmation?.dismiss(); confirmation = null
@@ -172,8 +176,8 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         restartSubscription?.close(); restartSubscription = null
         main.removeCallbacks(refreshReport)
     }
-    fun captureState() = rememberScroll()
-    fun dispose() {
+    override fun captureState() = rememberScroll()
+    override fun dispose() {
         if (disposed) return
         pause()
         disposed = true

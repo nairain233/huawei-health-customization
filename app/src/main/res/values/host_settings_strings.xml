@@ -1,4 +1,5 @@
 <resources>
+    <string name="host_settings_open_failed">无法打开模块配置页，请重新进入首页后重试。</string>
     <string name="host_restart">重启</string>
     <string name="host_restart_description">重启华为运动健康</string>
     <string name="host_restart_starting">正在重启；若未自动打开，请手动启动华为运动健康。</string>
