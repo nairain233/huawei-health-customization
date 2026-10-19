@@ -86,13 +86,15 @@ internal object HostSettingsFeature {
                 val arrowId = activity.resources.getIdentifier("goal_image_view", "id", activity.packageName)
                 val title = HostSettingsTargets.descendants(goal).filter { it.id == titleId }.singleOrNull() as? TextView ?: return@run
                 val arrow = HostSettingsTargets.descendants(goal).filter { it.id == arrowId }.singleOrNull() as? ImageView ?: return@run
+                val titleLayout = title.layoutParams as? ViewGroup.MarginLayoutParams ?: return@run
                 val row = LinearLayout(activity).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     minimumHeight = goal.minimumHeight
                     background = goal.background?.constantState?.newDrawable(activity.resources)?.mutate()
                     isFocusable = true
                     val padding = (16 * activity.resources.displayMetrics.density).toInt()
-                    setPaddingRelative(padding, padding, padding, padding)
+                    // 起始位置沿用“目标”标题的实际边距，随宿主尺寸和布局方向变化。
+                    setPaddingRelative(goal.paddingStart + titleLayout.marginStart, padding, padding, padding)
                     tag = "love.nairain.huawei.host-settings-entry"
                 }
                 row.addView(targets.text(activity).apply {
@@ -100,6 +102,7 @@ internal object HostSettingsFeature {
                     text = localized.getString(R.string.settings_title)
                     setTextColor(title.textColors); setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, title.textSize)
                     typeface = title.typeface
+                    setPaddingRelative(title.paddingStart, paddingTop, title.paddingEnd, paddingBottom)
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 row.addView(ImageView(activity).apply {
                     setImageDrawable(arrow.drawable?.constantState?.newDrawable(activity.resources)?.mutate())
