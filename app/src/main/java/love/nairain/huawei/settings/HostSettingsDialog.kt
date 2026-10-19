@@ -8,8 +8,9 @@ import android.app.Dialog
 import android.content.Intent
 import android.content.res.Resources
 import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
 import androidx.core.net.toUri
-import androidx.core.graphics.drawable.toDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -17,6 +18,8 @@ import android.util.AtomicFile
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -60,11 +63,12 @@ internal class HostSettingsPageState {
         SettingsCategory.entries.map { it.name } }
 }
 
-/** 只依附本设置 Activity；不注册新宿主 Activity，也不加载模块的 Compose/AndroidX 页面。 */
+/** 只依附本设置 Activity；首页逐步迁入 Miuix，二级页面及标题栏继续复用宿主控件。 */
 @Suppress("DEPRECATION")
 internal class HostSettingsDialog(private val activity: Activity, private val targets: HostSettingsTargets,
     moduleResources: Resources, private val client: HostSettingsController, private val state: HostSettingsPageState,
     private val restarter: HostRestarter,
+    private val composeFailed: (Throwable) -> Unit = {},
     private val failed: (Throwable) -> Unit) : Dialog(activity) {
     private val strings = love.nairain.huawei.watchface.ModuleResources.localized(moduleResources, activity.resources)
     private val main = Handler(Looper.getMainLooper())
@@ -86,6 +90,8 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
     private var selectedOnly = false
     private val bindings = mutableListOf<() -> Unit>()
     private var serviceSignature = ""
+    private var composeHome: HostSettingsComposeHost? = null
+    private var composeUnavailable = false
     private val refreshReport = object : Runnable {
         override fun run() {
             if (!active) return
@@ -113,9 +119,11 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window?.requestFeature(android.view.Window.FEATURE_NO_TITLE)
-        val background = activity.findViewById<View>(activity.resources.getIdentifier("app_setting_activity_main_layout", "id", activity.packageName))?.background
-        root.background = background?.constantState?.newDrawable(activity.resources)?.mutate()
-            ?: (if (isDark()) Color.rgb(18, 18, 18) else Color.rgb(247, 247, 247)).toDrawable()
+        root.background = GradientDrawable().apply {
+            cornerRadius = dp(24).toFloat()
+            setColor(if (isDark()) Color.rgb(18, 18, 18) else Color.rgb(247, 247, 247))
+        }
+        root.clipToOutline = true
         setContentView(root)
         setCanceledOnTouchOutside(false)
         setOnDismissListener { state.open = false; dispose() }
@@ -130,17 +138,26 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         state.open = true
         super.show()
         window?.apply {
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundDrawableResource(android.R.color.transparent)
-            statusBarColor = activity.window.statusBarColor
-            navigationBarColor = activity.window.navigationBarColor
-            decorView.systemUiVisibility = activity.window.decorView.systemUiVisibility
+            setGravity(Gravity.CENTER)
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0.35f)
+            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            val visible = Rect()
+            activity.window.decorView.getWindowVisibleDisplayFrame(visible)
+            val metrics = activity.resources.displayMetrics
+            val width = if (visible.width() > 0) visible.width() else metrics.widthPixels
+            val height = if (visible.height() > 0) visible.height() else metrics.heightPixels
+            // 窄屏保留侧边距，宽屏限制宽度；长列表只滚动中间内容，底部操作始终可见。
+            setLayout(minOf((width - dp(32)).coerceAtLeast(1), dp(600)),
+                minOf((height * 0.82f).toInt().coerceAtLeast(1), dp(720)))
         }
         resume()
     }
     fun resume() {
         if (active || disposed) return
         active = true
+        composeHome?.resume()
         subscription = client.start { value -> safely { snapshot = value; notice = value.notice; update() } }
         restartSubscription = restarter.observe { if (active && !disposed) update() }
         main.post(refreshReport)
@@ -150,6 +167,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         active = false
         confirmation?.dismiss(); confirmation = null
         rememberScroll()
+        composeHome?.pause()
         subscription?.close(); subscription = null
         restartSubscription?.close(); restartSubscription = null
         main.removeCallbacks(refreshReport)
@@ -159,13 +177,16 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         if (disposed) return
         pause()
         disposed = true
+        closeComposeHome()
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             (backCallback as? android.window.OnBackInvokedCallback)?.let { onBackInvokedDispatcher.unregisterOnBackInvokedCallback(it) }
         }
         backCallback = null
         worker.shutdownNow()
         bindings.clear()
-        if (isShowing) dismiss()
+        if (isShowing) {
+            dismiss()
+        }
     }
     @android.annotation.SuppressLint("GestureBackNavigation") // API 33+ 已注册 OnBackInvokedCallback；此处仅兼容旧系统。
     @Deprecated("API 32 及以下返回键兼容")
@@ -179,7 +200,7 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         in SettingsCategory.entries.map { it.name } -> "layout"
         else -> "home"
     }
-    private fun rememberScroll() { state.scroll[state.route] = scroll.scrollY }
+    private fun rememberScroll() { state.scroll[state.route] = composeHome?.scrollY ?: scroll.scrollY }
     private fun navigate(route: String) = safely {
         if (route == "close") { dismiss(); return@safely }
         rememberScroll()
@@ -199,13 +220,18 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
     })
     private fun render() {
         bindings.clear()
+        closeComposeHome()
         if (state.route == "services" || state.route == "custom") serviceSignature =
             snapshot.configuration.services.toString() + snapshot.catalog.services.toString()
         root.removeAllViews()
         content.removeAllViews()
         val titleBar = targets.title(activity, title()) { navigate(parent(state.route)) }
         root.addView(titleBar)
-        if (state.route == "home") bindRestart(titleBar)
+        if (state.route == "home" && !composeUnavailable && renderComposeHome()) {
+            renderWindowActions()
+            update()
+            return
+        }
         (scroll.parent as? ViewGroup)?.removeView(scroll)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         when (state.route) {
@@ -259,11 +285,13 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
                 }
             }
         }
+        renderWindowActions()
         update()
         scroll.post { if (!disposed) scroll.scrollTo(0, state.scroll[state.route] ?: 0) }
     }
     private fun update() {
         if (disposed) return
+        composeHome?.update(homeModel())
         if (state.route == "services" || state.route == "custom") {
             val signature = snapshot.configuration.services.toString() + snapshot.catalog.services.toString()
             if (serviceSignature != signature) {
@@ -275,27 +303,77 @@ internal class HostSettingsDialog(private val activity: Activity, private val ta
         }
         bindings.toList().forEach { it() }
     }
-    private fun bindRestart(titleBar: View) {
-        runCatching {
-            val button = targets.restartButton(titleBar, s(R.string.host_restart), s(R.string.host_restart_description)) {
-                if (!active || disposed || state.route != "home") return@restartButton
-                val result = restarter.restart {
-                    Toast.makeText(activity, s(R.string.host_restart_starting), Toast.LENGTH_LONG).show()
-                }
-                when (result) {
-                    HostRestarter.Result.WATCH_FACE_BUSY -> Toast.makeText(activity,
-                        s(R.string.host_restart_watchface_busy), Toast.LENGTH_LONG).show()
-                    HostRestarter.Result.FAILED -> Toast.makeText(activity,
-                        s(R.string.host_restart_failed), Toast.LENGTH_LONG).show()
-                    else -> Unit // 配置错误沿用当前页面已确认的状态提示。
-                }
-                update()
-            }
-            bindings += {
-                button.isEnabled = active && restarter.available
-                button.alpha = if (button.isEnabled) 1f else 0.4f
-            }
-        }.onFailure(restarter::buttonUnavailable)
+    private fun homeModel() = HostSettingsHomeModel(
+        enabled = snapshot.configuration.layout.getValue(SettingsKeys.ENABLED),
+        writable = active && client.writable,
+        notice = notice,
+        watchFaceBusy = restarter.waitingForWatchFace,
+    )
+    private fun renderComposeHome(): Boolean = try {
+        val home = HostSettingsComposeHost(activity, strings, state.scroll["home"] ?: 0, homeModel(),
+            onEnabledChange = { value -> safely { if (active && !disposed && client.writable) client.saveLayout(SettingsKeys.ENABLED, value) } },
+            onNavigate = { route -> if (active && !disposed) navigate(route) },
+            onRetry = { safely { if (active && !disposed) client.refresh() } },
+            onFailure = { error -> fallbackHome(error) })
+        composeHome = home
+        root.addView(home.view, LinearLayout.LayoutParams(-1, 0, 1f))
+        if (active) home.resume()
+        true
+    } catch (error: Throwable) {
+        composeUnavailable = true
+        composeFailed(error)
+        composeHome?.view?.let { root.removeView(it) }
+        closeComposeHome()
+        false
+    }
+    private fun fallbackHome(error: Throwable) = safely {
+        if (disposed || composeUnavailable) return@safely
+        composeUnavailable = true
+        composeFailed(error)
+        rememberScroll()
+        render()
+    }
+    private fun closeComposeHome() {
+        val home = composeHome ?: return
+        composeHome = null
+        runCatching { home.close() }.onFailure(composeFailed)
+    }
+    private fun renderWindowActions() {
+        val actions = LinearLayout(activity).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(12))
+        }
+        val cancel = Button(activity).apply {
+            text = s(android.R.string.cancel)
+            isAllCaps = false
+            minHeight = dp(48)
+            setOnClickListener { dismiss() }
+        }
+        actions.addView(cancel, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(12) })
+        val button = Button(activity).apply {
+            text = s(R.string.host_restart)
+            contentDescription = s(R.string.host_restart_description)
+            isAllCaps = false
+            minHeight = dp(48)
+            setOnClickListener { restartHost() }
+        }
+        actions.addView(button, LinearLayout.LayoutParams(0, -2, 1f))
+        root.addView(actions, LinearLayout.LayoutParams(-1, -2))
+        bindings += { button.isEnabled = active && restarter.available }
+    }
+    private fun restartHost() = safely {
+        if (!active || disposed) return@safely
+        val result = restarter.restart {
+            Toast.makeText(activity, s(R.string.host_restart_starting), Toast.LENGTH_LONG).show()
+        }
+        when (result) {
+            HostRestarter.Result.WATCH_FACE_BUSY -> Toast.makeText(activity,
+                s(R.string.host_restart_watchface_busy), Toast.LENGTH_LONG).show()
+            HostRestarter.Result.FAILED -> Toast.makeText(activity,
+                s(R.string.host_restart_failed), Toast.LENGTH_LONG).show()
+            else -> Unit // 配置错误沿用当前页面已确认的状态提示。
+        }
+        update()
     }
     private fun layoutSwitch(key: String, title: String) {
         switch(title, { snapshot.configuration.layout.getValue(key) },

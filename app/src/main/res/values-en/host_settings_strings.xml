@@ -16,4 +16,11 @@
     <string name="host_scan_limit">Scan matches do not confirm hook installation or device regression results.</string>
     <string name="host_settings_retry">Reload settings</string>
     <string name="host_settings_health_route">Health stays visible when Me or its Settings row is hidden, preserving the Health → More → Settings route.</string>
+    <string name="host_ui_loading">Loading settings…</string>
+    <string name="host_ui_saving">Saving; waiting for confirmation…</string>
+    <string name="host_ui_saved">Saved. Changes take effect next time Huawei Health starts.</string>
+    <string name="host_ui_scheduled">Rescan scheduled for the next Huawei Health start.</string>
+    <string name="host_ui_save_failed">Save failed. Original settings restored. Please retry.</string>
+    <string name="host_ui_unavailable">Local settings could not be read. Editing is paused. Please reload settings.</string>
+    <string name="host_ui_uncertain">The write or recovery result is uncertain. Editing is paused. Please reload and confirm local settings.</string>
 </resources>

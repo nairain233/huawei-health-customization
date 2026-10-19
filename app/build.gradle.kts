@@ -5,6 +5,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.compose)
 }
 
 extensions.configure<ApplicationExtension> {
@@ -37,6 +38,7 @@ extensions.configure<ApplicationExtension> {
     }
     buildFeatures {
         buildConfig = true
+        compose = true
     }
     androidResources {
         generateLocaleConfig = true
@@ -60,12 +62,19 @@ kotlin {
 dependencies {
     implementation(libs.dexkit)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+    implementation(libs.androidx.lifecycle.runtime)
+    implementation(libs.androidx.savedstate)
+    implementation(libs.miuix.ui)
+    implementation(libs.miuix.preference)
     compileOnly(libs.libxposed.api)
     testImplementation(libs.junit)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.json.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.compose.ui.test)
 }
 
 // 可选的真实 APK 定位测试：桌面 native 库由验证环境提供，不打包进模块。

@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true">
         <meta-data android:name="xposedmodule" android:value="true" />
+        <!-- UI 只在宿主窗口运行，不让传递依赖增加模块进程的自动初始化入口。 -->
+        <provider android:name="androidx.startup.InitializationProvider" tools:node="remove" tools:ignore="MissingClass" />
+        <receiver android:name="androidx.profileinstaller.ProfileInstallReceiver" tools:node="remove" tools:ignore="MissingClass" />
     </application>
 </manifest>

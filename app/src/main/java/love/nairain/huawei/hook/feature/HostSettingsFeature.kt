@@ -126,7 +126,8 @@ internal object HostSettingsFeature {
         private fun show(activity: Activity, page: Page) {
             if (activity.isFinishing || activity.isDestroyed) return
             page.dialog.get()?.takeIf { it.isShowing }?.let { return }
-            val dialog = HostSettingsDialog(activity, targets, moduleResources, client, page.state, restarter) { error ->
+            val dialog = HostSettingsDialog(activity, targets, moduleResources, client, page.state, restarter,
+                composeFailed = { error -> logger.info("Host settings Miuix fallback: " + error.javaClass.simpleName) }) { error ->
                 scope.run { throw error }
             }
             page.dialog = WeakReference(dialog)

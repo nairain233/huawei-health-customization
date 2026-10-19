@@ -16,4 +16,11 @@
     <string name="host_scan_limit">扫描匹配不代表 Hook 安装或真机回归成功。</string>
     <string name="host_settings_retry">重新读取配置</string>
     <string name="host_settings_health_route">为保留“健康 → 更多 → 设置”入口，“我的”底栏或其设置条目被隐藏时，健康底栏保持显示。</string>
+    <string name="host_ui_loading">正在读取配置…</string>
+    <string name="host_ui_saving">正在保存，等待结果确认…</string>
+    <string name="host_ui_saved">已保存，下次启动华为运动健康生效。</string>
+    <string name="host_ui_scheduled">已预约重扫，下次启动华为运动健康时执行。</string>
+    <string name="host_ui_save_failed">保存失败，已恢复原配置。请重试。</string>
+    <string name="host_ui_unavailable">本地配置读取失败，编辑已暂停。请重新读取配置。</string>
+    <string name="host_ui_uncertain">配置写入或恢复结果无法确认，编辑已暂停。请重新读取并确认本地配置。</string>
 </resources>
