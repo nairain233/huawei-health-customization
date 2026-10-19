@@ -21,7 +21,7 @@ internal data class HostSettingsState(
 }
 
 /** 宿主进程唯一协调器；窗口只订阅状态，关闭窗口不会中断保存。 */
-internal class HostSettingsController(application: Context, private val diagnostic: (String) -> Unit) {
+internal class HostSettingsController(application: Context, private val diagnostic: (String) -> Unit) : HostSettingsCommands {
     // attach 回调早于 LoadedApk 发布 mApplication，不能假定 applicationContext 已可用。
     private val app = if (application is android.app.Application) application else application.applicationContext ?: application
     private val main = Handler(Looper.getMainLooper())
@@ -31,7 +31,7 @@ internal class HostSettingsController(application: Context, private val diagnost
     private var state = HostSettingsState()
     private var startup: HostConfiguration? = null
     private var busy = true
-    val writable: Boolean get() = listener != null && state.writable && !busy
+    override val writable: Boolean get() = listener != null && state.writable && !busy
     val saving: Boolean get() = state.notice == HostSettingsNotice.SAVING
     val canRestart: Boolean get() = listener != null && startup != null && !busy && state.canRestart
 
@@ -60,7 +60,7 @@ internal class HostSettingsController(application: Context, private val diagnost
         return AutoCloseable { if (listener === observer) listener = null }
     }
     fun stop() { listener = null }
-    fun refresh() {
+    override fun refresh() {
         if (busy || startup == null) return
         busy = true
         state = state.copy(writable = false, notice = HostSettingsNotice.LOADING); publish()
@@ -75,12 +75,12 @@ internal class HostSettingsController(application: Context, private val diagnost
             }
         }
     }
-    fun saveLayout(key: String, value: Boolean) {
+    override fun saveLayout(key: String, value: Boolean) {
         if (key !in SettingsCatalog.defaults) return
         mutate { it.copy(layout = SettingsCatalog.normalize(it.layout + (key to value))) }
     }
-    fun saveServices(config: ServiceBlockConfig) = mutate { it.copy(services = config) }
-    fun scheduleRescan() = mutate(scheduled = true) { it.copy(scanRequest = UUID.randomUUID().toString()) }
+    override fun saveServices(config: ServiceBlockConfig) = mutate { it.copy(services = config) }
+    override fun scheduleRescan() = mutate(scheduled = true) { it.copy(scanRequest = UUID.randomUUID().toString()) }
     private fun mutate(scheduled: Boolean = false, change: (HostConfiguration) -> HostConfiguration) {
         if (!writable) return
         val next = runCatching { change(state.configuration).normalized() }.getOrNull() ?: return

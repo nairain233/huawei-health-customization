@@ -68,6 +68,9 @@ dependencies {
     implementation(libs.androidx.savedstate)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.preference)
+    // 显式使用 Miuix 已有的返回事件依赖，适配宿主内普通 Dialog；不引入路由框架。
+    implementation(libs.androidx.navigationevent)
+    implementation(libs.androidx.navigationevent.compose)
     compileOnly(libs.libxposed.api)
     testImplementation(libs.junit)
     testImplementation(libs.libxposed.api)

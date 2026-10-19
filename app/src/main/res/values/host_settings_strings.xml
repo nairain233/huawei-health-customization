@@ -24,4 +24,7 @@
     <string name="host_ui_save_failed">保存失败，已恢复原配置。请重试。</string>
     <string name="host_ui_unavailable">本地配置读取失败，编辑已暂停。请重新读取配置。</string>
     <string name="host_ui_uncertain">配置写入或恢复结果无法确认，编辑已暂停。请重新读取并确认本地配置。</string>
+    <string name="host_ui_back">返回上一级</string>
+    <string name="host_ui_framework_error">配置界面加载失败。现有配置未被此错误修改，可重试加载或关闭窗口。</string>
+    <string name="host_ui_retry">重试加载界面</string>
 </resources>

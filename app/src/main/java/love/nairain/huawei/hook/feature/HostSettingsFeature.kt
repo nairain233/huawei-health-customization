@@ -41,7 +41,7 @@ internal object HostSettingsFeature {
                 val targets = HostSettingsTargets(loader, version, code)
                 val resources = ModuleResources.load(app.packageManager, framework.moduleApplicationInfo)
                 main.post {
-                    val windows = HostSettingsWindows(targets, resources, client, restarter, logger::warn)
+                    val windows = HostSettingsWindows(resources, client, restarter, logger::warn)
                     app.registerActivityLifecycleCallbacks(windows)
                     val scope = LayoutCallbackScope { reason -> logger.warn("Host settings disabled: $reason") }
                     scope.afterActivation {

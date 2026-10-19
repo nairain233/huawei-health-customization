@@ -12,7 +12,9 @@ import android.view.ContextThemeWrapper
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -23,26 +25,29 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.navigationevent.NavigationEventDispatcher
+import androidx.navigationevent.NavigationEventDispatcherOwner
+import androidx.navigationevent.setViewTreeNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import kotlinx.coroutines.CoroutineExceptionHandler
 
 /**
- * 宿主窗口内的模块 Compose 容器。仅首页使用，二级页面仍由原生页面处理。
+ * 宿主窗口内持续存活的模块 Compose 容器，所有页面共享同一主题与窗口状态。
  * 不依赖宿主的 AndroidX owner，不修改宿主 ClassLoader；模块资源限定在本子树。
  */
 internal class HostSettingsComposeHost(
     activity: Activity,
     resources: Resources,
-    initialScroll: Int,
-    initialModel: HostSettingsHomeModel,
-    onEnabledChange: (Boolean) -> Unit,
-    onNavigate: (String) -> Unit,
-    onRetry: () -> Unit,
+    private val page: HostSettingsPageState,
+    initialModel: HostSettingsUiState,
+    action: (HostSettingsAction) -> Unit,
     private val onFailure: (Throwable) -> Unit,
 ) : AutoCloseable {
     private val main = Handler(Looper.getMainLooper())
     private val owner = HostComposeOwner()
     private val model = mutableStateOf(initialModel)
-    private val scroll = ScrollState(initialScroll.coerceAtLeast(0))
+    private val scrolls = mutableMapOf<String, ScrollState>()
+    private val customList = LazyListState(page.customIndex, page.customOffset)
     private var closed = false
     private var failing = false
     private var recomposer: Recomposer? = null
@@ -53,13 +58,18 @@ internal class HostSettingsComposeHost(
         try {
             view.setViewTreeLifecycleOwner(owner)
             view.setViewTreeSavedStateRegistryOwner(owner)
+            view.setViewTreeNavigationEventDispatcherOwner(owner)
             val content = ComposeView(view.context).also { compose = it }
             val handler = CoroutineExceptionHandler { _, error -> reportFailure(error) }
             recomposer = view.createLifecycleAwareWindowRecomposer(handler, owner.lifecycle)
             content.setParentCompositionContext(recomposer)
             content.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             content.setContent {
-                HostSettingsHome(model.value, resources, scroll, onEnabledChange, onNavigate, onRetry)
+                val current = model.value
+                val scroll = scrolls.getOrPut(current.route) { ScrollState(page.scroll[current.route] ?: 0) }
+                CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides owner) {
+                    HostSettingsScreen(current, resources, scroll, customList, action)
+                }
             }
             view.addView(content, ViewGroup.LayoutParams(-1, -1))
         } catch (error: Throwable) {
@@ -68,9 +78,13 @@ internal class HostSettingsComposeHost(
         }
     }
 
-    val scrollY: Int get() = scroll.value
+    fun captureState() {
+        scrolls.forEach { (route, scroll) -> page.scroll[route] = scroll.value }
+        page.customIndex = customList.firstVisibleItemIndex
+        page.customOffset = customList.firstVisibleItemScrollOffset
+    }
 
-    fun update(value: HostSettingsHomeModel) { if (!closed && !failing) model.value = value }
+    fun update(value: HostSettingsUiState) { if (!closed && !failing) model.value = value }
 
     fun resume() { if (!closed) owner.moveTo(Lifecycle.State.RESUMED) }
 
@@ -98,11 +112,12 @@ internal class HostSettingsComposeHost(
 }
 
 /** 生命周期随本窗口开启、停止和销毁；业务快照与路由不存入 Compose Registry。 */
-internal class HostComposeOwner : SavedStateRegistryOwner {
+internal class HostComposeOwner : SavedStateRegistryOwner, NavigationEventDispatcherOwner {
     private val registry = LifecycleRegistry(this)
     private val savedState = SavedStateRegistryController.create(this)
     override val lifecycle: Lifecycle get() = registry
     override val savedStateRegistry get() = savedState.savedStateRegistry
+    override val navigationEventDispatcher = NavigationEventDispatcher()
 
     init {
         savedState.performAttach()
@@ -111,7 +126,10 @@ internal class HostComposeOwner : SavedStateRegistryOwner {
     }
 
     fun moveTo(state: Lifecycle.State) {
-        if (registry.currentState != Lifecycle.State.DESTROYED) registry.currentState = state
+        if (registry.currentState != Lifecycle.State.DESTROYED) {
+            registry.currentState = state
+            if (state == Lifecycle.State.DESTROYED) navigationEventDispatcher.dispose()
+        }
     }
 }
 
@@ -131,10 +149,17 @@ private class HostComposeContext(activity: Activity, resources: Resources) :
     override fun getClassLoader(): ClassLoader = HostSettingsComposeHost::class.java.classLoader!!
 }
 
-/** 初次组合之外的测量、布局和绘制失败只撤回本窗口的 Miuix 首页。 */
+/** 初次组合之外的测量、布局和绘制失败只撤回本窗口的 Compose 子树。 */
 @android.annotation.SuppressLint("ViewConstructor") // 仅由模块代码创建，不供 XML 或布局编辑器实例化。
 private class HostComposeFrame(context: Context, onFailure: (Throwable) -> Unit) : FrameLayout(context) {
     private val reportFailure = onFailure
+    init { layoutDirection = context.resources.configuration.layoutDirection }
+    @Suppress("DEPRECATION") // 只更新模块子树的资源，不修改宿主 Configuration。
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        context.resources.updateConfiguration(newConfig, context.resources.displayMetrics)
+        layoutDirection = newConfig.layoutDirection
+        super.onConfigurationChanged(newConfig)
+    }
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         try { super.onMeasure(widthMeasureSpec, heightMeasureSpec) }
         catch (error: Throwable) {

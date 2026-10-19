@@ -45,10 +45,6 @@ internal class HostRestarter(
         }
     }
 
-    fun buttonUnavailable(error: Throwable) {
-        diagnostic("Host restart button unavailable: ${error.javaClass.simpleName}")
-    }
-
     fun restart(beforeLaunch: () -> Unit): Result {
         if (requested) return Result.ALREADY_REQUESTED
         if (packageName != HookInstallPolicy.TARGET_PACKAGE || runCatching(processName).getOrNull() != HookInstallPolicy.TARGET_PACKAGE) {

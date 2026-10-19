@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.Application
 import android.content.res.Resources
 import android.os.Bundle
-import love.nairain.huawei.hook.resolver.HostSettingsTargets
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
@@ -13,9 +12,9 @@ internal class HostSettingsWindows(
     private val create: (Activity, HostSettingsPageState, (Throwable) -> Unit) -> HostSettingsWindow,
     private val diagnostic: (String) -> Unit,
 ) : Application.ActivityLifecycleCallbacks {
-    constructor(targets: HostSettingsTargets, resources: Resources, client: HostSettingsController,
+    constructor(resources: Resources, client: HostSettingsController,
         restarter: HostRestarter, diagnostic: (String) -> Unit) : this({ activity, state, failed ->
-        HostSettingsDialog(activity, targets, resources, client, state, restarter,
+        HostSettingsDialog(activity, resources, client, state, restarter,
             composeFailed = { diagnostic("Host settings Miuix fallback: " + it.javaClass.simpleName) }, failed = failed)
     }, diagnostic)
 
@@ -33,8 +32,7 @@ internal class HostSettingsWindows(
         if (activity.isFinishing || activity.isDestroyed) return false
         page.dialog.get()?.takeIf { it.visible }?.let { return true }
         if (!restoring) {
-            page.state.route = "home"
-            page.state.scroll.clear()
+            page.state.resetNavigation()
         }
         val generation = ++page.generation
         return try {

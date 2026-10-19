@@ -12,6 +12,7 @@ compose = "1.12.0"
 miuix = "0.9.4"
 lifecycle = "2.11.0"
 savedstate = "1.4.0"
+navigationEvent = "1.1.2"
 
 [libraries]
 dexkit = { group = "org.luckypray", name = "dexkit", version.ref = "dexkit" }
@@ -28,6 +29,8 @@ androidx-lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime", 
 androidx-savedstate = { module = "androidx.savedstate:savedstate", version.ref = "savedstate" }
 miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
 miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
+androidx-navigationevent = { module = "androidx.navigationevent:navigationevent-android", version.ref = "navigationEvent" }
+androidx-navigationevent-compose = { module = "androidx.navigationevent:navigationevent-compose-android", version.ref = "navigationEvent" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -39,11 +39,19 @@ class HostSettingsNativeTest {
         }
     }
     @Test fun pageRestoreKeepsNavigationAndScrollWithoutPreferenceSnapshots() {
-        val page = HostSettingsPageState().apply { open = true; route = "services"; scroll["services"] = 240 }
+        val page = HostSettingsPageState().apply {
+            open = true; route = "services"; scroll["services"] = 240
+            draftQuery = "draft"; query = "applied"; selectedOnly = true; customIndex = 27; customOffset = 14
+        }
         val restored = HostSettingsPageState().apply { restore(page.save()) }
         assertTrue(restored.open)
         assertEquals("services", restored.route)
         assertEquals(240, restored.scroll["services"])
+        assertEquals("draft", restored.draftQuery)
+        assertEquals("applied", restored.query)
+        assertTrue(restored.selectedOnly)
+        assertEquals(27, restored.customIndex)
+        assertEquals(14, restored.customOffset)
         assertFalse(restored.save().containsKey("layout"))
         restored.restore(Bundle().apply { putString("route", "unknown") })
         assertEquals("home", restored.route)

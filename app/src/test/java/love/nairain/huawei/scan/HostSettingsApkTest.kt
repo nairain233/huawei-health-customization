@@ -12,7 +12,7 @@ import org.w3c.dom.Element
 
 /** 对每版真实 APK 核验独立入口契约，不增加布局扫描组或改变缓存规则版本。 */
 class HostSettingsApkTest {
-    @Test fun verifiedSettingsLayoutAndNativeWidgetContractsExistInTheActualApk() {
+    @Test fun verifiedEntryLayoutAndNativeWidgetContractsExistInTheActualApk() {
         val native = System.getProperty("scan.native").orEmpty()
         assumeTrue("未配置真实 APK 和桌面 DexKit 库", native.isNotEmpty())
         val library = File(native)
@@ -22,14 +22,8 @@ class HostSettingsApkTest {
             val activity = HostSettingsTargets.ACTIVITY.replace('.', '/')
             assertNotNull(bridge.getMethodData("L$activity;->onCreate(Landroid/os/Bundle;)V"))
             val base = "Lcom/huawei/ui/commonui/"
-            listOf("titlebar/CustomTitleBar", "healthtextview/HealthTextView", "switchbutton/HealthSwitchButton", "divider/HealthDivider")
+            listOf("healthtextview/HealthTextView", "divider/HealthDivider")
                 .forEach { widget -> assertNotNull(widget, bridge.getMethodData("$base$widget;-><init>(Landroid/content/Context;)V")) }
-            assertNotNull(bridge.getMethodData("${base}titlebar/CustomTitleBar;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V"))
-            listOf("setTitleText(Ljava/lang/String;)V", "setLeftButtonOnClickListener(Landroid/view/View\$OnClickListener;)V",
-                "setLeftButtonVisibility(I)V", "setRightTextVisible(I)V", "setRightTextContent(Ljava/lang/String;)V",
-                "setRightTextOnClickListener(Landroid/view/View\$OnClickListener;)V").forEach { method ->
-                assertNotNull(method, bridge.getMethodData("${base}titlebar/CustomTitleBar;->$method"))
-            }
             val home = requireNotNull(bridge.getClassData(HomeMoreTargets.FRAGMENT))
             assertNotNull(bridge.getMethodData("L${HomeMoreTargets.FRAGMENT.replace('.', '/')};->onCreateView(Landroid/view/LayoutInflater;Landroid/view/ViewGroup;Landroid/os/Bundle;)Landroid/view/View;"))
             val setter = requireNotNull(bridge.getMethodData("${base}titlebar/CustomTitleBar;->setRightButtonOnClickListener(Landroid/view/View\$OnClickListener;)V"))
@@ -49,11 +43,6 @@ class HostSettingsApkTest {
         assertEquals("RelativeLayout", goal.tagName)
         assertSame(goal, named("goal_text_view").parentNode)
         assertSame(goal, named("goal_image_view").parentNode)
-        val appBar = DocumentBuilderFactory.newInstance().newDocumentBuilder()
-            .parse(File(resources, "layout/health_commonui_app_bar.xml")).getElementsByTagName("*")
-        val restart = (0 until appBar.length).map { appBar.item(it) as Element }
-            .single { it.getAttribute("id") == "@+id/hwtoolbar_right_text" }
-        assertEquals("com.huawei.ui.commonui.healthtextview.HealthTextView", restart.tagName)
         fun layoutElements(name: String): List<Element> {
             val nodes = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(File(resources, "layout/$name.xml")).getElementsByTagName("*")
             return (0 until nodes.length).map { nodes.item(it) as Element }

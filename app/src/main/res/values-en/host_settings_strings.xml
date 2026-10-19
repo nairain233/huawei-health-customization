@@ -24,4 +24,7 @@
     <string name="host_ui_save_failed">Save failed. Original settings restored. Please retry.</string>
     <string name="host_ui_unavailable">Local settings could not be read. Editing is paused. Please reload settings.</string>
     <string name="host_ui_uncertain">The write or recovery result is uncertain. Editing is paused. Please reload and confirm local settings.</string>
+    <string name="host_ui_back">Go back</string>
+    <string name="host_ui_framework_error">The settings interface could not be loaded. This error has not changed existing settings. Retry loading or close the window.</string>
+    <string name="host_ui_retry">Retry interface</string>
 </resources>
