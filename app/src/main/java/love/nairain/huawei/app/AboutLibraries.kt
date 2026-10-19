@@ -20,18 +20,6 @@ internal val openSourceLibraries: List<OpenSourceLibrary> = listOf(
         url = "https://github.com/LuckyPray/DexKit/blob/2.2.0/LICENSE",
     ),
     OpenSourceLibrary(
-        name = "Miuix",
-        author = "compose-miuix-ui",
-        license = "Apache-2.0",
-        url = "https://github.com/compose-miuix-ui/miuix",
-    ),
-    OpenSourceLibrary(
-        name = "Jetpack Compose",
-        author = "The Android Open Source Project",
-        license = "Apache-2.0",
-        url = "https://developer.android.com/jetpack/compose",
-    ),
-    OpenSourceLibrary(
         name = "AndroidX",
         author = "androidx",
         license = "Apache-2.0",
@@ -42,12 +30,6 @@ internal val openSourceLibraries: List<OpenSourceLibrary> = listOf(
         author = "libxposed",
         license = "Apache-2.0",
         url = "https://github.com/libxposed/api",
-    ),
-    OpenSourceLibrary(
-        name = "LibXposed Service",
-        author = "libxposed",
-        license = "Apache-2.0",
-        url = "https://github.com/libxposed/service",
     ),
     OpenSourceLibrary(
         name = "Kotlin",

@@ -9,8 +9,6 @@ object ScanProtocol {
     const val VERSION = 1
     const val RULES = 8
     const val REQUEST = "scan.request"
-    const val AUTHORITY = "love.nairain.huawei.scan"
-    const val STORE = "scan_reports"
     const val STALE_MS = 120_000L
     val keys: Set<String> get() = SettingsCatalog.all.map { it.key }.filter { it.startsWith("hide.") }.toSet()
 }

@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.pm.PackageInfo
 import android.os.SystemClock
 import android.util.AtomicFile
-import androidx.core.net.toUri
 import love.nairain.huawei.hook.util.ModuleLogger
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.wrap.DexField
@@ -13,11 +12,8 @@ import org.luckypray.dexkit.wrap.DexClass
 import java.io.File
 import java.util.UUID
 
-/** 全部磁盘、Dex 与报告 IPC 均由一次性工作线程执行。 */
+/** 全部磁盘、Dex 与宿主本地报告均由一次性工作线程执行。 */
 internal object ScanRuntime {
-    // 此字段专门为弱监听器保活，Release 不能因字段无读取而移除它。
-    @field:androidx.annotation.Keep
-    private var reportSender: ScanReportSender? = null
     private fun verify(descriptor: String, loader: ClassLoader) {
         when {
             "(" in descriptor -> DexMethod(descriptor).let {
@@ -28,17 +24,16 @@ internal object ScanRuntime {
         }
     }
     fun start(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-              logger: ModuleLogger, sender: ScanReportSender?, install: (LayoutResolution) -> Unit) {
-        reportSender = sender
+              logger: ModuleLogger, install: (LayoutResolution) -> Unit) {
         Thread({
-            try { execute(app, info, loader, request, service, logger, sender, install) }
+            try { execute(app, info, loader, request, service, logger, install) }
             catch (error: Throwable) { logger.warn("Scan worker unavailable: ${error.javaClass.simpleName}") }
         }, "huawei-dex-scan").start()
     }
 
     private fun execute(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-                        logger: ModuleLogger, sender: ScanReportSender?, install: (LayoutResolution) -> Unit) {
-        val dir = File(app.filesDir, "huawei_trim_scan")
+                        logger: ModuleLogger, install: (LayoutResolution) -> Unit) {
+        val dir = love.nairain.huawei.settings.HostStorage.scanDirectory(app)
         var report = ScanReport("pending", info.versionName.orEmpty(), info.longVersionCode, info.lastUpdateTime,
             request, UUID.randomUUID().toString(), System.currentTimeMillis(), service = service)
         val start = SystemClock.elapsedRealtime()
@@ -46,19 +41,10 @@ internal object ScanRuntime {
             runCatching {
                 write(File(dir, "report.json"), report.encode())
             }.onFailure { logger.warn("Scan report persistence deferred: ${it.javaClass.simpleName}") }
-            sender?.update(report.encode())
-            runCatching {
-                checkNotNull(app.contentResolver.call("content://${ScanProtocol.AUTHORITY}".toUri(), "report", report.encode(), null))
-            }.onFailure { logger.warn("Scan report deferred: ${it.javaClass.simpleName}"); sender?.retry() }
+
         }
         try {
             check(dir.isDirectory || dir.mkdirs())
-            val oldReport = File(dir, "report.json")
-            if (oldReport.isFile) runCatching {
-                val pending = oldReport.readText()
-                ScanReport.decode(pending)
-                app.contentResolver.call("content://${ScanProtocol.AUTHORITY}".toUri(), "report", pending, null)
-            }.onFailure { logger.warn("Previous scan report unavailable: ${it.javaClass.simpleName}") }
             publish()
             val paths = listOf(app.applicationInfo.sourceDir) + app.applicationInfo.splitSourceDirs.orEmpty().sorted()
             val identity = ApkIdentity.fingerprint(info.versionName.orEmpty(), info.longVersionCode, info.lastUpdateTime, paths.map(::File))

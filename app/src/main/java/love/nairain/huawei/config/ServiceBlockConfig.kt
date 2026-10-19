@@ -1,7 +1,5 @@
 package love.nairain.huawei.config
 
-import android.content.SharedPreferences
-import android.annotation.SuppressLint
 import love.nairain.huawei.hook.HookInstallPolicy
 
 /** 服务配置独立于布局 schema；只接受目标包的精确组件名。 */
@@ -50,28 +48,5 @@ internal data class ServiceBlockConfig(
             return if (parts.size == 2) componentName(parts[0], parts[1]) else null
         }
 
-        /** 类型损坏交给调用者报告；Hook 调用者必须降级为全部放行。 */
-        fun read(preferences: SharedPreferences): ServiceBlockConfig {
-            val values = preferences.all
-            val enabled = values[ENABLED] ?: false
-            val components = values[COMPONENTS] ?: emptySet<String>()
-            val presets = values[PRESETS] ?: emptySet<String>()
-            val debugMode = values[DEBUG_MODE] ?: false
-            require(enabled is Boolean && components is Set<*> && components.all { it is String } &&
-                presets is Set<*> && presets.all { it is String } && debugMode is Boolean) {
-                "Invalid service configuration types"
-            }
-            return ServiceBlockConfig(enabled, components.mapNotNull { normalize(it as String) }.toSet(),
-                presets.mapNotNull { (it as String).takeIf(ServicePreset::isKnown) }.toSet(), debugMode)
-        }
-
-        @SuppressLint("UseKtx") // KTX edit 返回 Unit；此处必须检查 commit 的持久化结果。
-        fun write(preferences: SharedPreferences, config: ServiceBlockConfig): Boolean =
-            preferences.edit()
-                .putBoolean(ENABLED, config.enabled)
-                .putStringSet(COMPONENTS, config.components.mapNotNull(::normalize).toSet())
-                .putStringSet(PRESETS, config.presets.filter(ServicePreset::isKnown).toSet())
-                .putBoolean(DEBUG_MODE, config.debugMode)
-                .commit()
     }
 }

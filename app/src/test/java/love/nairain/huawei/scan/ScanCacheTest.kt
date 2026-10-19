@@ -19,9 +19,19 @@ class ScanCacheTest {
             assertFalse(verified)
         }
         assertEquals(8, ScanProtocol.RULES)
-        assertEquals(98, ScanProtocol.keys.size)
+        assertEquals(97, ScanProtocol.keys.size)
     }
 
+    @Test fun old98ChoiceCacheIsRejectedWithoutChangingRuleVersion() {
+        val old = resolution.copy(failures = resolution.failures + ("hide.health.more_menu" to "unresolved"))
+        assertEquals(98, old.failures.size)
+        var verified = false
+        assertThrows(IllegalArgumentException::class.java) {
+            ScanCache.decode(ScanCache.encode("same-apk", "", old), "same-apk", "") { verified = true }
+        }
+        assertFalse(verified)
+        assertEquals(8, ScanProtocol.RULES)
+    }
     @Test fun cachedNegativeResultsAvoidRescanningUntilIdentityOrRequestChanges() {
         val raw = ScanCache.encode("apk1", "request1", resolution)
         val checked = mutableListOf<String>()

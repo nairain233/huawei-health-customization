@@ -4,7 +4,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -32,12 +31,11 @@ extensions.configure<ApplicationExtension> {
         }
     }
     compileOptions {
-        // Miuix NavDisplay 的内联 API 使用 JVM 21，与 Rain 的 Compose 宿主配置一致。
+        // 保持现有工具链和字节码目标，不随 UI 迁移升级构建依赖。
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
     buildFeatures {
-        compose = true
         buildConfig = true
     }
     androidResources {
@@ -61,24 +59,13 @@ kotlin {
 
 dependencies {
     implementation(libs.dexkit)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
-    implementation(libs.compose.material.icons.extended)
-    implementation(libs.miuix.ui)
-    implementation(libs.miuix.preference)
-    implementation(libs.miuix.icons)
-    implementation(libs.miuix.blur)
-    implementation(libs.miuix.nav)
     compileOnly(libs.libxposed.api)
-    implementation(libs.libxposed.service)
     testImplementation(libs.junit)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.json.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 // 可选的真实 APK 定位测试：桌面 native 库由验证环境提供，不打包进模块。

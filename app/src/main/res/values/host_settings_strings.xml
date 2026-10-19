@@ -1,0 +1,17 @@
+<resources>
+    <string name="host_settings_apply_filter">应用筛选</string>
+    <string name="host_watchface_location">启用后，请到表盘商店“我的”页，在“设备”和“设置”之间选择“导入本地表盘”。</string>
+    <string name="host_scan_matched">已匹配 %1$d/%2$d 项</string>
+    <string name="host_scan_version">宿主版本：%1$s</string>
+    <string name="host_scan_time">报告时间：%1$s</string>
+    <string name="host_scan_service">服务屏蔽状态：%1$s</string>
+    <string name="host_scan_service_installed">已安装拦截</string>
+    <string name="host_scan_service_disabled">已关闭</string>
+    <string name="host_scan_service_unsupported">入口未适配，保持放行</string>
+    <string name="host_scan_limit">扫描匹配不代表 Hook 安装或真机回归成功。</string>
+    <string name="host_settings_local_ready">本地配置可用</string>
+    <string name="host_settings_local_error">本地配置读取失败，未覆盖原文件。请重新读取配置。</string>
+    <string name="host_settings_local_uncertain">配置写入或恢复结果无法确认，编辑已暂停。请重新读取并确认本地配置。</string>
+    <string name="host_settings_retry">重新读取配置</string>
+    <string name="host_settings_health_route">为保留“健康 → 更多 → 设置”入口，“我的”底栏或其设置条目被隐藏时，健康底栏保持显示。</string>
+</resources>

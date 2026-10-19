@@ -292,13 +292,13 @@ internal class LayoutScanner(
                 "rl_actionbar_right", "rl_message_new", "head_layout", "account_center_customheadview", "vip_layout",
                 "member_benefit_container")
         viewNames.forEach { id(it, "id") }
-        setOf(K.HEALTH_SEARCH, K.HEALTH_MORE).forEach { key -> run("health.top", setOf(key)) {
+        run("health.top", setOf(K.HEALTH_SEARCH)) {
             lifecycle(points.homeFragment)
             require(id("health_tab_titlebar", "id") != 0) { "resource_missing" }
             method("com.huawei.ui.commonui.titlebar.CustomTitleBar",
-                if (key == K.HEALTH_SEARCH) "setRightSoftkeyVisibility" else "setRightButtonVisibility",
+                "setRightSoftkeyVisibility",
                 "void", listOf("int"))
-        } }
+        }
         val cardKeys = mapOf(
             "SCUI_TwoModelCardData" to K.HEALTH_ACTIVITY_RINGS,
             "OperationCardData" to K.HEALTH_TODAY,

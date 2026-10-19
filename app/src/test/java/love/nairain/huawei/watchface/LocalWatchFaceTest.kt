@@ -3,11 +3,6 @@ package love.nairain.huawei.watchface
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import love.nairain.huawei.CommitAction
-import love.nairain.huawei.ScriptedPreferences
-import love.nairain.huawei.completePreferences
-import love.nairain.huawei.config.LayoutConfigStore
-import love.nairain.huawei.config.LayoutWriteOutcome
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.resolver.LocalWatchFaceTargets
@@ -180,18 +175,10 @@ class LocalWatchFaceTest {
         val next = SettingsCatalog.normalizeWrite(SettingsKeys.LOCAL_WATCH_FACE, true, SettingsCatalog.defaults)
         assertTrue(next.getValue(SettingsKeys.LOCAL_WATCH_FACE))
         assertFalse(next.getValue(SettingsKeys.ENABLED))
-        assertEquals(98, ScanProtocol.keys.size)
+        assertEquals(97, ScanProtocol.keys.size)
         assertFalse(SettingsKeys.LOCAL_WATCH_FACE in ScanProtocol.keys)
     }
 
-    @Test fun failedToggleWriteRestoresConfirmedState() {
-        val initial = completePreferences() + ("service_block.enabled" to true)
-        val preferences = ScriptedPreferences(initial, CommitAction.RETURN_FALSE, CommitAction.RETURN_TRUE)
-        val saved = LayoutConfigStore().save(preferences, SettingsCatalog.defaults, SettingsKeys.LOCAL_WATCH_FACE, true)
-        assertEquals(LayoutWriteOutcome.FAILED_RESTORED, saved.outcome)
-        assertEquals(initial, preferences.all)
-        assertFalse(saved.values.getValue(SettingsKeys.LOCAL_WATCH_FACE))
-    }
 
     @Test fun onlyExactEnabledVersionIsAccepted() {
         assertTrue(LocalWatchFaceTargets.accepts("17.0.7.320", 1700007320, true))

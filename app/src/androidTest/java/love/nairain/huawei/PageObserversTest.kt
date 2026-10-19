@@ -6,7 +6,6 @@ import android.widget.FrameLayout
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import love.nairain.huawei.app.LayoutTrimActivity
 import love.nairain.huawei.hook.util.ActivePageObserver
 import love.nairain.huawei.hook.util.LayoutCallbackScope
 import love.nairain.huawei.hook.util.PageLayoutObserver
@@ -49,7 +48,7 @@ class PageObserversTest {
         val failing = LayoutCallbackScope(errors::add).apply { activate() }
         val healthy = LayoutCallbackScope { fail(it) }.apply { activate() }
         var calls = 0
-        ActivityScenario.launch(LayoutTrimActivity::class.java).use { scenario ->
+        ActivityScenario.launch(TestHostActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val root = FrameLayout(activity)
                 (activity.window.decorView as ViewGroup).addView(root, ViewGroup.LayoutParams(10, 10))
@@ -73,7 +72,7 @@ class PageObserversTest {
         val scope = LayoutCallbackScope { fail(it) }.apply { activate() }
         var calls = 0
         lateinit var root: FrameLayout
-        ActivityScenario.launch(LayoutTrimActivity::class.java).use { scenario ->
+        ActivityScenario.launch(TestHostActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 root = FrameLayout(activity)
                 val parent = activity.window.decorView as ViewGroup

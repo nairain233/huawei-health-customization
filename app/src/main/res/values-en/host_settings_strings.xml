@@ -1,0 +1,17 @@
+<resources>
+    <string name="host_settings_apply_filter">Apply filter</string>
+    <string name="host_watchface_location">After enabling, open Me in the watch face store and select Import local watch face between Device and Settings.</string>
+    <string name="host_scan_matched">Matched: %1$d/%2$d</string>
+    <string name="host_scan_version">Host version: %1$s</string>
+    <string name="host_scan_time">Report time: %1$s</string>
+    <string name="host_scan_service">Service blocking status: %1$s</string>
+    <string name="host_scan_service_installed">Interception installed</string>
+    <string name="host_scan_service_disabled">Disabled</string>
+    <string name="host_scan_service_unsupported">Unsupported; services allowed</string>
+    <string name="host_scan_limit">Scan matches do not confirm hook installation or device regression results.</string>
+    <string name="host_settings_local_ready">Local settings available</string>
+    <string name="host_settings_local_error">Could not read local settings. The original file has been preserved. Reload settings to retry.</string>
+    <string name="host_settings_local_uncertain">The save or recovery could not be confirmed. Editing is paused. Reload and verify local settings.</string>
+    <string name="host_settings_retry">Reload settings</string>
+    <string name="host_settings_health_route">Health stays visible when Me or its Settings row is hidden, preserving the Health → More → Settings route.</string>
+</resources>

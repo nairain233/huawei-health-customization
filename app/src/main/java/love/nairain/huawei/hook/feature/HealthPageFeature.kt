@@ -115,9 +115,6 @@ class HealthPageFeature : HookFeature {
         if (context.config[SettingsKeys.HEALTH_SEARCH] == true) {
             hideControl(titleBar, "setRightSoftkeyVisibility", context)
         }
-        if (context.config[SettingsKeys.HEALTH_MORE] == true) {
-            hideControl(titleBar, "setRightButtonVisibility", context)
-        }
     }
 
     private fun hideControl(target: View, methodName: String, context: HookContext) {

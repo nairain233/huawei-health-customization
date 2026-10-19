@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import io.github.libxposed.api.XposedInterface
-import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.config.ServiceBlockConfig
 import love.nairain.huawei.hook.feature.ServiceBlockFeature
@@ -75,77 +74,60 @@ internal object HookCoordinator {
             logger.warn("Huawei Health package metadata unavailable; hooks skipped")
             return
         }
-        val serviceConfig = try {
-            ServiceBlockConfig.read(framework.getRemotePreferences(SettingsKeys.GROUP))
-        } catch (error: RuntimeException) {
-            logger.warn("Service configuration unavailable: ${error.javaClass.simpleName}; services allowed")
-            ServiceBlockConfig()
+        if (!love.nairain.huawei.hook.resolver.HostSettingsTargets.accepts(versionName, versionCode)) {
+            logger.info("Host version unsupported; original interface retained")
+            return
         }
-        val declaredServices = packageInfo.services.orEmpty().mapNotNull {
-            ServiceBlockConfig.componentName(it.packageName, it.name)
-        }.toSet()
-        val serviceStatus = ServiceBlockFeature.install(
-            framework,
-            serviceConfig.copy(components = serviceConfig.effectiveComponents(declaredServices)),
-            declaredServices,
-            logger,
+        val client = love.nairain.huawei.settings.HostSettingsController(application) { logger.warn(it) }
+        love.nairain.huawei.hook.feature.HostSettingsFeature.install(
+            framework, classLoader, application, versionName, versionCode, logger, client,
         )
-        val config = readConfig(framework, logger)
-        love.nairain.huawei.hook.feature.LocalWatchFaceFeature.install(
-            framework, classLoader, application, versionName, versionCode,
-            config[SettingsKeys.LOCAL_WATCH_FACE] == true,
-            serviceConfig.effectiveComponents(declaredServices).any {
-                it in love.nairain.huawei.config.ServicePreset.DEVICE_CORE.components
-            }, logger,
-        )
-        val request = try {
-            framework.getRemotePreferences(SettingsKeys.GROUP).getString(ScanProtocol.REQUEST, "").orEmpty()
-        } catch (error: RuntimeException) {
-            logger.warn("Scan request unavailable: ${error.javaClass.simpleName}")
-            ""
+        client.initialize { startup ->
+            val serviceConfig = startup.services
+            val declaredServices = packageInfo.services.orEmpty().mapNotNull {
+                ServiceBlockConfig.componentName(it.packageName, it.name)
+            }.toSet()
+            val serviceStatus = ServiceBlockFeature.install(
+                framework,
+                serviceConfig.copy(components = serviceConfig.effectiveComponents(declaredServices)),
+                declaredServices,
+                logger,
+            )
+            val config = startup.layout
+            love.nairain.huawei.hook.feature.LocalWatchFaceFeature.install(
+                framework, classLoader, application, versionName, versionCode,
+                config[SettingsKeys.LOCAL_WATCH_FACE] == true,
+                serviceConfig.effectiveComponents(declaredServices).any {
+                    it in love.nairain.huawei.config.ServicePreset.DEVICE_CORE.components
+                }, logger,
+            )
+            ScanRuntime.start(application, packageInfo, classLoader, startup.scanRequest, serviceStatus, logger) { resolution ->
+                val points = HuaweiHealthHookPoints.ANCHORS.copy(
+                    mineListManager = resolution.mineManager,
+                )
+                val context = HookContext(
+                    framework = framework,
+                    classLoader = classLoader,
+                    application = application,
+                    versionName = versionName.orEmpty(),
+                    versionCode = versionCode,
+                    config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
+                    points = points,
+                    logger = logger,
+                    resolvedGroups = resolution.capabilities.filterValues { keys -> keys.any { config[it] == true } }.keys,
+                    resolvedCapabilities = resolution.capabilities,
+                    resolution = resolution,
+                )
+                HookRegistry(
+                    listOf(
+                        HealthPageFeature(),
+                        SportPageFeature(),
+                        DevicePageFeature(),
+                        MinePageFeature(),
+                        BottomTabFeature(),
+                    ),
+                ).installAll(context)
+            }
         }
-        val reportSender = runCatching {
-            love.nairain.huawei.scan.ScanReportSender(
-                { framework.getRemotePreferences(love.nairain.huawei.scan.ScanBridgeProtocol.GROUP) },
-                framework.moduleApplicationInfo.uid, logger,
-            )
-        }.onFailure { logger.warn("Scan report bridge unavailable: ${it.javaClass.simpleName}") }.getOrNull()
-        ScanRuntime.start(application, packageInfo, classLoader, request, serviceStatus, logger, reportSender) { resolution ->
-            val points = HuaweiHealthHookPoints.ANCHORS.copy(
-                mineListManager = resolution.mineManager,
-            )
-            val context = HookContext(
-                framework = framework,
-                classLoader = classLoader,
-                application = application,
-                versionName = versionName.orEmpty(),
-                versionCode = versionCode,
-                config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
-                points = points,
-                logger = logger,
-                resolvedGroups = resolution.capabilities.filterValues { keys -> keys.any { config[it] == true } }.keys,
-                resolvedCapabilities = resolution.capabilities,
-                resolution = resolution,
-            )
-            HookRegistry(
-                listOf(
-                    HealthPageFeature(),
-                    SportPageFeature(),
-                    DevicePageFeature(),
-                    MinePageFeature(),
-                    BottomTabFeature(),
-                ),
-            ).installAll(context)
-        }
-    }
-
-    private fun readConfig(
-        framework: XposedInterface,
-        logger: ModuleLogger,
-    ): Map<String, Boolean> = try {
-        SettingsCatalog.read(framework.getRemotePreferences(SettingsKeys.GROUP))
-    } catch (error: RuntimeException) {
-        logger.warn("Remote configuration unavailable; safe defaults used", error)
-        SettingsCatalog.defaults
     }
 }

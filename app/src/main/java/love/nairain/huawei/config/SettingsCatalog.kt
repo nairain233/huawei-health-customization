@@ -1,6 +1,5 @@
 package love.nairain.huawei.config
 
-import android.content.SharedPreferences
 import androidx.annotation.StringRes
 import love.nairain.huawei.R
 
@@ -27,7 +26,6 @@ enum class SettingsCategory(@get:StringRes val title: Int) {
 object SettingsCatalog {
     val general = listOf(
         SettingDefinition(SettingsKeys.ENABLED, R.string.settings_enabled),
-        SettingDefinition(SettingsKeys.HIDE_LAUNCHER_ICON, R.string.settings_hide_launcher_icon),
         SettingDefinition(SettingsKeys.LOCAL_WATCH_FACE, R.string.watchface_import_title),
     )
 
@@ -36,7 +34,6 @@ object SettingsCatalog {
             id = "top",
             title = R.string.settings_group_page_top,
             SettingsKeys.HEALTH_SEARCH to R.string.settings_health_search,
-            SettingsKeys.HEALTH_MORE to R.string.settings_more_menu,
         ),
         group(
             id = "health-cards",
@@ -258,26 +255,10 @@ object SettingsCatalog {
 
     fun groupsFor(category: SettingsCategory): List<SettingGroup> = groups.getValue(category)
 
-    fun read(preferences: SharedPreferences): Map<String, Boolean> = normalizeBottomTabs(
-        all.associate { setting ->
-            setting.key to runCatching {
-                preferences.getBoolean(setting.key, setting.defaultValue)
-            }.getOrDefault(setting.defaultValue)
-        },
-    )
-
-    /** 只描述需要补齐的当前 schema 默认项，不在目录层直接写入配置。 */
-    fun missingDefaults(current: Map<String, *>): Map<String, Any> = buildMap {
-        if (current[SettingsKeys.SCHEMA_VERSION] != SettingsKeys.CURRENT_SCHEMA_VERSION) {
-            put(SettingsKeys.SCHEMA_VERSION, SettingsKeys.CURRENT_SCHEMA_VERSION)
-        }
-        all.filterNot { current.containsKey(it.key) }
-            .forEach { put(it.key, it.defaultValue) }
-    }
-
     fun normalizeBottomTabs(values: Map<String, Boolean>): Map<String, Boolean> {
         val normalized = values.toMutableMap()
-        if (bottomTabKeys.all { normalized[it] == true }) {
+        if (normalized[SettingsKeys.BOTTOM_MINE] == true || normalized[SettingsKeys.MINE_SETTINGS] == true ||
+            bottomTabKeys.all { normalized[it] == true }) {
             normalized[SettingsKeys.BOTTOM_HEALTH] = false
         }
         return normalized.toMap()

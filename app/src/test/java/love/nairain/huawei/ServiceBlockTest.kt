@@ -1,13 +1,10 @@
 package love.nairain.huawei
 
-import android.content.SharedPreferences
 import love.nairain.huawei.app.ServiceItem
 import love.nairain.huawei.app.visibleServices
 import love.nairain.huawei.config.ServiceBlockConfig
 import love.nairain.huawei.config.ServicePreset
 import love.nairain.huawei.config.ServiceSection
-import love.nairain.huawei.config.ServiceConfigStore
-import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.hook.feature.ServiceBindingState
 import love.nairain.huawei.hook.feature.ServiceHookInstallation
 import org.junit.Assert.*
@@ -38,15 +35,6 @@ class ServiceBlockTest {
         assertTrue(update in debug.effectiveComponents(setOf(update)))
     }
 
-    @Test fun defaultsAndLayoutSwitchAreIndependent() {
-        assertEquals(ServiceBlockConfig(), ServiceBlockConfig.read(InMemoryPreferences()))
-        val prefs = InMemoryPreferences(mapOf(SettingsKeys.ENABLED to true))
-        assertFalse(ServiceBlockConfig.read(prefs).enabled)
-        val config = ServiceBlockConfig(true, setOf(first))
-        assertTrue(ServiceBlockConfig.write(prefs, config))
-        prefs.edit().putBoolean(SettingsKeys.ENABLED, false).apply()
-        assertEquals(config, ServiceBlockConfig.read(prefs))
-    }
 
     @Test fun componentNormalizationAndExactMatching() {
         assertEquals(first, ServiceBlockConfig.normalize("$pkg/.FirstService"))
@@ -64,86 +52,12 @@ class ServiceBlockTest {
         assertFalse(config.copy(enabled = false).blocks(pkg, ".FirstService", setOf(first)))
     }
 
-    @Test fun corruptTypesAreReportedAndCollectionsAreCopied() {
-        listOf(
-            mapOf(ServiceBlockConfig.ENABLED to "true"),
-            mapOf(ServiceBlockConfig.COMPONENTS to listOf(first)),
-            mapOf(ServiceBlockConfig.COMPONENTS to setOf(123)),
-        ).forEach { values ->
-            assertThrows(IllegalArgumentException::class.java) { ServiceBlockConfig.read(InMemoryPreferences(values)) }
-        }
-        val source = mutableSetOf(first)
-        val config = ServiceBlockConfig.read(InMemoryPreferences(mapOf(ServiceBlockConfig.COMPONENTS to source)))
-        source.clear()
-        assertEquals(setOf(first), config.components)
-    }
 
-    @Test fun failedCommitRestoresPreviousValuesIncludingOptimisticCache() {
-        val memory = InMemoryPreferences()
-        var commits = 0
-        val prefs = failingPreferences(memory) { ++commits != 1 }
-        val result = ServiceConfigStore.save(prefs, ServiceBlockConfig(true, setOf(first)))
-        assertFalse(result.saved)
-        assertTrue(result.restored)
-        assertEquals(2, commits)
-        assertEquals(ServiceBlockConfig(), ServiceBlockConfig.read(memory))
-        assertTrue(memory.all.isEmpty())
-    }
 
-    @Test fun rollbackFailureIsNotReportedAsSuccessfulSave() {
-        val result = ServiceConfigStore.save(failingPreferences(InMemoryPreferences()) { false },
-            ServiceBlockConfig(true, setOf(first)))
-        assertFalse(result.saved)
-        assertFalse(result.restored)
-    }
 
-    @Test fun failedSaveRestoresUnknownRawRulesAndUnrelatedKeysExactly() {
-        val original = mapOf(
-            ServiceBlockConfig.PRESETS to setOf("sleep", "diagnostics", "future.preset"),
-            ServiceBlockConfig.COMPONENTS to setOf("$pkg/.FirstService", "other.app/Unknown"),
-            SettingsKeys.ENABLED to true,
-            "scan.request" to 123L,
-        )
-        val preferences = ScriptedPreferences(original, CommitAction.RETURN_FALSE, CommitAction.RETURN_TRUE)
-        val result = ServiceConfigStore.save(preferences, ServiceBlockConfig(true, setOf(second)))
-        assertFalse(result.saved)
-        assertTrue(result.restored)
-        assertEquals(original, preferences.all)
-    }
 
-    @Test fun failedSaveRestoresOriginalPreferenceTypesAfterCommitThrows() {
-        val originals = listOf<Any>(false, 3, 4L, 1.5F, "old value", setOf("old.preset"))
-        originals.forEach { value ->
-            val original = mapOf(ServiceBlockConfig.PRESETS to value)
-            val preferences = ScriptedPreferences(original, CommitAction.THROW, CommitAction.RETURN_TRUE)
-            val result = ServiceConfigStore.save(preferences, ServiceBlockConfig(true))
-            assertFalse(result.saved)
-            assertTrue(result.restored)
-            assertEquals(original, preferences.all)
-        }
-    }
 
-    @Test fun rollbackCopiesCollectionsBeforeOptimisticCacheMutatesThem() {
-        val oldRules = mutableSetOf("sleep")
-        val memory = InMemoryPreferences(mapOf(ServiceBlockConfig.PRESETS to oldRules))
-        var commits = 0
-        val preferences = failingPreferences(memory) {
-            if (++commits == 1) { oldRules.clear(); false } else true
-        }
-        assertTrue(ServiceConfigStore.save(preferences, ServiceBlockConfig(true)).restored)
-        assertEquals(mapOf(ServiceBlockConfig.PRESETS to setOf("sleep")), memory.all)
-    }
 
-    @Test fun successfulSaveMayNormalizeOldRulesWithoutTouchingLayoutOrScan() {
-        val memory = InMemoryPreferences(mapOf(
-            ServiceBlockConfig.PRESETS to setOf("sleep"), SettingsKeys.ENABLED to true, "scan.request" to "keep",
-        ))
-        assertTrue(ServiceConfigStore.save(memory, ServiceBlockConfig(true, setOf("$pkg/.FirstService"))).saved)
-        assertEquals(setOf(first), memory.getStringSet(ServiceBlockConfig.COMPONENTS, null))
-        assertEquals(emptySet<String>(), memory.getStringSet(ServiceBlockConfig.PRESETS, null))
-        assertTrue(memory.getBoolean(SettingsKeys.ENABLED, false))
-        assertEquals("keep", memory.getString("scan.request", null))
-    }
 
     @Test fun searchIncludesProcessAndMissingRulesCanBeRemoved() {
         val services = listOf(ServiceItem(first, "$pkg:sync"))
@@ -191,24 +105,4 @@ class ServiceBlockTest {
         assertTrue(success.active)
     }
 
-    private fun failingPreferences(memory: InMemoryPreferences, decideCommit: () -> Boolean): SharedPreferences =
-        object : SharedPreferences by memory {
-            override fun edit(): SharedPreferences.Editor {
-                val editor = memory.edit()
-                return object : SharedPreferences.Editor by editor {
-                    override fun putBoolean(key: String, value: Boolean): SharedPreferences.Editor {
-                        editor.putBoolean(key, value)
-                        return this
-                    }
-                    override fun putStringSet(key: String, values: Set<String>?): SharedPreferences.Editor {
-                        editor.putStringSet(key, values)
-                        return this
-                    }
-                    override fun commit(): Boolean {
-                        editor.apply()
-                        return decideCommit()
-                    }
-                }
-            }
-        }
 }

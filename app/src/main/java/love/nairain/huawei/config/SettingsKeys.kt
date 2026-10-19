@@ -1,18 +1,15 @@
 package love.nairain.huawei.config
 
-/** 模块应用与目标进程共享的 schema v3 配置键。 */
+/** 宿主本地 schema v3 配置键。 */
 object SettingsKeys {
     const val LOCAL_WATCH_FACE = "watchface.local_import.enabled"
-    const val GROUP = "huawei_health_trim"
     const val SCHEMA_VERSION = "schema_version"
     const val CURRENT_SCHEMA_VERSION = 3
 
-    // 保留既有同义键；旧版 row_* / tab_* 键有意不再读取。
+    // 新宿主本地存储沿用有效业务键，不导入旧配置。
     const val ENABLED = "enabled"
-    const val HIDE_LAUNCHER_ICON = "hide_launcher_icon"
 
     const val HEALTH_SEARCH = "hide.health.search"
-    const val HEALTH_MORE = "hide.health.more_menu"
     const val HEALTH_ACTIVITY_RINGS = "hide.health.activity_rings"
     const val HEALTH_QUICK_ENTRIES = "hide.health.quick_entries"
     const val HEALTH_EDIT_CARDS = "hide.health.edit_cards"
