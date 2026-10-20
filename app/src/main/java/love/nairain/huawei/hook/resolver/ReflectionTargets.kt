@@ -9,6 +9,9 @@ import love.nairain.huawei.scan.LayoutResolution
 /** 按完整描述符解析；没有扫描证据时不回退到同名或同参数数量成员。 */
 internal class ReflectionTargets(private val resolution: LayoutResolution, private val loader: ClassLoader) {
     val identities get() = resolution.identities
+    fun methodForRole(role: String): Method? = resolution.bindings.entries.singleOrNull {
+        it.key.substringAfter('#').substringBefore('#') == role && "(" in it.value
+    }?.value?.let { runCatching { DexMethod(it).getMethodInstance(loader).apply { isAccessible = true } }.getOrNull() }
 
     private fun binding(type: Class<*>, role: String, suffix: String): String? =
         generateSequence(type as Class<*>?) { it.superclass }.firstNotNullOfOrNull {

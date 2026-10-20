@@ -23,6 +23,7 @@ class HealthPageFeature : HookFeature {
         count += context.installSource("health.top", ::installTopControls)
         count += context.installSource("health.top-cards", ::installTopCardFilter)
         count += context.installSource("health.edit-cards", ::installEditCards)
+        count += context.installSource("health.promotion", HealthPromotionHooks::install)
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified health symbols unavailable")
     }

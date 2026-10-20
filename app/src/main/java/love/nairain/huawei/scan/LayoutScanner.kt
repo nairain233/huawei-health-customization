@@ -332,6 +332,62 @@ internal class LayoutScanner(
                 identity("card:${model.className}:$cardName", key)
             }
         } }
+        run("health.promotion", setOf(K.HEALTH_PROMOTION)) {
+            // DailyMoment 是功能卡列表独立插入的整张营销卡；不匹配下发标题或固定混淆名称。
+            lifecycle(points.homeFragment)
+            val owner = "com.huawei.health.functionsetcard.FunctionSetViewAdapter"
+            val daily = "com.huawei.health.functionsetcard.dailymoment.DailyMomentCardAdapter"
+            val bind = unique(type(daily).methods.filter { it.returnTypeName == "void" &&
+                it.paramTypeNames.size == 2 && it.paramTypeNames.first() == "$daily\$DailyMomentViewHolder" })
+            val manager = type(bind.paramTypeNames.last())
+            require(manager.methods.any { it.usingStrings.contains("DailyMomentManager") }) { "dependency_missing" }
+            remember(bind, daily, "promotion.bind")
+            val holder = "$daily\$DailyMomentViewHolder"
+            remember(unique(type(holder).methods.filter { it.name == "<init>" &&
+                usesResource(it, "daily_moment_root_layout") && usesResource(it, "close_button_layout") }),
+                holder, "promotion.init")
+            val itemId = method(owner, "getItemId", "long", listOf("int"))
+            val itemType = method(owner, "getItemViewType", "int", listOf("int"))
+            val gate = unique(itemId.invokes.filter { call -> call.className == manager.name &&
+                call.returnTypeName == "boolean" && call.paramTypeNames.isEmpty() &&
+                itemType.invokes.any { it.descriptor == call.descriptor } }.distinctBy { it.descriptor })
+            require(gate.usingFields.isNotEmpty() && gate.usingFields.all { it.usingType == FieldUsingType.Read } &&
+                gate.invokes.any { it.className == "java.util.List" && it.name == "isEmpty" }) { "dependency_missing" }
+            // 数量、类型与索引映射共用同一展示判断，关闭后宿主不再为推广保留列表项。
+            val count = method(owner, "getItemCount", "int", emptyList())
+            val countBody = unique(count.invokes.filter { it.className == owner &&
+                it.returnTypeName == "int" && it.paramTypeNames.isEmpty() &&
+                it.invokes.any { call -> call.descriptor == gate.descriptor } }.distinctBy { it.descriptor })
+            remember(countBody, owner, "promotion.count")
+            require(type(owner).methods.any { it.name == "onBindViewHolder" &&
+                it.invokes.any { call -> call.descriptor == bind.descriptor } }) { "dependency_missing" }
+            remember(gate, manager.name, "promotion.visible")
+            val callers = type(owner).methods.filter { it.invokes.any { call -> call.descriptor == gate.descriptor } }
+                .sortedBy { it.descriptor }
+            require(callers.isNotEmpty()) { "dependency_missing" }
+            callers.forEachIndexed { index, caller -> remember(caller, owner, "promotion.scope.$index") }
+            // 管理器消息分发中的插入/移除只针对推广；运行时按调用范围拦截，不依赖消息数字。
+            val notification = unique(candidates(null, "void", listOf(manager.name, "android.os.Message"),
+                "obj or message is null").filter { candidate ->
+                descendants(candidate.className, "com.huawei.haf.handler.BaseHandler") &&
+                    listOf("notifyItemInserted", "notifyItemRemoved").all { name ->
+                        candidate.invokes.any { it.name == name && it.paramTypeNames == listOf("int") }
+                    }
+            })
+            remember(notification, notification.className, "promotion.notification")
+            val constructor = unique(type(owner).methods.filter { it.name == "<init>" &&
+                it.paramTypeNames == listOf("java.util.List", "android.content.Context") })
+            remember(constructor, owner, "<init>")
+            require(type(points.functionSetHolder).methods.any { usesResource(it, "function_set_view") &&
+                it.invokes.any { call -> call.descriptor == constructor.descriptor } &&
+                it.invokes.any { call -> call.name == "setAdapter" } }) { "dependency_missing" }
+            method("androidx.recyclerview.widget.RecyclerView", "getAdapter",
+                "androidx.recyclerview.widget.RecyclerView\$Adapter", emptyList())
+            method("androidx.recyclerview.widget.RecyclerView", "isComputingLayout", "boolean", emptyList())
+            method(owner, "notifyDataSetChanged", "void", emptyList())
+            method(owner, "notifyItemInserted", "void", listOf("int"))
+            method(owner, "notifyItemRemoved", "void", listOf("int"))
+        }
         run("health.edit-cards", setOf(K.HEALTH_EDIT_CARDS)) {
             type(points.functionSetHolder)
             val root = hierarchy(points.functionSetHolder).firstNotNullOfOrNull { level -> level.fields.singleOrNull {

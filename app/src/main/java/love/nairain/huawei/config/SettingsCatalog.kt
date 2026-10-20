@@ -49,6 +49,7 @@ object SettingsCatalog {
             SettingsKeys.HEALTH_INSIGHTS to R.string.settings_health_insights,
             SettingsKeys.HEALTH_HEADLINES to R.string.settings_health_headlines,
             SettingsKeys.HEALTH_TIPS to R.string.settings_health_tips,
+            SettingsKeys.HEALTH_PROMOTION to R.string.settings_health_promotion,
         ),
     )
     val health = healthGroups.flatMap { it.settings }

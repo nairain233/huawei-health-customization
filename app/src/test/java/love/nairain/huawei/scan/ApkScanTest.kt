@@ -47,6 +47,63 @@ class ApkScanTest {
         return DexKitBridge.create(requireNotNull(System.getProperty("scan.apk")))
     }
 
+    @Test fun promotionUsesWholeCardGateAndFailsIndependently() {
+        bridge().use { bridge ->
+            val ids = resources()
+            fun scan(missingResource: String? = null, reject: (String) -> Unit = {}) =
+                LayoutScanner(listOf(bridge), { name, kind ->
+                    if ("$kind/$name" == missingResource) 0 else ids["$kind/$name"] ?: 0
+                }, { descriptor ->
+                    val exists = when {
+                        '(' in descriptor -> bridge.getMethodData(descriptor) != null
+                        "->" in descriptor -> bridge.getFieldData(descriptor) != null
+                        else -> bridge.getClassData(descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')) != null
+                    }
+                    assertTrue("描述符必须属于当前 APK：$descriptor", exists)
+                    reject(descriptor)
+                }).scan { _, _ -> }
+            val result = scan()
+            System.getProperty("scan.output").orEmpty().takeIf { it.isNotEmpty() }?.let {
+                File(it).writeText(result.encode())
+            }
+            assertEquals(setOf(K.HEALTH_PROMOTION), result.capabilities["health.promotion"])
+            assertFalse(love.nairain.huawei.config.SettingsCatalog.defaults.getValue(K.HEALTH_PROMOTION))
+            val gate = result.bindings.entries.single { it.key.endsWith("#promotion.visible#0") }.value
+            assertTrue(gate.endsWith("()Z"))
+            val owner = "com.huawei.health.functionsetcard.FunctionSetViewAdapter"
+            listOf("getItemId#1", "getItemViewType#1", "promotion.count#0").forEach { role ->
+                val caller = bridge.getMethodData(result.bindings.getValue("$owner#$role"))!!
+                assertTrue("数量与索引必须调用同一个展示判断", caller.invokes.any { it.descriptor == gate })
+            }
+            val scoped = result.bindings.filterKeys { it.startsWith("$owner#promotion.scope.") }
+            val callers = bridge.getClassData(owner)!!.methods.filter {
+                it.invokes.any { call -> call.descriptor == gate }
+            }.map { it.descriptor }.toSet()
+            assertEquals("所有列表查询都必须限定展示判断的调用范围", callers, scoped.values.toSet())
+            val notification = result.bindings.entries.single { it.key.contains("#promotion.notification#") }.value
+            val notifyCalls = bridge.getMethodData(notification)!!.invokes.map { it.name }.toSet()
+            assertTrue(notifyCalls.containsAll(listOf("notifyItemInserted", "notifyItemRemoved")))
+            val missing = scan("id/function_set_view")
+            val missingCard = scan("id/daily_moment_root_layout")
+            val rejected = scan(reject = { if (it == gate) throw NoSuchMethodException() })
+            val ambiguous = scan(reject = { if (it == gate) throw IllegalArgumentException("ambiguous") })
+            val missingNotification = scan(reject = { if (it == notification) throw NoSuchMethodException() })
+            listOf(missing, missingCard, rejected, ambiguous, missingNotification).forEach {
+                assertFalse(K.HEALTH_PROMOTION in it.matched)
+                assertTrue(K.HEALTH_TODAY in it.matched)
+                assertTrue(K.HEALTH_EDIT_CARDS in it.matched)
+                assertEquals(it, ScanCache.decode(ScanCache.encode("apk", "", it), "apk", "") {})
+            }
+            assertEquals("ambiguous", ambiguous.failures[K.HEALTH_PROMOTION])
+            (scoped.keys + result.bindings.keys.filter { it.contains("#promotion.notification#") ||
+                it.endsWith("#promotion.visible#0") }).forEach { role ->
+                assertTrue(runCatching { LayoutResolution.decode(result.copy(bindings = result.bindings - role).encode()) }.isFailure)
+            }
+            assertEquals(result, ScanCache.decode(ScanCache.encode("apk", "", result), "apk", "") {})
+            assertEquals(8, ScanProtocol.RULES)
+        }
+    }
+
     @Test fun membershipContainersAndMissingResourcesUseTheSameSwitch() {
         bridge().use { bridge ->
             val ids = resources()

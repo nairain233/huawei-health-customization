@@ -47,6 +47,7 @@
     <string name="settings_health_insights">Health insights</string>
     <string name="settings_health_headlines">Health headlines</string>
     <string name="settings_health_tips">Tips card</string>
+    <string name="settings_health_promotion">Promotional card</string>
 
     <string name="settings_sport_category_bar">Top category bar</string>
     <string name="settings_sport_banner">Banner</string>

@@ -49,6 +49,7 @@
     <string name="settings_health_insights">健康洞察</string>
     <string name="settings_health_headlines">健康头条</string>
     <string name="settings_health_tips">提示卡</string>
+    <string name="settings_health_promotion">推广卡片</string>
 
     <string name="settings_sport_category_bar">顶部分类栏</string>
     <string name="settings_sport_banner">顶部轮播图</string>

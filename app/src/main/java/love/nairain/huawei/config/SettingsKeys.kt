@@ -17,6 +17,7 @@ object SettingsKeys {
     const val HEALTH_INSIGHTS = "hide.health.insights"
     const val HEALTH_HEADLINES = "hide.health.headlines"
     const val HEALTH_TIPS = "hide.health.tips"
+    const val HEALTH_PROMOTION = "hide.health.promotion"
 
     const val SPORT_CATEGORY_BAR = "hide.sport.category_bar"
     const val SPORT_SEARCH = "hide.sport.search"
