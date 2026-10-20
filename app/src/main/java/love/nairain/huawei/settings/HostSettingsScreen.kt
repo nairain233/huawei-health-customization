@@ -68,7 +68,7 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 import java.text.DateFormat
 import java.util.Date
 
-/** 全窗口只有一个主题和 Scaffold，平台 Dialog 负责系统栏及窗口边界。 */
+/** 全屏页面只有一个主题和 Scaffold，平台根容器统一消费系统栏及输入法 Insets。 */
 @Composable
 internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources,
     scroll: ScrollState, customList: LazyListState, action: (HostSettingsAction) -> Unit) {

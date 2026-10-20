@@ -6,8 +6,6 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.Color
-import android.graphics.Rect
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -21,6 +19,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.net.toUri
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import love.nairain.huawei.R
 import love.nairain.huawei.scan.ScanProtocol
 import love.nairain.huawei.scan.ScanReport
@@ -28,7 +29,7 @@ import love.nairain.huawei.watchface.ModuleResources
 import java.io.File
 import java.util.concurrent.Executors
 
-/** 平台窗口只管理边界、生命周期与既有命令；正常配置界面全部由一个 Compose 子树提供。 */
+/** 非浮动全屏页面只管理边界、生命周期与既有命令；配置界面由一个 Compose 子树提供。 */
 @Suppress("DEPRECATION") // 保留 API 28 起可用的窗口 IME resize 行为。
 internal class HostSettingsDialog(
     private val activity: Activity,
@@ -38,7 +39,8 @@ internal class HostSettingsDialog(
     private val restarter: HostRestarter,
     private val composeFailed: (Throwable) -> Unit = {},
     private val failed: (Throwable) -> Unit,
-) : Dialog(activity), HostSettingsWindow {
+) : Dialog(activity, if (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES)
+    android.R.style.Theme_DeviceDefault_NoActionBar else android.R.style.Theme_DeviceDefault_Light_NoActionBar), HostSettingsWindow {
     override val visible: Boolean get() = isShowing
     private val strings = ModuleResources.localized(moduleResources, activity.resources)
     private val main = Handler(Looper.getMainLooper())
@@ -90,11 +92,14 @@ internal class HostSettingsDialog(
         super.onCreate(savedInstanceState)
         window?.requestFeature(android.view.Window.FEATURE_NO_TITLE)
         val dark = activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        root.background = GradientDrawable().apply {
-            cornerRadius = dp(24).toFloat()
-            setColor(if (dark) Color.rgb(18, 18, 18) else Color.rgb(247, 247, 247))
+        root.setBackgroundColor(if (dark) Color.rgb(18, 18, 18) else Color.rgb(247, 247, 247))
+        // 全屏边界统一在平台根容器消费，Compose 不再重复叠加系统栏或输入法 Insets。
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            WindowInsetsCompat.CONSUMED
         }
-        root.clipToOutline = true
         setContentView(root)
         setCanceledOnTouchOutside(false)
         setOnDismissListener { state.open = false; dispose() }
@@ -113,17 +118,20 @@ internal class HostSettingsDialog(
         if (disposed) { dismiss(); return }
         window?.apply {
             setBackgroundDrawableResource(android.R.color.transparent)
-            setGravity(Gravity.CENTER)
-            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            setDimAmount(0.35f)
+            clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0f)
+            WindowCompat.setDecorFitsSystemWindows(this, false)
+            statusBarColor = Color.TRANSPARENT
+            navigationBarColor = Color.TRANSPARENT
+            val dark = activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+            WindowCompat.getInsetsController(this, decorView).apply {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-            val visible = Rect()
-            activity.window.decorView.getWindowVisibleDisplayFrame(visible)
-            val metrics = activity.resources.displayMetrics
-            val width = if (visible.width() > 0) visible.width() else metrics.widthPixels
-            val height = if (visible.height() > 0) visible.height() else metrics.heightPixels
-            setLayout(minOf((width - dp(32)).coerceAtLeast(1), dp(600)), minOf((height * .82f).toInt().coerceAtLeast(1), dp(720)))
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
+        ViewCompat.requestApplyInsets(root)
         resume()
     }
 

@@ -5,10 +5,13 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
+import android.graphics.Bitmap
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
@@ -48,6 +51,46 @@ class HostSettingsWindowFallbackTest {
 
     private fun restarter(client: HostSettingsController) = HostRestarter("com.huawei.health", { "com.huawei.health" },
         { client.canRestart }, { error("测试不应启动宿主") }, { error("测试不应结束进程") }, { fail(it) })
+
+    @Test fun settingsFillScreenWithoutFloatingFrameAndBackClosesOnlyHome() {
+        val (context, client) = fixture()
+        val before = AtomicHostConfigStorage(context).read()
+        ActivityScenario.launch(TestHostActivity::class.java).use { scenario ->
+            lateinit var dialog: HostSettingsDialog
+            scenario.onActivity { activity ->
+                dialog = HostSettingsDialog(activity, resources, client, HostSettingsPageState(), restarter(client),
+                    failed = { throw AssertionError(it) })
+                dialog.show()
+            }
+            try {
+                compose.onNodeWithText(resources.getString(R.string.settings_title)).assertIsDisplayed()
+                scenario.onActivity {
+                    val window = dialog.window!!
+                    val floating = android.util.TypedValue()
+                    assertTrue(dialog.context.theme.resolveAttribute(android.R.attr.windowIsFloating, floating, true))
+                    assertEquals(0, floating.data)
+                    assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, window.attributes.width)
+                    assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, window.attributes.height)
+                    assertEquals(0, window.attributes.flags and WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    val screen = it.window.decorView
+                    assertEquals(screen.width, window.decorView.width)
+                    assertEquals(screen.height, window.decorView.height)
+                }
+                val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                assertNotNull(bitmap)
+                File(instrumentation.targetContext.cacheDir, "settings-fullscreen.png").outputStream().use {
+                    assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                }
+                compose.onNodeWithText(resources.getString(R.string.settings_layout_trim_title)).performClick()
+                compose.onNodeWithContentDescription(resources.getString(R.string.host_ui_back)).performClick()
+                compose.onNodeWithText(resources.getString(R.string.settings_title)).assertIsDisplayed()
+                scenario.onActivity { assertTrue(dialog.visible) }
+                compose.onNodeWithContentDescription(resources.getString(R.string.host_ui_back)).performClick()
+                scenario.onActivity { assertFalse(dialog.visible) }
+                assertEquals(before, AtomicHostConfigStorage(context).read())
+            } finally { scenario.onActivity { dialog.dispose() } }
+        }
+    }
 
     @Test fun renderingFailureOffersOnlyRetryAndCloseWithoutChangingConfiguration() {
         val (context, client) = fixture()
