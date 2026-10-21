@@ -1,35 +1,41 @@
-@file:android.annotation.SuppressLint("DiscouragedApi") // 名称来自 17.0.8.300 真实布局及 CustomTitleBar 点击绑定。
-
 package love.nairain.huawei.hook.resolver
 
 import android.app.Activity
-import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
+import love.nairain.huawei.scan.HomeMoreDiscovery
+import org.luckypray.dexkit.wrap.DexField
+import org.luckypray.dexkit.wrap.DexMethod
 
-/** 默认常驻的备用入口，独立于布局扫描；未知版本或歧义结构不挂载。 */
-internal class HomeMoreTargets(loader: ClassLoader) {
+/** 默认常驻的备用入口，使用独立 DexKit 证据；歧义结构不挂载。 */
+internal class HomeMoreTargets(loader: ClassLoader, private val binding: HomeMoreDiscovery.Binding) {
     val fragment = Class.forName(FRAGMENT, false, loader)
     private val title = Class.forName("com.huawei.ui.commonui.titlebar.CustomTitleBar", false, loader)
-    val createView = fragment.getDeclaredMethod("onCreateView", LayoutInflater::class.java, ViewGroup::class.java, Bundle::class.java)
+    val createView = DexMethod(binding.create).getMethodInstance(loader)
         .also { require(it.returnType == View::class.java) }
+    val bind = DexMethod(binding.bind).getMethodInstance(loader)
+    private val titleField = DexField(binding.titleField).getFieldInstance(loader).apply { isAccessible = true }
+    private val clickField = DexField(binding.clickField).getFieldInstance(loader).apply { isAccessible = true }
     private val getActivity = fragment.getMethod("getActivity")
     private val getView = fragment.getMethod("getView")
     fun activity(instance: Any): Activity? = getActivity.invoke(instance) as? Activity
     fun root(instance: Any): View? = getView.invoke(instance) as? View
     fun button(root: View): View? {
-        fun id(name: String) = root.resources.getIdentifier(name, "id", root.context.packageName)
-        val bar = id("health_tab_titlebar")
-        val button = id("hwappbarpattern_layout_ok_icon")
-        val icon = id("hwappbarpattern_ok_icon")
-        return selectButton(root, bar, button, icon)?.takeIf {
-            HostSettingsTargets.descendants(root).singleOrNull { view -> view.id == bar }?.let(title::isInstance) == true }
+        val (bar, button, icon) = binding.ids
+        return selectButton(root, bar, button, icon)?.takeIf { selected ->
+            val current = HostSettingsTargets.descendants(root).singleOrNull { view -> view.id == bar }
+            current != null && title.isInstance(current) && clickField.get(current) === selected
+        }
+    }
+    fun ownsTitle(instance: Any, root: View): Boolean {
+        val title = titleField.get(instance) ?: return false
+        // 只检查页面归属；按钮可能尚未显示，仍需注册观察器等待后续布局。
+        return HostSettingsTargets.descendants(root).singleOrNull { it.id == binding.ids.first() } === title
     }
     companion object {
-        const val FRAGMENT = "com.huawei.ui.homehealth.HomeFragment"
+        const val FRAGMENT = HomeMoreDiscovery.FRAGMENT
         fun selectButton(root: View, barId: Int, buttonId: Int, iconId: Int): View? {
             if (setOf(barId, buttonId, iconId).size != 3 || listOf(barId, buttonId, iconId).any { it == 0 }) return null
             val all = HostSettingsTargets.descendants(root)

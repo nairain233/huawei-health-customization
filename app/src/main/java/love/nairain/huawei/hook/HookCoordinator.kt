@@ -74,65 +74,68 @@ internal object HookCoordinator {
             logger.warn("Huawei Health package metadata unavailable; hooks skipped")
             return
         }
-        if (!love.nairain.huawei.hook.resolver.HostSettingsTargets.accepts(versionName, versionCode)) {
-            logger.info("Host version unsupported; original interface retained")
-            return
-        }
         val client = love.nairain.huawei.settings.HostSettingsController(application) { logger.warn(it) }
         val restarter = love.nairain.huawei.settings.HostRestarter.create(application, { client.canRestart }) { logger.warn(it) }
+        val dex = love.nairain.huawei.scan.HostDexSession(listOf(application.applicationInfo.sourceDir) +
+            application.applicationInfo.splitSourceDirs.orEmpty().sorted())
         love.nairain.huawei.hook.feature.HostSettingsFeature.install(
-            framework, classLoader, application, versionName, versionCode, logger, client, restarter,
+            framework, classLoader, application, versionName, versionCode, logger, client, restarter, dex,
         )
         client.initialize { startup ->
-            val serviceConfig = startup.services
-            val declaredServices = packageInfo.services.orEmpty().mapNotNull {
-                ServiceBlockConfig.componentName(it.packageName, it.name)
-            }.toSet()
-            val serviceStatus = ServiceBlockFeature.install(
-                framework,
-                serviceConfig.copy(components = serviceConfig.effectiveComponents(declaredServices)),
-                declaredServices,
-                logger,
-            )
-            val config = startup.layout
-            love.nairain.huawei.hook.feature.LocalWatchFaceFeature.install(
-                framework, classLoader, application, versionName, versionCode,
-                config[SettingsKeys.LOCAL_WATCH_FACE] == true,
-                serviceConfig.effectiveComponents(declaredServices).any {
-                    it in love.nairain.huawei.config.ServicePreset.DEVICE_CORE.components
-                }, logger, restarter,
-            )
-            ScanRuntime.start(application, packageInfo, classLoader, startup.scanRequest, serviceStatus, logger) { resolution, identity ->
-                val points = HuaweiHealthHookPoints.ANCHORS.copy(
-                    mineListManager = resolution.mineManager,
+            try {
+                val serviceConfig = startup.services
+                val declaredServices = packageInfo.services.orEmpty().mapNotNull {
+                    ServiceBlockConfig.componentName(it.packageName, it.name)
+                }.toSet()
+                val serviceStatus = ServiceBlockFeature.install(
+                    framework,
+                    serviceConfig.copy(components = serviceConfig.effectiveComponents(declaredServices)),
+                    declaredServices,
+                    logger,
                 )
-                client.identifySport(identity)
-                val context = HookContext(
-                    framework = framework,
-                    classLoader = classLoader,
-                    application = application,
-                    versionName = versionName.orEmpty(),
-                    versionCode = versionCode,
-                    config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
-                    points = points,
-                    logger = logger,
-                    resolvedGroups = resolution.capabilities.filter { (group, keys) -> keys.any { config[it] == true } ||
-                        (group.startsWith("sport.") && config[SettingsKeys.ENABLED] == true) }.keys,
-                    resolvedCapabilities = resolution.capabilities,
-                    resolution = resolution,
-                    sport = startup.sport,
-                    apkIdentity = identity,
-                    sportTabsChanged = client::sportTabsChanged,
+                val config = startup.layout
+                love.nairain.huawei.hook.feature.LocalWatchFaceFeature.install(
+                    framework, classLoader, application, versionName, versionCode,
+                    config[SettingsKeys.LOCAL_WATCH_FACE] == true,
+                    serviceConfig.effectiveComponents(declaredServices).any {
+                        it in love.nairain.huawei.config.ServicePreset.DEVICE_CORE.components
+                    }, logger, restarter,
                 )
-                HookRegistry(
-                    listOf(
-                        HealthPageFeature(),
-                        SportPageFeature(),
-                        DevicePageFeature(),
-                        MinePageFeature(),
-                        BottomTabFeature(),
-                    ),
-                ).installAll(context)
+                ScanRuntime.start(application, packageInfo, classLoader, startup.scanRequest, serviceStatus, logger, dex) { resolution, identity ->
+                    val points = HuaweiHealthHookPoints.ANCHORS.copy(
+                        mineListManager = resolution.mineManager,
+                    )
+                    client.identifySport(identity)
+                    val context = HookContext(
+                        framework = framework,
+                        classLoader = classLoader,
+                        application = application,
+                        versionName = versionName.orEmpty(),
+                        versionCode = versionCode,
+                        config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
+                        points = points,
+                        logger = logger,
+                        resolvedGroups = resolution.capabilities.filter { (group, keys) -> keys.any { config[it] == true } ||
+                            (group.startsWith("sport.") && config[SettingsKeys.ENABLED] == true) }.keys,
+                        resolvedCapabilities = resolution.capabilities,
+                        resolution = resolution,
+                        sport = startup.sport,
+                        apkIdentity = identity,
+                        sportTabsChanged = client::sportTabsChanged,
+                    )
+                    HookRegistry(
+                        listOf(
+                            HealthPageFeature(),
+                            SportPageFeature(),
+                            DevicePageFeature(),
+                            MinePageFeature(),
+                            BottomTabFeature(),
+                        ),
+                    ).installAll(context)
+                }
+            } catch (error: Throwable) {
+                Thread({ dex.finishLayout() }, "HostDexRelease").apply { isDaemon = true }.start()
+                throw error
             }
         }
     }

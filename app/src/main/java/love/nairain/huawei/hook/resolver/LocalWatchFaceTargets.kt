@@ -3,7 +3,7 @@ package love.nairain.huawei.hook.resolver
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
-/** 两个已核验版本的真实 Dex 名称；与布局定位无关。完整契约缺一项就关闭本功能。 */
+/** 已核验版本的真实 Dex 名称；与布局定位无关。完整契约缺一项就关闭本功能。 */
 internal class LocalWatchFaceTargets(loader: ClassLoader, version: String?, code: Long) {
     data class Spec(val key: String, val owner: String, val name: String, val result: String,
         val args: List<String> = emptyList(), val static: Boolean = false)
@@ -51,10 +51,11 @@ internal class LocalWatchFaceTargets(loader: ClassLoader, version: String?, code
         private data class VersionTargets(val version: String, val code: Long,
             val designer: String, val cache: String, val signature: String)
 
-        // 来自两版真实 APK 的安装调用链，不对未知版本猜测混淆名称。
+        // 来自各版真实 APK 的安装调用链，不对未知版本猜测混淆名称。
         private val versions = listOf(
             VersionTargets("17.0.7.320", 1700007320L, "e2", "s0", "k2"),
             VersionTargets("17.0.8.300", 1700008300L, "f2", "t0", "l2"),
+            VersionTargets("17.0.8.320", 1700008320L, "f2", "t0", "l2"),
         )
 
         private fun versionTargets(version: String?, code: Long): VersionTargets? =

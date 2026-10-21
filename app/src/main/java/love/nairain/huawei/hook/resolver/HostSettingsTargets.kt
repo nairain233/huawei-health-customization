@@ -40,7 +40,9 @@ internal class HostSettingsTargets(loader: ClassLoader, version: String?, code: 
             return parent to goal
         }
         const val ACTIVITY = "com.huawei.ui.main.stories.me.activity.AppSettingActivity"
-        fun accepts(version: String?, code: Long): Boolean = version == "17.0.8.300" && code == 1700008300L
+        fun accepts(version: String?, code: Long): Boolean =
+            (version == "17.0.8.300" && code == 1700008300L) ||
+                (version == "17.0.8.320" && code == 1700008320L)
         fun descendants(root: View): List<View> = buildList {
             fun visit(view: View) {
                 add(view)

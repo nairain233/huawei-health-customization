@@ -18,6 +18,23 @@ class HostSettingsApkTest {
         val library = File(native)
         listOf("libunwind.dll", "libc++.dll").map { File(library.parentFile, it) }.filter { it.isFile }.forEach { System.load(it.absolutePath) }
         System.load(library.absolutePath)
+        val session = HostDexSession(listOf(requireNotNull(System.getProperty("scan.apk")))) { System.load(library.absolutePath) }
+        var entryBridge: DexKitBridge? = null
+        assertThrows(IllegalArgumentException::class.java) {
+            session.entry { bridges -> entryBridge = bridges.single(); throw IllegalArgumentException("入口失败") }
+        }
+        try {
+            session.layout { bridges ->
+                assertSame("入口失败后布局仍复用同一桥", entryBridge, bridges.single())
+                assertNotNull(bridges.single().getClassData(HomeMoreTargets.FRAGMENT))
+            }
+        } finally { session.finishLayout() }
+        assertThrows(IllegalStateException::class.java) { session.layout { error("会话不得重新打开") } }
+        // 布局命中缓存时可以先结束该阶段，入口仍可查询并在结束后关闭会话。
+        val cachedSession = HostDexSession(listOf(requireNotNull(System.getProperty("scan.apk")))) { System.load(library.absolutePath) }
+        cachedSession.finishLayout()
+        cachedSession.entry { bridges -> assertNotNull(bridges.single().getClassData(HomeMoreTargets.FRAGMENT)) }
+        assertThrows(IllegalStateException::class.java) { cachedSession.entry { error("会话不得重新打开") } }
         DexKitBridge.create(requireNotNull(System.getProperty("scan.apk"))).use { bridge ->
             val activity = HostSettingsTargets.ACTIVITY.replace('.', '/')
             assertNotNull(bridge.getMethodData("L$activity;->onCreate(Landroid/os/Bundle;)V"))
@@ -30,6 +47,29 @@ class HostSettingsApkTest {
             assertEquals(1, home.methods.count { method -> method.invokes.any { it.descriptor == setter.descriptor } })
             assertTrue(setter.invokes.any { it.name == "setOnClickListener" && it.paramTypeNames == listOf("android.view.View\$OnClickListener") })
             assertFalse(home.methods.any { method -> method.invokes.any { it.name == "setOnLongClickListener" } })
+            val resources = File(requireNotNull(System.getProperty("scan.resources"))).readText()
+            val ids = Regex("<public type=\"id\" name=\"([^\"]+)\" id=\"0x([0-9a-fA-F]+)\"")
+                .findAll(resources).associate { it.groupValues[1] to it.groupValues[2].toLong(16).toInt() }
+            val binding = HomeMoreDiscovery.resolve(listOf(bridge)) { name, _ -> ids[name] ?: 0 }
+            assertNotNull(bridge.getMethodData(binding.create))
+            assertNotNull(bridge.getMethodData(binding.bind))
+            assertNotNull(bridge.getFieldData(binding.titleField))
+            assertNotNull(bridge.getFieldData(binding.clickField))
+            assertEquals(HomeMoreDiscovery.resourceNames.map { ids.getValue(it) }, binding.ids)
+            HomeMoreDiscovery.resourceNames.forEach { missing ->
+                assertThrows(IllegalArgumentException::class.java) {
+                    HomeMoreDiscovery.resolve(listOf(bridge)) { name, _ -> if (name == missing) 0 else ids[name] ?: 0 }
+                }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                HomeMoreDiscovery.resolve(listOf(bridge)) { _, _ -> 1 }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                HomeMoreDiscovery.resolve(listOf(bridge, bridge)) { name, _ -> ids[name] ?: 0 }
+            }
+            System.getProperty("scan.output").orEmpty().takeIf { it.isNotEmpty() }?.let {
+                File("$it.home-more.txt").writeText("create=${binding.create}\nbind=${binding.bind}\ntitle=${binding.titleField}\nclick=${binding.clickField}\nids=${binding.ids}\n")
+            }
         }
         val resources = requireNotNull(File(requireNotNull(System.getProperty("scan.resources"))).parentFile?.parentFile)
         val layout = File(resources, "layout/hw_show_settings_app.xml")

@@ -26,31 +26,50 @@ import love.nairain.huawei.settings.HostSettingsWindows
 import love.nairain.huawei.watchface.ModuleResources
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
+import love.nairain.huawei.hook.resolver.HomeMoreTargets
+import love.nairain.huawei.scan.HomeMoreDiscovery
+import love.nairain.huawei.scan.HostDexSession
+import love.nairain.huawei.scan.HostResources
 
-/** 独立于精简开关及 DexKit 安装；公共窗口与两个入口分别管理。 */
+/** 独立于精简开关及布局 Hook 安装；公共窗口与两个入口分别管理。 */
 internal object HostSettingsFeature {
     fun install(framework: XposedInterface, loader: ClassLoader, app: Application,
-        version: String?, code: Long, logger: ModuleLogger, client: HostSettingsController, restarter: HostRestarter) {
-        if (!HostSettingsTargets.accepts(version, code)) {
-            logger.info("Host settings unsupported; original settings retained")
-            return
-        }
+        version: String?, code: Long, logger: ModuleLogger, client: HostSettingsController,
+        restarter: HostRestarter, dex: HostDexSession) {
         val main = Handler(Looper.getMainLooper())
         Thread({
             runCatching {
-                val targets = HostSettingsTargets(loader, version, code)
                 val resources = ModuleResources.load(app.packageManager, framework.moduleApplicationInfo)
+                val more = runCatching {
+                    dex.entry { bridges ->
+                        val ids = HostResources(app.resources, loader, app.packageName)
+                        HomeMoreTargets(loader, HomeMoreDiscovery.resolve(bridges, ids::id))
+                    }
+                }.onFailure { logger.warn("Home more targets unavailable: " + it.javaClass.simpleName) }
+                val targets = if (HostSettingsTargets.accepts(version, code))
+                    runCatching { HostSettingsTargets(loader, version, code) } else null
                 main.post {
                     val windows = HostSettingsWindows(resources, client, restarter, logger::warn)
                     app.registerActivityLifecycleCallbacks(windows)
+                    more.onSuccess { HomeMoreSettingsFeature.install(framework, it, windows, resources, logger) }
+                    if (targets == null) {
+                        logger.info("Host settings row unsupported; home more discovery remains independent")
+                        return@post
+                    }
+                    val rowTargets = targets.getOrElse {
+                        logger.warn("Host settings row unavailable: ${it.javaClass.simpleName}")
+                        return@post
+                    }
                     val scope = LayoutCallbackScope { reason -> logger.warn("Host settings disabled: $reason") }
                     scope.afterActivation {
-                        Runtime(app, targets, resources, windows, scope, logger).register()
+                        Runtime(app, rowTargets, resources, windows, scope, logger).register()
                     }
                     scope.activate()
-                    HomeMoreSettingsFeature.install(framework, loader, windows, resources, logger)
                 }
-            }.onFailure { logger.warn("Host settings unavailable: ${it.javaClass.simpleName}") }
+            }.onFailure {
+                dex.finishEntry()
+                logger.warn("Host settings unavailable: ${it.javaClass.simpleName}")
+            }
         }, "HostSettingsPrepare").apply { isDaemon = true }.start()
     }
 

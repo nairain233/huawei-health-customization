@@ -21,6 +21,7 @@ class LocalWatchFaceApkTest {
         val code = when (version) {
             "17.0.7.320" -> 1700007320L
             "17.0.8.300" -> 1700008300L
+            "17.0.8.320" -> 1700008320L
             else -> error("未配置已核验的表盘版本")
         }
         DexKitBridge.create(requireNotNull(System.getProperty("scan.apk"))).use { bridge ->

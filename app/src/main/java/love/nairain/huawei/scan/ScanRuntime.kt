@@ -5,7 +5,6 @@ import android.content.pm.PackageInfo
 import android.os.SystemClock
 import android.util.AtomicFile
 import love.nairain.huawei.hook.util.ModuleLogger
-import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.wrap.DexField
 import org.luckypray.dexkit.wrap.DexMethod
 import org.luckypray.dexkit.wrap.DexClass
@@ -24,15 +23,16 @@ internal object ScanRuntime {
         }
     }
     fun start(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-              logger: ModuleLogger, install: (LayoutResolution, String) -> Unit) {
+              logger: ModuleLogger, dex: HostDexSession, install: (LayoutResolution, String) -> Unit) {
         Thread({
-            try { execute(app, info, loader, request, service, logger, install) }
+            try { execute(app, info, loader, request, service, logger, dex, install) }
             catch (error: Throwable) { logger.warn("Scan worker unavailable: ${error.javaClass.simpleName}") }
+            finally { dex.finishLayout() }
         }, "huawei-dex-scan").start()
     }
 
     private fun execute(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-                        logger: ModuleLogger, install: (LayoutResolution, String) -> Unit) {
+                        logger: ModuleLogger, dex: HostDexSession, install: (LayoutResolution, String) -> Unit) {
         val dir = love.nairain.huawei.settings.HostStorage.scanDirectory(app)
         var report = ScanReport("pending", info.versionName.orEmpty(), info.longVersionCode, info.lastUpdateTime,
             request, UUID.randomUUID().toString(), System.currentTimeMillis(), service = service)
@@ -57,17 +57,12 @@ internal object ScanRuntime {
                     ScanCache.verifyResources(resolution, hostResources::id)
                 }
             }.getOrNull()
-            val result = cached ?: run {
-                System.loadLibrary("dexkit")
-                val bridges = mutableListOf<DexKitBridge>()
-                try {
-                    paths.forEach { bridges += DexKitBridge.create(it) }
-                    LayoutScanner(bridges, hostResources::id,
-                        { verify(it, loader) }).scan { checked, matched ->
-                        report = report.copy(checked = checked, matched = matched, sequence = report.sequence + 1, time = System.currentTimeMillis())
-                        publish()
-                    }
-                } finally { bridges.forEach { it.close() } }
+            val result = cached ?: dex.layout { bridges ->
+                LayoutScanner(bridges, hostResources::id,
+                    { verify(it, loader) }).scan { checked, matched ->
+                    report = report.copy(checked = checked, matched = matched, sequence = report.sequence + 1, time = System.currentTimeMillis())
+                    publish()
+                }
             }
             val complete = "error" !in result.failures.values
             val cacheSaved = complete && runCatching { write(cache, ScanCache.encode(identity, request, result)) }
