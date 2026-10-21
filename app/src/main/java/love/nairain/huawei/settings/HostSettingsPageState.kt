@@ -53,7 +53,7 @@ internal class HostSettingsPageState {
     companion object {
         fun validRoute(route: String) = route in routes || route == "sport.top" ||
             (route.startsWith("sport.page.") && route.removePrefix("sport.page.").toIntOrNull() in SportFixedItems.pageIds)
-        val routes = setOf("home", "layout", "experimental", "services", "custom", "scan", "about", "licenses") +
+        val routes = setOf("home", "experimental", "services", "custom", "scan", "about", "licenses") +
             SettingsCategory.entries.map { it.name }
         fun parent(route: String): String = when (route) {
             "sport.top" -> "SPORT"
@@ -61,7 +61,6 @@ internal class HostSettingsPageState {
             "custom" -> "services"
             "services" -> "experimental"
             "licenses" -> "about"
-            in SettingsCategory.entries.map { it.name } -> "layout"
             else -> if (route.startsWith("sport.page.")) "SPORT" else "home"
         }
     }

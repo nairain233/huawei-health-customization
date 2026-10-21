@@ -60,7 +60,7 @@ class HostSettingsComposeTest {
         }
     }
 
-    @Test fun allThirteenRoutesKeepActionsVisibleAndReuseComposeView() {
+    @Test fun allRoutesKeepActionsVisibleAndReuseComposeView() {
         val initial = ready()
         withHost(initial) { host ->
             val view = host.view.getChildAt(0)

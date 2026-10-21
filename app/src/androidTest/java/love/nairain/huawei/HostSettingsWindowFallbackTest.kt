@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
@@ -81,7 +82,7 @@ class HostSettingsWindowFallbackTest {
                 File(instrumentation.targetContext.cacheDir, "settings-fullscreen.png").outputStream().use {
                     assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
                 }
-                compose.onNodeWithText(resources.getString(R.string.settings_layout_trim_title)).performClick()
+                compose.onNodeWithText(resources.getString(R.string.settings_health_title)).performClick()
                 compose.onNodeWithContentDescription(resources.getString(R.string.host_ui_back)).performClick()
                 compose.onNodeWithText(resources.getString(R.string.settings_title)).assertIsDisplayed()
                 scenario.onActivity { assertTrue(dialog.visible) }
@@ -134,7 +135,7 @@ class HostSettingsWindowFallbackTest {
         try {
             ActivityScenario.launch(TestHostActivity::class.java).use { scenario ->
                 scenario.onActivity { assertTrue(windows.show(it)) }
-                compose.onNodeWithText(resources.getString(R.string.about_title)).performClick()
+                compose.onNodeWithText(resources.getString(R.string.about_title)).performScrollTo().performClick()
                 compose.onNodeWithText(resources.getString(R.string.about_open_source_section)).performClick()
                 scenario.recreate()
                 compose.onNodeWithText(resources.getString(R.string.about_open_source_section)).assertIsDisplayed()

@@ -156,7 +156,7 @@ class HomeMoreEntryTest {
                 callbacks.first()(IllegalStateException("旧窗口的延迟失败"))
                 val first = made.last()
                 assertTrue(first.visible)
-                first.state.route = "layout"; first.state.scroll["layout"] = 120
+                first.state.route = "HEALTH"; first.state.scroll["HEALTH"] = 120
                 windows.onActivityStopped(activity)
                 assertEquals(1, first.pauses)
                 windows.onActivityResumed(activity)
@@ -168,8 +168,8 @@ class HomeMoreEntryTest {
                 windows.onActivityCreated(activity, saved)
                 windows.onActivityResumed(activity)
                 assertEquals(3, made.size)
-                assertEquals("layout", made.last().state.route)
-                assertEquals(120, made.last().state.scroll["layout"])
+                assertEquals("HEALTH", made.last().state.route)
+                assertEquals(120, made.last().state.scroll["HEALTH"])
                 callbacks.first()(IllegalStateException("旧窗口的延迟失败"))
                 assertTrue(made.last().visible)
                 windows.onActivityDestroyed(activity)

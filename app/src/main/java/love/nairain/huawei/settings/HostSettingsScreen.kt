@@ -121,9 +121,6 @@ internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         when (model.route) {
                             "home" -> HostSettingsHome(model, strings, action)
-                            "layout" -> SettingsCard { SettingsCategory.entries.forEach { category ->
-                                ArrowPreference(title = strings.getString(category.title), onClick = { action(HostSettingsAction.Navigate(category.name)) })
-                            } }
                             "experimental" -> {
                                 SettingsNotice(strings.getString(R.string.host_watchface_location), strings)
                                 SettingsCard { LayoutSwitch(SettingsKeys.LOCAL_WATCH_FACE, strings.getString(R.string.watchface_import_title), model, action) }
@@ -207,7 +204,6 @@ private fun ConfirmationWindowBackInput(onBack: () -> Unit) {
 }
 
 internal fun routeTitle(route: String): Int = when (route) {
-    "layout" -> R.string.settings_layout_trim_title
     "experimental" -> R.string.experimental_features_title
     "services" -> R.string.service_block_title
     "custom" -> R.string.service_custom_title
