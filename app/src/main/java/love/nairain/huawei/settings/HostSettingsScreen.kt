@@ -4,6 +4,8 @@ import android.content.res.Resources
 import android.os.Build
 import android.view.View
 import android.view.KeyEvent
+import android.view.KeyboardShortcutGroup
+import android.view.Menu
 import android.view.Window
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
@@ -178,6 +180,13 @@ private fun ConfirmationWindowBackInput(onBack: () -> Unit) {
         val previous = window?.callback
         // 普通宿主不一定启用预测返回；同时覆盖独立 Dialog 的旧按键路径。
         val callback = previous?.let { original -> object : Window.Callback by original {
+            // Kotlin 委托不会自动转发 Java 默认方法，显式交还原窗口处理。
+            override fun onProvideKeyboardShortcuts(data: MutableList<KeyboardShortcutGroup>, menu: Menu?, deviceId: Int) {
+                original.onProvideKeyboardShortcuts(data, menu, deviceId)
+            }
+            override fun onPointerCaptureChanged(hasCapture: Boolean) {
+                original.onPointerCaptureChanged(hasCapture)
+            }
             override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 if (event.keyCode != KeyEvent.KEYCODE_BACK) return original.dispatchKeyEvent(event)
                 if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) currentOnBack.value()

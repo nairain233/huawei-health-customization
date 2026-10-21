@@ -2,6 +2,7 @@
     <string name="watchface_import_title">Local watch face import</string>
     <string name="experimental_features_title">Experimental features</string>
     <string name="app_name">Huawei Health Customization</string>
+    <string name="module_description">Huawei Health enhancement module\nTo open: long-press the three dots at the top right of the home screen.</string>
     <string name="settings_title">Huawei Health Customization</string>
     <string name="settings_enabled">Enable interface customization</string>
 
