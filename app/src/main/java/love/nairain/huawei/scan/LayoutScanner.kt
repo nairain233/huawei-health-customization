@@ -408,6 +408,78 @@ internal class LayoutScanner(
             }
             remember(unique(updates), points.functionSetHolder, "edit.update")
         }
+        // 两版实际源码：FragmentSubTabPagerBean(Fragment,String,int) 连接页签、Fragment 与业务 ID。
+        group("sport.identity", emptySet()) {
+            val owner = points.sportFragment
+            lifecycle(owner)
+            val model = "com.huawei.ui.homehealth.runcard.trackfragments.viewmodel.SportViewModel"
+            val build = unique(type(model).methods.filter {
+                it.usingStrings.contains("buildFragmentSubTabPagerBean sportType = ")
+            })
+            val constructor = unique(build.invokes.filter { it.name == "<init>" &&
+                it.paramTypeNames == listOf("androidx.fragment.app.Fragment", "java.lang.String", "int") })
+            val bean = type(constructor.className)
+            val idField = constructor.usingFields.map { it.field }.distinctBy { it.descriptor }
+                .single { it.className == bean.name && it.typeName == "int" }
+            remember(unique(bean.methods.filter { it.paramTypeNames.isEmpty() && it.returnTypeName == "int" &&
+                it.usingFields.any { field -> field.field.descriptor == idField.descriptor } }), bean.name, "sport.tab.id")
+            remember(unique(bean.methods.filter { it.paramTypeNames.isEmpty() && it.returnTypeName == "androidx.fragment.app.Fragment" }), bean.name, "sport.tab.fragment")
+            val title = constructor.usingFields.map { it.field }.distinctBy { it.descriptor }
+                .single { it.className == bean.name && it.typeName == "java.lang.String" }
+            badgeField(title, "sport.tab.title")
+            method("androidx.fragment.app.Fragment", "getView", "android.view.View", emptyList())
+            val list = unique(type(owner).methods.filter { it.returnTypeName == "void" &&
+                it.paramTypeNames == listOf("java.util.ArrayList") &&
+                it.usingStrings.any { text -> text.startsWith("handleTabObserver finished, time cost:") } })
+            remember(list, owner, "sport.tabs")
+            badgeField(list.usingFields.map { it.field }.distinctBy { it.descriptor }
+                .single { it.className == owner && it.typeName == "java.util.ArrayList" }, "sport.tabs.current")
+        }
+        group("sport.navigation", emptySet()) {
+            require("sport.identity" in groups) { "dependency_missing" }
+            val owner = points.sportFragment
+            val bean = bindings.entries.single { it.key.endsWith("#sport.tab.id#0") }.key.substringBefore('#')
+            val selected = unique(type(owner).methods.filter {
+                it.usingStrings.contains("onSelfPageSelected failed, cause mSportType = ") })
+            val current = selected.usingFields.map { it.field }.distinctBy { it.descriptor }
+                .single { it.className == owner && it.typeName == "int" }
+            badgeField(current, "sport.current")
+            val add = unique(candidates(null, "void", emptyList(), "addTab").filter {
+                it.className.startsWith("$owner\$") })
+            remember(add, add.className, "sport.add")
+            badgeField(type(add.className).fields.single { it.typeName == bean }, "sport.add.bean")
+            val outer = type(add.className).fields.single { it.typeName == owner }
+            badgeField(outer, "sport.add.owner")
+            val remove = unique(candidates(null, "void", emptyList(), "removeTab: ").filter {
+                it.className.startsWith("$owner\$") })
+            remember(remove, remove.className, "sport.remove")
+            badgeField(type(remove.className).fields.single { it.typeName == bean }, "sport.remove.bean")
+            badgeField(type(remove.className).fields.single { it.typeName == owner }, "sport.remove.owner")
+            method(owner, "sport.jump", "void", listOf("android.content.Context", "int"), "gotoExactTabFromHealthModel sportType = ")
+            val order = unique(type(owner).methods.filter { it.returnTypeName == "void" &&
+                it.paramTypeNames == listOf("java.util.List") && it.invokes.count { call -> call.className == bean &&
+                    call.paramTypeNames == listOf("java.util.List", "java.util.List") } >= 2 })
+            remember(order, owner, "sport.order")
+        }
+        group("sport.discovery", emptySet()) {
+            require("sport.identity" in groups) { "dependency_missing" }
+            val knit = "com.huawei.health.knit.ui.KnitFragment"
+            method(knit, "getPageResTrigger", "com.huawei.health.knit.section.listener.IPageResTrigger", emptyList())
+            method(knit, "onCreateView", "android.view.View", listOf("android.view.LayoutInflater", "android.view.ViewGroup", "android.os.Bundle"))
+            method(points.sportTrigger, "onPageCreated", "void", listOf("android.app.Activity", "android.view.View"))
+            method(points.sportTrigger, "setCacheBeansList", "void", listOf("java.util.List"))
+            method(points.sportTrigger, "getResPosId", "int", emptyList())
+            val section = "com.huawei.health.knit.section.model.SectionBean"
+            method(section, "section.info", "com.huawei.health.marketing.datatype.ResourceBriefInfo", emptyList(), "*")
+            method(section, "section.view", "android.view.View", emptyList(), "*")
+            method("com.huawei.health.marketing.datatype.ResourceBriefInfo", "getResourceId", "java.lang.String", emptyList())
+            method("com.huawei.health.marketing.datatype.ResourceBriefInfo", "getResourceName", "java.lang.String", emptyList())
+        }
+        group("sport.fixed", emptySet()) {
+            require("sport.discovery" in groups) { "dependency_missing" }
+            love.nairain.huawei.config.SportFixedItems.resourceNames.forEach { resource(it) }
+            require(resource("header_title") && resource("hwsubheader_title_left")) { "resource_missing" }
+        }
         val sportControls = SportPageTargets.controls.entries.groupBy({ it.value }, { it.key })
         sportControls.forEach { (key, names) -> run("sport.chrome", setOf(key)) {
             lifecycle(points.sportFragment)
@@ -482,6 +554,15 @@ internal class LayoutScanner(
                 if (capabilities.values.none { key in it }) matched.remove(key)
                 failures[key] = "dependency_missing"
             }
+        }
+        group("sport.quick.discovery", emptySet()) {
+            require("sport.quick-entry-bind" in groups && "sport.discovery" in groups) { "dependency_missing" }
+            val bindDescriptor = bindings.getValue("${points.sportColumnAdapter}#quick.bind#2")
+            val bind = type(points.sportColumnAdapter).methods.single { it.descriptor == bindDescriptor }
+            remember(unique(bind.invokes.filter { it.returnTypeName == "com.huawei.health.marketing.datatype.SingleEntryContent" &&
+                it.paramTypeNames == bind.paramTypeNames }), points.sportColumnAdapter, "sport.quick.content")
+            method("com.huawei.health.marketing.datatype.SingleEntryContent", "getName", "java.lang.String", emptyList())
+            method("com.huawei.health.marketing.datatype.SingleEntryContent", "getLinkValue", "java.lang.String", emptyList())
         }
         points.deviceFragments.forEachIndexed { index, page ->
             DeviceContentKeyResolver.resourceMappings.values.toSet().forEach { key -> run("device.fragment.$index", setOf(key)) {
@@ -745,6 +826,12 @@ internal class LayoutScanner(
             if ("device.refresh.$index" in groups) requirements.getValue("device.refresh.$index").addAll(requirements["device.fragment.$index"].orEmpty())
         }
         if ("sport.quick-entry-bind" in groups) requirements["sport.quick-views"]?.addAll(requirements["sport.quick-entry-bind"].orEmpty())
+        listOf("sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").filter { it in groups }.forEach {
+            requirements.getValue(it).addAll(requirements["sport.identity"].orEmpty())
+        }
+        if ("sport.quick.discovery" in groups) requirements.getValue("sport.quick.discovery")
+            .addAll(requirements["sport.quick-entry-bind"].orEmpty() + requirements["sport.discovery"].orEmpty())
+        if ("sport.fixed" in groups) requirements.getValue("sport.fixed").addAll(requirements["sport.discovery"].orEmpty())
         return LayoutResolution(groups.toSet(), matched.toSet(), bindings.toMap(), descriptors.toSet(), mine,
             failures.filterKeys { it !in matched }, capabilities.mapValues { it.value.toSet() },
             resources.filterValues { it != 0 }, identities.toMap(), requirements.mapValues { it.value.toSet() }, issues.toMap())

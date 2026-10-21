@@ -91,7 +91,7 @@ class HostConfigurationTest {
 
     @Test fun corruptOrFutureConfigurationIsPreservedWithoutDefaultsOverwrite() {
         val default = JSONObject(HostConfiguration().encode())
-        val invalid = listOf("{", default.toString().replace("\"schema_version\":3", "\"schema_version\":999"),
+        val invalid = listOf("{", JSONObject(default.toString()).put(SettingsKeys.SCHEMA_VERSION, 999).toString(),
             JSONObject(default.toString()).put("layout", JSONObject().put(ServiceBlockConfig.ENABLED, "true")).toString())
         invalid.forEach { raw ->
             val disk = Memory(raw)

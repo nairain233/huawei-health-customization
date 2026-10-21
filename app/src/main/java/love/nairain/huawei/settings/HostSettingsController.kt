@@ -6,6 +6,7 @@ import android.os.Looper
 import love.nairain.huawei.app.ServiceCatalog
 import love.nairain.huawei.config.ServiceBlockConfig
 import love.nairain.huawei.config.SettingsCatalog
+import love.nairain.huawei.config.SportFixedItems
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -15,6 +16,8 @@ internal data class HostSettingsState(
     val catalog: ServiceCatalog = ServiceCatalog(),
     val writable: Boolean = false,
     val notice: HostSettingsNotice = HostSettingsNotice.LOADING,
+    val sportIdentity: String? = null,
+    val sportTabs: List<Int> = SportFixedItems.pageIds,
 ) {
     val canRestart: Boolean get() = writable && notice in setOf(
         HostSettingsNotice.READY, HostSettingsNotice.SAVED, HostSettingsNotice.SCHEDULED)
@@ -79,6 +82,22 @@ internal class HostSettingsController(application: Context, private val diagnost
         if (key !in SettingsCatalog.defaults) return
         mutate { it.copy(layout = SettingsCatalog.normalize(it.layout + (key to value))) }
     }
+    override fun saveSportTab(id: Int, hidden: Boolean) {
+        if (id !in SportFixedItems.pageIds) return
+        if (state.configuration.sport.hiddenTabs.isNotEmpty() && state.sportIdentity == null) return
+        if (hidden && id in state.sportTabs &&
+            !state.configuration.sport.canHideTab(state.sportIdentity.orEmpty(), id, state.sportTabs)) return
+        mutate { it.copy(sport = it.sport.copy(overrides = it.sport.overrides + ("tab/$id" to hidden))) }
+    }
+    override fun saveSportItem(id: String, hidden: Boolean) {
+        val item = SportFixedItems.item(id) ?: return
+        if (item.parentKey?.let { state.configuration.sport.hidden(
+            love.nairain.huawei.config.SportItem.fixed(item.pageId, it), state.configuration.layout) } == true) return
+        mutate { it.copy(sport = it.sport.copy(overrides = it.sport.overrides + (id to hidden))) }
+    }
+    /** 只接收扫描身份和当前导航 ID，不采集内容、不写发现目录。 */
+    fun identifySport(identity: String) { main.post { state = state.copy(sportIdentity = identity); publish() } }
+    fun sportTabsChanged(ids: List<Int>) { main.post { state = state.copy(sportTabs = ids.toList()); publish() } }
     override fun saveServices(config: ServiceBlockConfig) = mutate { it.copy(services = config) }
     override fun scheduleRescan() = mutate(scheduled = true) { it.copy(scanRequest = UUID.randomUUID().toString()) }
     private fun mutate(scheduled: Boolean = false, change: (HostConfiguration) -> HostConfiguration) {

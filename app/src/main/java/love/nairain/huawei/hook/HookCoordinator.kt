@@ -102,10 +102,11 @@ internal object HookCoordinator {
                     it in love.nairain.huawei.config.ServicePreset.DEVICE_CORE.components
                 }, logger, restarter,
             )
-            ScanRuntime.start(application, packageInfo, classLoader, startup.scanRequest, serviceStatus, logger) { resolution ->
+            ScanRuntime.start(application, packageInfo, classLoader, startup.scanRequest, serviceStatus, logger) { resolution, identity ->
                 val points = HuaweiHealthHookPoints.ANCHORS.copy(
                     mineListManager = resolution.mineManager,
                 )
+                client.identifySport(identity)
                 val context = HookContext(
                     framework = framework,
                     classLoader = classLoader,
@@ -115,9 +116,13 @@ internal object HookCoordinator {
                     config = config.mapValues { (key, value) -> value && (!key.startsWith("hide.") || key in resolution.matched) },
                     points = points,
                     logger = logger,
-                    resolvedGroups = resolution.capabilities.filterValues { keys -> keys.any { config[it] == true } }.keys,
+                    resolvedGroups = resolution.capabilities.filter { (group, keys) -> keys.any { config[it] == true } ||
+                        (group.startsWith("sport.") && config[SettingsKeys.ENABLED] == true) }.keys,
                     resolvedCapabilities = resolution.capabilities,
                     resolution = resolution,
+                    sport = startup.sport,
+                    apkIdentity = identity,
+                    sportTabsChanged = client::sportTabsChanged,
                 )
                 HookRegistry(
                     listOf(

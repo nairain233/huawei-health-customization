@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.view.View
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.findViewTreeLifecycleOwner
@@ -245,6 +246,66 @@ class HostSettingsComposeTest {
                 compose.runOnIdle { assertTrue(actions.isEmpty()) }
             }
         }
+    }
+
+    @Test fun sportHomeHasFixedNavigationWithoutDiscovery() {
+        val actions = mutableListOf<HostSettingsAction>()
+        withHost(ready("SPORT"), action = actions::add) {
+            compose.onNodeWithText(strings.getString(R.string.sport_top_title)).performClick()
+            assertEquals(HostSettingsAction.Navigate("sport.top"), actions.last())
+            love.nairain.huawei.config.SportFixedItems.pages.forEach { page ->
+                compose.onNodeWithTag("sport.page.${page.id}").performSemanticsAction(SemanticsActions.OnClick) { it() }
+                compose.waitUntil { actions.lastOrNull() == HostSettingsAction.Navigate("sport.page.${page.id}") }
+            }
+        }
+    }
+
+    @Test fun sportTabPageProtectsLastActualTabWithoutHidingItsConfigurationPage() {
+        val initial = ready("sport.top").let { it.copy(settings = it.settings.copy(sportTabs = listOf(258))) }
+        withHost(initial) {
+            compose.onNodeWithTag("sport.tab.258").assertExists()
+            compose.onNode(isToggleable() and hasAnyAncestor(hasTestTag("sport.tab.258")), useUnmergedTree = true).assertIsOff().assertIsNotEnabled()
+            compose.onNodeWithTag("sport.tab.259").assertHasClickAction()
+        }
+    }
+
+    @Test fun sportFixedItemsSaveOnlyAfterConfirmationAndRespectParent() {
+        val item = love.nairain.huawei.config.SportFixedItems.items(10001).first { it.hostTitle == "全部课程" }
+        val initial = ready("sport.page.10001")
+        val actions = mutableListOf<HostSettingsAction>()
+        withHost(initial, action = actions::add) { host ->
+            val node = isToggleable() and hasAnyAncestor(hasTestTag("sport.item.${item.id}"))
+            compose.onNodeWithTag("sport.item.${item.id}").assertIsEnabled().performClick()
+            compose.waitUntil { actions.lastOrNull() == HostSettingsAction.SportItem(item.id, true) }
+            assertEquals(HostSettingsAction.SportItem(item.id, true), actions.last())
+            compose.onNode(node, useUnmergedTree = true).assertIsOff()
+            compose.runOnIdle {
+                val parent = love.nairain.huawei.config.SportItem.fixed(10001, requireNotNull(item.parentKey))
+                host.update(initial.copy(settings = initial.settings.copy(configuration = initial.configuration.copy(
+                    sport = initial.configuration.sport.copy(overrides = mapOf(parent.id to true, item.id to true))))))
+            }
+            compose.onNode(node, useUnmergedTree = true).assertIsOn().assertIsNotEnabled()
+        }
+    }
+
+    @Test fun sportPageScrollAndBackRoutesSurviveWindowRecreation() {
+        val page = HostSettingsPageState()
+        val model = ready("sport.page.500001")
+        var saved = 0
+        withHost(model, page) { host ->
+            // 真实触摸滚动与路由语义分别验证，避免长 Card 的程序化定位循环。
+            compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+            compose.runOnIdle { host.captureState(); saved = page.scroll.getValue(model.route) }
+            assertTrue(saved > 0)
+            compose.runOnIdle { host.update(ready("sport.page.2")) }
+            compose.runOnIdle { host.captureState(); assertEquals(saved, page.scroll.getValue(model.route)) }
+            compose.runOnIdle { host.update(model) }
+            compose.runOnIdle { host.captureState(); assertEquals(saved, page.scroll.getValue(model.route)) }
+        }
+        withHost(model, page) { host ->
+            compose.runOnIdle { host.captureState(); assertEquals(saved, page.scroll.getValue(model.route)) }
+        }
+        assertEquals("SPORT", HostSettingsPageState.parent(model.route))
     }
 
     private fun captureNoticeScreenshot(name: String) {

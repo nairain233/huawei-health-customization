@@ -4,6 +4,7 @@ import love.nairain.huawei.config.ServiceBlockConfig
 import love.nairain.huawei.config.ServicePreset
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsKeys
+import love.nairain.huawei.config.SportSimplificationConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -13,11 +14,13 @@ internal data class HostConfiguration(
     val layout: Map<String, Boolean> = SettingsCatalog.defaults,
     val services: ServiceBlockConfig = ServiceBlockConfig(),
     val scanRequest: String = "",
+    val sport: SportSimplificationConfig = SportSimplificationConfig(),
 ) {
     fun normalized(): HostConfiguration {
         require(services.components.all { ServiceBlockConfig.normalize(it) == it })
         require(services.presets.all(ServicePreset::isKnown))
         require(scanRequest.isEmpty() || UUID.fromString(scanRequest).toString() == scanRequest)
+        require(SportSimplificationConfig.decode(sport.encode()) == sport)
         return copy(layout = SettingsCatalog.normalize(layout), services = services.copy(
             components = services.components.toSet(), presets = services.presets.toSet()))
     }
@@ -27,18 +30,23 @@ internal data class HostConfiguration(
             .put("layout", JSONObject(value.layout))
             .put("services", JSONObject().put(ServiceBlockConfig.ENABLED, value.services.enabled).put(ServiceBlockConfig.DEBUG_MODE, value.services.debugMode)
                 .put(ServiceBlockConfig.COMPONENTS, JSONArray(value.services.components.sorted())).put(ServiceBlockConfig.PRESETS, JSONArray(value.services.presets.sorted())))
-            .put("scan.request", value.scanRequest).toString()
+            .put("sport", value.sport.encode()).put("scan.request", value.scanRequest).toString()
     }
     companion object {
         const val MAX_CHARS = 131072
         fun decode(raw: String): HostConfiguration {
             require(raw.length <= MAX_CHARS)
             val json = JSONObject(raw)
-            require(json.getInt(SettingsKeys.SCHEMA_VERSION) == SettingsKeys.CURRENT_SCHEMA_VERSION)
+            val schema = json.getInt(SettingsKeys.SCHEMA_VERSION)
+            require(schema == 3 || schema == SettingsKeys.CURRENT_SCHEMA_VERSION)
             val layout = json.getJSONObject("layout")
-            require(layout.keys().asSequence().toSet() == SettingsCatalog.defaults.keys)
-            val values = SettingsCatalog.defaults.mapValues { (key, _) ->
-                require(layout.get(key) is Boolean); layout.getBoolean(key)
+            val keys = layout.keys().asSequence().toSet()
+            if (schema == 3) require(SettingsKeys.ENABLED in keys && SettingsCatalog.defaults.keys.containsAll(keys))
+            else require(keys == SettingsCatalog.defaults.keys)
+            val values = SettingsCatalog.defaults.mapValues { (key, default) ->
+                if (key !in keys) default else {
+                    require(layout.get(key) is Boolean); layout.getBoolean(key)
+                }
             }
             val service = json.getJSONObject("services")
             require(service.get(ServiceBlockConfig.ENABLED) is Boolean && service.get(ServiceBlockConfig.DEBUG_MODE) is Boolean)
@@ -49,7 +57,8 @@ internal data class HostConfiguration(
             }
             require(json.get("scan.request") is String)
             return HostConfiguration(values, ServiceBlockConfig(service.getBoolean(ServiceBlockConfig.ENABLED), strings(ServiceBlockConfig.COMPONENTS),
-                strings(ServiceBlockConfig.PRESETS), service.getBoolean(ServiceBlockConfig.DEBUG_MODE)), json.getString("scan.request")).normalized()
+                strings(ServiceBlockConfig.PRESETS), service.getBoolean(ServiceBlockConfig.DEBUG_MODE)), json.getString("scan.request"),
+                if (schema == 3) SportSimplificationConfig() else SportSimplificationConfig.decode(json.getJSONObject("sport"))).normalized()
         }
     }
 }

@@ -5,9 +5,17 @@ import org.junit.Test
 import org.json.JSONObject
 
 class ScanCacheTest {
+    @Test fun oldCacheMissingNewFixedResourcesMustRescanWithoutRuleBump() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ScanCache.verifyResources(resolution.copy(groups = setOf("sport.fixed"))) { name, _ -> if (name == "banner_root") 123 else 0 }
+        }
+        ScanCache.verifyResources(resolution) { name, _ -> if (name == "banner_root") 123 else 0 }
+        assertEquals(8, ScanProtocol.RULES)
+    }
     private val resolution = LayoutResolution(emptySet(), emptySet(), emptyMap(), setOf("Lsample/Target;->run()V"), "manager",
         ScanProtocol.keys.associateWith { "unresolved" }, issues = listOf("mine.badges.grid", "mine.badges.kaka")
-            .associate { "$it:${love.nairain.huawei.config.SettingsKeys.MINE_BADGES}" to "entry_missing" })
+            .associate { "$it:${love.nairain.huawei.config.SettingsKeys.MINE_BADGES}" to "entry_missing" } +
+            listOf("sport.identity", "sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").associateWith { "entry_missing" })
 
     @Test fun oldCacheMustHaveCheckedBothAdditionalMineBadgePaths() {
         resolution.issues.keys.forEach { missing ->
@@ -22,6 +30,16 @@ class ScanCacheTest {
         assertEquals(98, ScanProtocol.keys.size)
     }
 
+    @Test fun oldCacheMustHaveCheckedSportPathsBeforeMemberVerification() {
+        listOf("sport.identity", "sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").forEach { missing ->
+            var verified = false
+            val old = resolution.copy(issues = resolution.issues - missing)
+            assertThrows(IllegalArgumentException::class.java) {
+                ScanCache.decode(ScanCache.encode("apk", "", old), "apk", "") { verified = true }
+            }
+            assertFalse(verified)
+        }
+    }
     @Test fun old98ChoiceCacheIsRejectedWithoutChangingRuleVersion() {
         val old = resolution.copy(failures = resolution.failures - love.nairain.huawei.config.SettingsKeys.HEALTH_PROMOTION +
             ("hide.health.more_menu" to "unresolved"))
@@ -42,7 +60,6 @@ class ScanCacheTest {
         assertFalse(verified)
         assertEquals(resolution, ScanCache.decode(ScanCache.encode("same-apk", "", resolution), "same-apk", "") {})
     }
-
     @Test fun cachedNegativeResultsAvoidRescanningUntilIdentityOrRequestChanges() {
         val raw = ScanCache.encode("apk1", "request1", resolution)
         val checked = mutableListOf<String>()

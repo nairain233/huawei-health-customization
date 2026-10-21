@@ -16,6 +16,10 @@ class HostSettingsSessionTest {
         override var writable = true
         val services = mutableListOf<ServiceBlockConfig>()
         val layout = mutableListOf<Pair<String, Boolean>>()
+        val sportItems = mutableListOf<Pair<String, Boolean>>()
+        val sportTabs = mutableListOf<Pair<Int, Boolean>>()
+        override fun saveSportTab(id: Int, hidden: Boolean) { sportTabs += id to hidden }
+        override fun saveSportItem(id: String, hidden: Boolean) { sportItems += id to hidden }
         var refreshes = 0
         var scans = 0
         override fun refresh() { refreshes++ }
@@ -143,6 +147,35 @@ class HostSettingsSessionTest {
         assertEquals(1, f.commands.services.size)
     }
 
+    @Test fun sportNavigationReturnsToSportAndInvalidRoutesAreRejected() {
+        val f = Fixture()
+        f.session.dispatch(HostSettingsAction.Navigate("sport.page.258"))
+        assertEquals("sport.page.258", f.page.route)
+        f.session.dispatch(HostSettingsAction.Back)
+        assertEquals("SPORT", f.page.route)
+        f.session.dispatch(HostSettingsAction.Navigate("sport.top"))
+        f.session.dispatch(HostSettingsAction.Back)
+        assertEquals("SPORT", f.page.route)
+        f.session.dispatch(HostSettingsAction.Navigate("sportXpageX258"))
+        assertEquals("SPORT", f.page.route)
+        f.session.dispatch(HostSettingsAction.Navigate("sport.page.264"))
+        assertEquals("SPORT", f.page.route)
+    }
+    @Test fun sportCommandsWaitForConfirmedStateAndPauseWhileSaving() {
+        val f = Fixture()
+        f.session.dispatch(HostSettingsAction.SportTab(258, true))
+        f.session.dispatch(HostSettingsAction.SportItem("258/fixed/hide.sport.banner", true))
+        assertEquals(listOf(258 to true), f.commands.sportTabs)
+        assertEquals(1, f.commands.sportItems.size)
+        assertTrue(f.session.model().configuration.sport.hiddenTabs.isEmpty())
+        f.commands.writable = false
+        f.accept(notice = HostSettingsNotice.SAVING)
+        f.session.dispatch(HostSettingsAction.SportTab(137, true))
+        assertEquals(1, f.commands.sportTabs.size)
+        f.session.pause()
+        f.session.dispatch(HostSettingsAction.SportItem("item", true))
+        assertEquals(1, f.commands.sportItems.size)
+    }
     @Test fun scanRequestsRespectPendingRunningAndStaleReportBoundaries() {
         val f = Fixture()
         f.session.dispatch(HostSettingsAction.Rescan)

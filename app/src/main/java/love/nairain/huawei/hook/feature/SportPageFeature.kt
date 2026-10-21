@@ -2,19 +2,17 @@ package love.nairain.huawei.hook.feature
 
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
+import android.os.Looper
+import android.os.Handler
+import java.lang.ref.WeakReference
 import io.github.libxposed.api.XposedInterface
-import love.nairain.huawei.config.SettingsCatalog
-import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
+import love.nairain.huawei.config.SportTabPolicy
 import love.nairain.huawei.hook.HookContext
 import love.nairain.huawei.hook.HookFeature
 import love.nairain.huawei.hook.InstallResult
 import love.nairain.huawei.hook.installSource
-import love.nairain.huawei.hook.resolver.ListFilters
-import love.nairain.huawei.hook.resolver.SportContentKeyResolver
 import love.nairain.huawei.hook.resolver.SportPageTargets
-import love.nairain.huawei.hook.resolver.SportTab
 import love.nairain.huawei.hook.util.ActivePageObserver
 import love.nairain.huawei.hook.util.applyPage
 import love.nairain.huawei.hook.util.post
@@ -24,23 +22,177 @@ import java.util.WeakHashMap
 class SportPageFeature : HookFeature {
     override val id = "sport.page"
     private val originalTranslations = WeakHashMap<View, Float>()
+    private val runtime = SportPageRuntime()
+    private val main = Handler(Looper.getMainLooper())
+    private val fixedViews = WeakHashMap<View, Boolean>()
+    private val contents = SportContentViews()
+    private var contentActive = false
+    private var quickActive = false
+    private val alignedViews = WeakHashMap<View, Boolean>()
 
     override fun install(context: HookContext): InstallResult {
-        if (!SettingsCatalog.hasHidden(SettingsCategory.SPORT, context.config)) {
+        if (context.config[SettingsKeys.ENABLED] != true) {
             return InstallResult.Disabled
         }
         var count = 0
+        count += context.installSource("sport.identity", ::installIdentity)
+        count += context.installSource("sport.navigation", ::installNavigation)
+        count += context.installSource("sport.fixed", ::installContent)
         count += context.installSource("sport.top", ::installTopControls)
-        count += context.installSource("sport.sections", ::installSections)
+        // 区块仅修改显示层，不再从宿主业务缓存移除数据。
         count += context.installSource("sport.quick-entry-bind", ::installQuickEntryBinding)
         return if (count > 0) InstallResult.Installed(count)
         else InstallResult.Unsupported("verified sport symbols unavailable")
+    }
+
+    private fun installIdentity(context: HookContext): Int {
+        val method = context.targets.methodForRole("sport.tabs") ?: return 0
+        val callbacks = context.hooks.callbacks()
+        val replayed = WeakHashMap<Any, Boolean>()
+        ActivePageObserver.observe(callbacks) { activity ->
+            love.nairain.huawei.hook.resolver.ActiveFragmentTargets.forEach(activity, method.declaringClass) { fragment ->
+                if (replayed[fragment] != true) {
+                    val source = context.targets.fieldValue(fragment, "sport.tabs.current") as? List<*>
+                    if (!source.isNullOrEmpty()) {
+                        replayed[fragment] = true
+                        method.invoke(fragment, ArrayList(source))
+                    }
+                }
+            }
+        }
+        context.hooks.hook(method).setId("$id:tabs").setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept { chain ->
+                val source = chain.args.firstOrNull() as? List<*>
+                val args = chain.args.toTypedArray()
+                if (source != null && source.none { it == null }) {
+                    val filtered = runtime.tabs(source.filterNotNull(), requireNotNull(chain.thisObject), context)
+                    if (runtime.navigationActive && Looper.myLooper() == Looper.getMainLooper()) {
+                        val owner = chain.thisObject
+                        val current = owner?.let { context.targets.fieldValue(it, "sport.current") } as? Int
+                        if (owner != null && current != null) SportTabPolicy.target(current, filtered.mapNotNull { runtime.id(it, context) })
+                            ?.let { context.targets.setFieldValue(owner, "sport.current", it) }
+                    }
+                    args[0] = ArrayList(filtered)
+                }
+                chain.proceed(args)
+            }
+        return 1
+    }
+
+    private fun installNavigation(context: HookContext): Int {
+        val add = context.targets.methodForRole("sport.add") ?: return 0
+        val remove = context.targets.methodForRole("sport.remove") ?: return 0
+        val list = context.targets.methodForRole("sport.tabs") ?: return 0
+        val order = context.targets.methodForRole("sport.order") ?: return 0
+        val jump = context.targets.methodForRole("sport.jump") ?: return 0
+        val callbacks = context.hooks.callbacks()
+        callbacks.afterActivation { main.post { callbacks.run { runtime.navigationActive = true; runtime.replayNavigation(context) } } }
+        callbacks.onClose {
+            if (Looper.myLooper() == Looper.getMainLooper()) runtime.restoreNavigation(context)
+            else main.post { runtime.restoreNavigation(context) }
+        }
+        listOf(add to "sport.add", remove to "sport.remove").forEach { (method, role) ->
+            context.hooks.hook(method).setId("$id:$role").setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                .intercept { chain ->
+                    val bean = chain.thisObject?.let { context.targets.fieldValue(it, "$role.bean") }
+                    val owner = chain.thisObject?.let { context.targets.fieldValue(it, "$role.owner") }
+                    val full = if (bean != null && owner != null) runtime.changed(bean, role == "sport.remove", owner, context) else null
+                    if (full != null && owner != null && callbacks.isActive && Looper.myLooper() == Looper.getMainLooper()) {
+                        list.invoke(owner, ArrayList(full))
+                        null
+                    } else chain.proceed()
+                }
+        }
+        context.hooks.hook(order).setId("$id:order").setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept { chain ->
+                val source = chain.args.firstOrNull() as? List<*>
+                val args = chain.args.toTypedArray()
+                if (source != null && source.none { it == null } && callbacks.isActive) {
+                    val values = runtime.ordered(source.filterNotNull(), requireNotNull(chain.thisObject), context)
+                    args[0] = ArrayList(values)
+                    val owner = chain.thisObject
+                    val selected = owner?.let { context.targets.fieldValue(it, "sport.current") } as? Int
+                    if (owner != null && selected != null) SportTabPolicy.target(selected, values.mapNotNull { runtime.id(it, context) })
+                        ?.let { context.targets.setFieldValue(owner, "sport.current", it) }
+                }
+                chain.proceed(args)
+            }
+        context.hooks.hook(jump).setId("$id:jump").setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept { chain ->
+                val args = chain.args.toTypedArray()
+                if (callbacks.isActive) chain.thisObject?.let { owner ->
+                    (args.getOrNull(1) as? Int)?.let { requested ->
+                        SportTabPolicy.target(requested, runtime.available(owner, context))?.let { args[1] = it }
+                    }
+                }
+                chain.proceed(args)
+            }
+        return 4
+    }
+
+    private fun installContent(context: HookContext): Int {
+        val create = context.targets.methodForRole("getPageResTrigger")?.declaringClass?.let {
+            context.targets.method(it, "onCreateView", 3)
+        } ?: return 0
+        val sections = context.targets.type(context.classLoader, context.points.sportTrigger)?.let {
+            context.targets.method(it, "setCacheBeansList", 1)
+        } ?: return 0
+        val callbacks = context.hooks.callbacks()
+        callbacks.afterActivation { main.post { callbacks.run { contentActive = true } } }
+        callbacks.onClose {
+            val restore = {
+                contentActive = false; contents.restore()
+                alignedViews.keys.toList().forEach(ViewTrimmer::restore); alignedViews.clear()
+                originalTranslations.entries.toList().forEach { (view, x) -> view.translationX = x }; originalTranslations.clear()
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) restore() else main.post { restore() }
+        }
+        context.hooks.hook(create).setId("$id:child-root").setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept { chain ->
+                val result = chain.proceed()
+                var page: Int? = null
+                callbacks.run { page = chain.thisObject?.let { runtime.pageCreated(it, result as? View, context) } }
+                if (page != null) callbacks.applyPage(result as? View) { view ->
+                    runtime.pageOf(view, context)?.let { page -> applyContentViews(view, page, context) }
+                }
+                result
+            }
+        context.hooks.hook(sections).setId("$id:sections").setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept { chain ->
+                val result = chain.proceed()
+                val trigger = WeakReference(chain.thisObject)
+                val records = (chain.args.firstOrNull() as? List<*>)?.filterNotNull()?.map(::WeakReference)
+                if (records != null) {
+                    var unregister: () -> Unit = {}
+                    val task = Runnable {
+                        unregister()
+                        callbacks.run { trigger.get()?.let {
+                            runtime.sectionList(it, records.mapNotNull { ref -> ref.get() }, context).forEach { (root, page) ->
+                                callbacks.applyPage(root) { applyContentViews(it, page, context) }
+                            }
+                        } }
+                    }
+                    unregister = callbacks.onClose { main.removeCallbacks(task) }
+                    main.post(task)
+                }
+                result
+            }
+        return 2
     }
 
     private fun installTopControls(context: HookContext): Int {
         val type = context.targets.type(context.classLoader, context.points.sportFragment) ?: return 0
         val method = context.targets.method(type, "onCreateView", 3) ?: return 0
         val callbacks = context.hooks.callbacks()
+        callbacks.onClose {
+            val restore = {
+                fixedViews.keys.toList().forEach(ViewTrimmer::restore)
+                fixedViews.clear()
+                originalTranslations.entries.toList().forEach { (view, x) -> view.translationX = x }
+                originalTranslations.clear()
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) restore() else main.post { restore() }
+        }
         ActivePageObserver.observeFragment(callbacks, type) { view -> applyPageViews(view, context) }
         context.hooks.hook(method).setId("$id:top")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
@@ -78,56 +230,18 @@ class SportPageFeature : HookFeature {
     }
 
     private fun applyPageViews(root: View, context: HookContext) {
-        val page = selectedTab(root, context)
-        val pageControls = when (page) {
-            SportTab.RUN -> setOf(SettingsKeys.SPORT_RUN_SUMMARY, SettingsKeys.SPORT_RUN_ROUTE,
-                SettingsKeys.SPORT_RUN_WARMUP, SettingsKeys.SPORT_RUN_BEGIN, SettingsKeys.SPORT_RUN_MUSIC)
-            SportTab.YOGA -> setOf(SettingsKeys.SPORT_YOGA_COURSES)
-            SportTab.FITNESS -> setOf(SettingsKeys.SPORT_FITNESS_SUMMARY)
-            else -> emptySet()
+        context.views.walk(root) { view ->
+            if (context.views.resourceEntryName(view) in setOf("track_sport_tab", "sport_search_icon", "sport_global_search_view", "more_and_red_point")) fixedViews[view] = true
         }
-        context.views.applyByResourceNames(
-            root,
-            context.application.packageName,
-            SportPageTargets.controls.filterValues { key -> key !in PAGE_CONTROL_KEYS || key in pageControls },
-            context.config,
-        )
-        applyQuickEntryGroup(root, context)
-        if (page == SportTab.PLAN) {
-            context.views.findByResourceName(root, context.application.packageName, "plan_resource_slot")?.let { slot ->
-                if (context.config[SettingsKeys.SPORT_PLAN_CARDS] == true) ViewTrimmer.collapse(slot)
-                else ViewTrimmer.restore(slot)
-            }
-        }
-        if (page == SportTab.YOGA) {
-            context.views.findByResourceName(root, context.application.packageName, "normal_view_fitness")?.let { summary ->
-                if (context.config[SettingsKeys.SPORT_YOGA_SUMMARY] == true) ViewTrimmer.collapse(summary)
-                else ViewTrimmer.restore(summary)
-            }
-        }
-        if (context.config[SettingsKeys.SPORT_QUICK_ENTRIES] != true) {
-            context.views.collapseContainersByText(
-                root,
-                SportPageTargets.quickEntries,
-                setOf("item_quick_entry_root_layout"),
-                context.config,
-            )
-        }
-        context.views.applyTitledContainers(
-            root,
-            SportPageTargets.sections.filterValues { key ->
-                when (page) {
-                    SportTab.RECOMMEND -> key in RECOMMEND_SECTIONS
-                    SportTab.PLAN -> key in PLAN_SECTIONS
-                    SportTab.RUN -> key == SettingsKeys.SPORT_RUN_TRAINING
-                    SportTab.FITNESS -> key in FITNESS_SECTIONS
-                    else -> false
-                }
-            },
-            setOf("series_course_layout", "layout_marketing_grid", "section_root_view", "item_two_landscape_layout"),
-            context.config,
-        )
-        if (page == SportTab.PLAN) alignPlanCards(root, context)
+        context.views.applyByResourceNames(root, context.application.packageName,
+            SportPageTargets.controls.filterValues { it in setOf(SettingsKeys.SPORT_CATEGORY_BAR, SettingsKeys.SPORT_SEARCH, SettingsKeys.SPORT_MORE) }, context.config)
+        runtime.rootsUnder(root, context).forEach { (view, page) -> applyContentViews(view, page, context) }
+    }
+
+    private fun applyContentViews(root: View, pageId: Int, source: HookContext) {
+        if (!contentActive) return
+        contents.apply(root, pageId, runtime.sections(pageId, source), source.views, source.sport, source.sportLayout, entriesEnabled = quickActive)
+        if (pageId == 2) alignPlanCards(root, source)
     }
 
     private fun alignPlanCards(root: View, context: HookContext) {
@@ -148,108 +262,48 @@ class SportPageFeature : HookFeature {
             section = section.parent as? View
         }
         section?.let {
+            alignedViews[it] = true
             val hideBoth = rows.size == 2 &&
-                context.config[SettingsKeys.SPORT_PLAN_WEIGHT] == true &&
-                context.config[SettingsKeys.SPORT_PLAN_TRAINING] == true
+                context.sport.hidden(love.nairain.huawei.config.SportItem.fixed(2, SettingsKeys.SPORT_PLAN_WEIGHT), context.sportLayout) == true &&
+                context.sport.hidden(love.nairain.huawei.config.SportItem.fixed(2, SettingsKeys.SPORT_PLAN_TRAINING), context.sportLayout) == true
             if (hideBoth) ViewTrimmer.collapse(it) else ViewTrimmer.restore(it)
         }
-        if (context.config[SettingsKeys.SPORT_PLAN_WEIGHT] == true &&
-            context.config[SettingsKeys.SPORT_PLAN_TRAINING] != true) {
+        if (context.sport.hidden(love.nairain.huawei.config.SportItem.fixed(2, SettingsKeys.SPORT_PLAN_WEIGHT), context.sportLayout) == true &&
+            context.sport.hidden(love.nairain.huawei.config.SportItem.fixed(2, SettingsKeys.SPORT_PLAN_TRAINING), context.sportLayout) != true) {
             val base = training.translationX
             originalTranslations[training] = base
             training.translationX = base + grid.paddingLeft - training.left
         }
     }
 
-    private fun selectedTab(root: View, context: HookContext): SportTab? {
-        val bar = context.views.findByResourceName(root, context.application.packageName, "track_sport_tab") ?: return null
-        var selected: SportTab? = null
-        context.views.walk(bar) { view ->
-            val label = view as? TextView ?: return@walk
-            if (label.isSelected) selected = SportPageTargets.tabs[label.text?.toString()]
-        }
-        return selected
-    }
-
-    private fun applyQuickEntryGroup(root: View, context: HookContext) {
-        context.views.walk(root) { view ->
-            if (context.views.resourceEntryName(view) != "layout_marketing_grid") return@walk
-            if (context.views.findByResourceName(view, context.application.packageName, "item_quick_entry_root_layout") == null) return@walk
-            if (context.config[SettingsKeys.SPORT_QUICK_ENTRIES] == true) ViewTrimmer.collapse(view)
-            else ViewTrimmer.restore(view)
-        }
-    }
-
-    private fun installSections(context: HookContext): Int {
-        val type = context.targets.type(context.classLoader, context.points.sportTrigger) ?: return 0
-        val method = context.targets.method(type, "setCacheBeansList", 1) ?: return 0
-        context.hooks.hook(method).setId("$id:sections")
-            .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-            .intercept { chain ->
-                val resPosId = context.targets.invokeNoArgs(chain.thisObject, "getResPosId") as? Int
-                val args = chain.args.toTypedArray()
-                if (resPosId == SPORT_RES_POS_ID) {
-                    val source = chain.args.firstOrNull() as? List<*>
-                    if (source != null) {
-                        args[0] = ListFilters.copyAndFilter(source.filterNotNull(), { section ->
-                            SportPageTargets.effectiveQuickEntryKey(sectionKey(section, context), context.config)
-                        }, context.config)
-                    }
-                }
-                chain.proceed(args)
-            }
-        return 1
-    }
-
     private fun installQuickEntryBinding(context: HookContext): Int {
         val type = context.targets.type(context.classLoader, context.points.sportColumnAdapter) ?: return 0
         val method = context.targets.method(type, "quick.bind", 2) ?: return 0
         val callbacks = context.hooks.callbacks()
+        callbacks.afterActivation { main.post { callbacks.run { quickActive = true } } }
+        callbacks.onClose {
+            val restore = { quickActive = false; contents.restoreEntries() }
+            if (Looper.myLooper() == Looper.getMainLooper()) restore() else main.post { restore() }
+        }
         context.hooks.hook(method).setId("$id:quick-entry-bind")
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val holder = chain.args.firstOrNull()
                 val root = holder?.let { context.targets.fieldValue(it, "quick.root") } as? View
-                // 先恢复上一条目快照，再让宿主计算本条目的尺寸，避免复用时覆盖新布局。
-                callbacks.run { root?.let(ViewTrimmer::restore) }
+                // 恢复上一条目快照后再让宿主绑定，避免把上一项的零尺寸带给下一项。
+                callbacks.run { root?.let(contents::beforeBind) }
                 val result = chain.proceed()
-                callbacks.run { applyBoundQuickEntry(root, context) }
-                root?.let { callbacks.post(it) { view -> applyBoundQuickEntry(view, context) } }
+                fun apply(view: View) {
+                    runtime.pageOf(view, context)?.let { page ->
+                        // 复用后整页重新核对；不会把一个 holder 的标题用于其他预加载页。
+                        runtime.rootsUnderPage(page).forEach { applyContentViews(it, page, context) }
+                    }
+                }
+                callbacks.run { root?.let(::apply) }
+                root?.let { callbacks.post(it, ::apply) }
                 result
             }
         return 1
     }
 
-    private fun applyBoundQuickEntry(root: View?, context: HookContext) {
-        if (!context.views.hasAncestorResourceName(root, "sport_viewPager_container")) return
-        val key = SportPageTargets.effectiveQuickEntryKey(
-            SportPageTargets.quickEntries[context.views.text(root)], context.config)
-        if (key != null && context.config[key] == true) {
-            root?.let(ViewTrimmer::collapse)
-        } else {
-            root?.let(ViewTrimmer::restore)
-        }
-    }
-
-    private fun sectionKey(section: Any, context: HookContext): String? {
-        val info = context.targets.invokeNoArgs(section, "section.info")
-        val resourceName = listOfNotNull(
-            context.targets.invokeNoArgs(info ?: return null, "getResourceId") as? String,
-            context.targets.invokeNoArgs(info, "getResourceName") as? String,
-        ).joinToString("|")
-        val provider = context.targets.invokeNoArgs(section, "section.provider")?.javaClass?.name
-        val title = context.views.text(context.targets.invokeNoArgs(section, "section.view") as? View)
-        return SportContentKeyResolver.resolve(resourceName, provider, title)
-    }
-
-    private companion object {
-        const val SPORT_RES_POS_ID = 4040
-        val PAGE_CONTROL_KEYS = setOf(SettingsKeys.SPORT_RUN_SUMMARY, SettingsKeys.SPORT_RUN_ROUTE,
-            SettingsKeys.SPORT_RUN_WARMUP, SettingsKeys.SPORT_RUN_BEGIN, SettingsKeys.SPORT_RUN_MUSIC,
-            SettingsKeys.SPORT_YOGA_COURSES, SettingsKeys.SPORT_FITNESS_SUMMARY)
-        val RECOMMEND_SECTIONS = setOf(SettingsKeys.SPORT_ENJOY, SettingsKeys.SPORT_TODAY,
-            SettingsKeys.SPORT_MORE_COURSES, SettingsKeys.SPORT_COACHES, SettingsKeys.SPORT_LATEST)
-        val PLAN_SECTIONS = setOf(SettingsKeys.SPORT_PLAN_WEIGHT, SettingsKeys.SPORT_PLAN_TRAINING)
-        val FITNESS_SECTIONS = setOf(SettingsKeys.SPORT_MY_COURSES, SettingsKeys.SPORT_WEEKLY_PLAN)
-    }
 }

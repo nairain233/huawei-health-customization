@@ -13,6 +13,11 @@ internal class ReflectionTargets(private val resolution: LayoutResolution, priva
         it.key.substringAfter('#').substringBefore('#') == role && "(" in it.value
     }?.value?.let { runCatching { DexMethod(it).getMethodInstance(loader).apply { isAccessible = true } }.getOrNull() }
 
+    fun setFieldValue(target: Any, role: String, value: Any) {
+        val descriptor = requireNotNull(binding(target.javaClass, role, "field"))
+        DexField(descriptor).getFieldInstance(loader).apply { isAccessible = true }.set(target, value)
+    }
+
     private fun binding(type: Class<*>, role: String, suffix: String): String? =
         generateSequence(type as Class<*>?) { it.superclass }.firstNotNullOfOrNull {
             resolution.bindings["${it.name}#$role#$suffix"]

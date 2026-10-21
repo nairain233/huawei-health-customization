@@ -14,6 +14,8 @@ internal interface HostSettingsCommands {
     fun saveLayout(key: String, value: Boolean)
     fun saveServices(config: ServiceBlockConfig)
     fun scheduleRescan()
+    fun saveSportTab(id: Int, hidden: Boolean) {}
+    fun saveSportItem(id: String, hidden: Boolean) {}
 }
 
 internal data class HostSettingsUiState(
@@ -55,6 +57,8 @@ internal sealed interface HostSettingsAction {
     data object Refresh : HostSettingsAction
     data object Rescan : HostSettingsAction
     data class Layout(val key: String, val value: Boolean) : HostSettingsAction
+    data class SportTab(val id: Int, val hidden: Boolean) : HostSettingsAction
+    data class SportItem(val id: String, val hidden: Boolean) : HostSettingsAction
     data class ServiceEnabled(val value: Boolean) : HostSettingsAction
     data class DebugMode(val value: Boolean) : HostSettingsAction
     data class Preset(val id: String, val value: Boolean) : HostSettingsAction
@@ -112,7 +116,7 @@ internal class HostSettingsSession(
                 HostSettingsAction.CancelPreset, HostSettingsAction.Back, HostSettingsAction.Close)) return
         when (action) {
             is HostSettingsAction.Navigate -> {
-                if (action.route !in HostSettingsPageState.routes || (action.route == "custom" && !current.services.debugMode)) return
+                if (!HostSettingsPageState.validRoute(action.route) || (action.route == "custom" && !current.services.debugMode)) return
                 pendingPreset = null
                 page.route = action.route
                 effect(action)
@@ -145,6 +149,8 @@ internal class HostSettingsSession(
                     ServicePreset.changeSelection(current.services.presets, preset, false)))
             }
             is HostSettingsAction.Layout -> if (current.layoutEditable(action.key)) commands.saveLayout(action.key, action.value)
+            is HostSettingsAction.SportTab -> if (current.writable) commands.saveSportTab(action.id, action.hidden)
+            is HostSettingsAction.SportItem -> if (current.writable) commands.saveSportItem(action.id, action.hidden)
             is HostSettingsAction.ServiceEnabled -> if (current.writable) commands.saveServices(current.services.copy(enabled = action.value))
             is HostSettingsAction.DebugMode -> if (current.writable) commands.saveServices(current.services.copy(debugMode = action.value))
             is HostSettingsAction.Component -> if (current.componentEditable(action.component)) {

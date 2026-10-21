@@ -47,6 +47,47 @@ class ApkScanTest {
         return DexKitBridge.create(requireNotNull(System.getProperty("scan.apk")))
     }
 
+    @Test fun sportNavigationAndDiscoveryHaveVerifiedMembersAndIndependentFailures() {
+        bridge().use { bridge ->
+            val ids = resources()
+            fun scan(reject: String? = null) = LayoutScanner(listOf(bridge), { name, kind -> ids["$kind/$name"] ?: 0 }, { descriptor ->
+                val exists = when {
+                    '(' in descriptor -> bridge.getMethodData(descriptor) != null
+                    "->" in descriptor -> bridge.getFieldData(descriptor) != null
+                    else -> bridge.getClassData(descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')) != null
+                }
+                assertTrue("描述符必须属于当前 APK：$descriptor", exists)
+                if (descriptor == reject) throw NoSuchMethodException()
+            }).scan { _, _ -> }
+            val result = scan()
+            System.getProperty("scan.output").orEmpty().takeIf { it.isNotEmpty() }?.let { File(it).writeText(result.encode()) }
+            listOf("sport.identity", "sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").forEach {
+                assertTrue("运动能力缺失：$it，${result.issues}", it in result.groups)
+            }
+            assertEquals(result, ScanCache.decode(ScanCache.encode("sport-apk", "", result), "sport-apk", "") {})
+            val incomplete = result.copy(requirements = result.requirements + ("sport.identity" to
+                result.requirements.getValue("sport.identity").filterNot { it.endsWith("#sport.tabs.current#field") }.toSet()))
+            assertThrows(IllegalArgumentException::class.java) {
+                ScanCache.decode(ScanCache.encode("sport-apk", "", incomplete), "sport-apk", "") {}
+            }
+            fun role(name: String) = result.bindings.entries.single { it.key.substringAfter('#').substringBefore('#') == name }.value
+            val noIdentity = scan(role("sport.tab.id"))
+            assertFalse("sport.identity" in noIdentity.groups)
+            assertFalse("sport.navigation" in noIdentity.groups)
+            assertFalse("sport.discovery" in noIdentity.groups)
+            assertTrue("sport.top" in noIdentity.groups)
+            val noNavigation = scan(role("sport.jump"))
+            assertFalse("sport.navigation" in noNavigation.groups)
+            assertTrue("sport.identity" in noNavigation.groups)
+            assertTrue("sport.discovery" in noNavigation.groups)
+            val noQuickDiscovery = scan(role("sport.quick.content"))
+            assertFalse("sport.quick.discovery" in noQuickDiscovery.groups)
+            assertTrue("sport.quick-entry-bind" in noQuickDiscovery.groups)
+            assertTrue("sport.discovery" in noQuickDiscovery.groups)
+            assertEquals(8, ScanProtocol.RULES)
+        }
+    }
+
     @Test fun promotionUsesWholeCardGateAndFailsIndependently() {
         bridge().use { bridge ->
             val ids = resources()
@@ -157,6 +198,9 @@ class ApkScanTest {
             val output = System.getProperty("scan.output").orEmpty()
             if (output.isNotEmpty()) File(output).writeText(result.encode())
             assertEquals("失败来源：${result.issues}", ScanProtocol.keys, result.matched)
+            listOf("sport.identity", "sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").forEach {
+                assertTrue("缺少运动页能力：$it，${result.issues}", it in result.groups)
+            }
             listOf("bottom.badges", "mine.badges.header", "mine.badges.rows", "mine.badges.grid", "mine.badges.kaka").forEach {
                 assertTrue("缺少角标能力：$it", it in result.groups)
             }

@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 仅调试包的已安装宿主扫描测试需要包可见性，不扩大正式模块权限。 -->
+    <queries>
+        <package android:name="com.huawei.health" />
+    </queries>
     <application>
         <activity android:name=".TestHostActivity" android:exported="false" />
     </application>

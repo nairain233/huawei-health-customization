@@ -2,6 +2,7 @@ package love.nairain.huawei.settings
 
 import android.os.Bundle
 import love.nairain.huawei.config.SettingsCategory
+import love.nairain.huawei.config.SportFixedItems
 
 /** 只保存界面状态；配置值始终从控制器重新读取。 */
 internal class HostSettingsPageState {
@@ -37,10 +38,10 @@ internal class HostSettingsPageState {
 
     fun restore(bundle: Bundle?) {
         open = bundle?.getBoolean("open") == true
-        route = bundle?.getString("route")?.takeIf { it in routes } ?: "home"
+        route = bundle?.getString("route")?.takeIf(::validRoute) ?: "home"
         scroll.clear()
         bundle?.getBundle("scroll")?.let { values ->
-            values.keySet().filter { it in routes }.forEach { scroll[it] = values.getInt(it).coerceAtLeast(0) }
+            values.keySet().filter(::validRoute).forEach { scroll[it] = values.getInt(it).coerceAtLeast(0) }
         }
         draftQuery = bundle?.getString("draftQuery").orEmpty()
         query = bundle?.getString("query").orEmpty()
@@ -50,15 +51,18 @@ internal class HostSettingsPageState {
     }
 
     companion object {
+        fun validRoute(route: String) = route in routes || route == "sport.top" ||
+            (route.startsWith("sport.page.") && route.removePrefix("sport.page.").toIntOrNull() in SportFixedItems.pageIds)
         val routes = setOf("home", "layout", "experimental", "services", "custom", "scan", "about", "licenses") +
             SettingsCategory.entries.map { it.name }
         fun parent(route: String): String = when (route) {
+            "sport.top" -> "SPORT"
             "home" -> "close"
             "custom" -> "services"
             "services" -> "experimental"
             "licenses" -> "about"
             in SettingsCategory.entries.map { it.name } -> "layout"
-            else -> "home"
+            else -> if (route.startsWith("sport.page.")) "SPORT" else "home"
         }
     }
 }

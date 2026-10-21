@@ -82,7 +82,8 @@ internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources
         Scaffold(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
-                SmallTopAppBar(title = strings.getString(routeTitle(model.route)), defaultWindowInsetsPadding = false,
+                SmallTopAppBar(title = if (model.route.startsWith("sport.")) sportRouteTitle(model.route, model, strings)
+                    else strings.getString(routeTitle(model.route)), defaultWindowInsetsPadding = false,
                     navigationIcon = {
                         IconButton(onClick = { action(HostSettingsAction.Back) },
                             modifier = Modifier.size(48.dp).semantics { contentDescription = strings.getString(R.string.host_ui_back) }) {
@@ -125,13 +126,19 @@ internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources
                                 SettingsCard { ArrowPreference(title = strings.getString(R.string.service_block_title), onClick = { action(HostSettingsAction.Navigate("services")) }) }
                             }
                             "services" -> HostSettingsServices(model, strings, action)
+                            "SPORT" -> HostSettingsSportHome(model, strings, action)
+                            "sport.top" -> HostSettingsSportTop(model, strings, action)
                             "scan" -> ScanPage(model, strings, action)
                             "about" -> AboutPage(strings, action)
                             "licenses" -> SettingsCard { openSourceLibraries.forEach { library ->
                                 ArrowPreference(title = library.name, summary = strings.getString(R.string.about_lib_summary, library.license, library.author),
                                     onClick = { action(HostSettingsAction.OpenLink(library.url)) })
                             } }
-                            else -> SettingsCategory.entries.firstOrNull { it.name == model.route }?.let { category ->
+                            else -> if (model.route.startsWith("sport.page.")) {
+                                model.route.substringAfterLast('.').toIntOrNull()?.let {
+                                    HostSettingsSportContent(it, model, strings, action)
+                                }
+                            } else SettingsCategory.entries.firstOrNull { it.name == model.route }?.let { category ->
                                 if (category == SettingsCategory.BOTTOM && model.needsHealthRoute) SettingsNotice(strings.getString(R.string.host_settings_health_route), strings)
                                 SettingsCatalog.groupsFor(category).forEach { group ->
                                     SettingsGroup(group.title?.let(strings::getString)) { group.settings.forEach { setting ->

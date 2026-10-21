@@ -17,6 +17,10 @@ data class HookContext(
     val resolvedGroups: Set<String>? = null,
     val resolvedCapabilities: Map<String, Set<String>>? = null,
     val resolution: love.nairain.huawei.scan.LayoutResolution = love.nairain.huawei.scan.LayoutResolution(emptySet(), emptySet(), emptyMap(), emptySet(), ""),
+    val sport: love.nairain.huawei.config.SportSimplificationConfig = love.nairain.huawei.config.SportSimplificationConfig(),
+    val sportLayout: Map<String, Boolean> = config,
+    val apkIdentity: String = "",
+    val sportTabsChanged: (List<Int>) -> Unit = {},
 ) {
     val hooks = TransactionalHooks(framework, logger)
     internal val targets = love.nairain.huawei.hook.resolver.ReflectionTargets(resolution, classLoader)

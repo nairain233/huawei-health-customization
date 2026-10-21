@@ -16,6 +16,21 @@ import org.luckypray.dexkit.wrap.DexMethod
 class HostApkScanTest {
     @Test
     fun scansInstalledHuaweiHealth() {
+        val result = scanInstalledHost()
+        assertEquals(result.failures.toString(), emptySet<String>(), ScanProtocol.keys - result.matched)
+    }
+
+    @Test fun scansSportFixedCapabilitiesOn8300() {
+        val info = InstrumentationRegistry.getInstrumentation().targetContext.packageManager.getPackageInfo("com.huawei.health", 0)
+        assertEquals("17.0.8.300", info.versionName)
+        assertEquals(1700008300L, info.longVersionCode)
+        val result = scanInstalledHost()
+        val required = setOf("sport.identity", "sport.navigation", "sport.discovery", "sport.fixed", "sport.quick-entry-bind")
+        assertEquals(result.issues.toString(), emptySet<String>(), required - result.groups)
+        assertEquals(8, ScanProtocol.RULES)
+    }
+
+    private fun scanInstalledHost(): love.nairain.huawei.scan.LayoutResolution {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val packageName = "com.huawei.health"
         val info = context.packageManager.getPackageInfo(packageName, 0)
@@ -37,7 +52,7 @@ class HostApkScanTest {
                         else -> DexClass(descriptor).getInstance(host.classLoader)
                     }
                 }).scan { _, _ -> }
-            assertEquals(result.failures.toString(), emptySet<String>(), ScanProtocol.keys - result.matched)
+            return result
         } finally {
             bridges.forEach(DexKitBridge::close)
         }

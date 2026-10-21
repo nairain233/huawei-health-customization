@@ -24,7 +24,7 @@ internal object ScanRuntime {
         }
     }
     fun start(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-              logger: ModuleLogger, install: (LayoutResolution) -> Unit) {
+              logger: ModuleLogger, install: (LayoutResolution, String) -> Unit) {
         Thread({
             try { execute(app, info, loader, request, service, logger, install) }
             catch (error: Throwable) { logger.warn("Scan worker unavailable: ${error.javaClass.simpleName}") }
@@ -32,7 +32,7 @@ internal object ScanRuntime {
     }
 
     private fun execute(app: Application, info: PackageInfo, loader: ClassLoader, request: String, service: String,
-                        logger: ModuleLogger, install: (LayoutResolution) -> Unit) {
+                        logger: ModuleLogger, install: (LayoutResolution, String) -> Unit) {
         val dir = love.nairain.huawei.settings.HostStorage.scanDirectory(app)
         var report = ScanReport("pending", info.versionName.orEmpty(), info.longVersionCode, info.lastUpdateTime,
             request, UUID.randomUUID().toString(), System.currentTimeMillis(), service = service)
@@ -79,7 +79,7 @@ internal object ScanRuntime {
             logger.info("Scan ${if (cached == null) "finished" else "cached"}: ${result.matched.size}/${ScanProtocol.keys.size}, ${SystemClock.elapsedRealtime() - start}ms")
             result.issues.forEach { (role, reason) -> logger.info("Scan source kept: $role, $reason") }
             result.failures.forEach { (key, reason) -> logger.info("Scan kept: $key, $reason") }
-            try { install(result) } catch (error: Throwable) {
+            try { install(result, identity) } catch (error: Throwable) {
                 logger.warn("Layout installation skipped: ${error.javaClass.simpleName}")
             }
         } catch (error: Throwable) {
