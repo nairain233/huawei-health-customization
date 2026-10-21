@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import love.nairain.huawei.BuildConfig
@@ -285,17 +286,32 @@ private fun SettingsStatus(model: HostSettingsUiState, strings: Resources, actio
 @Composable
 private fun AboutPage(strings: Resources, action: (HostSettingsAction) -> Unit) {
     SettingsCard {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = strings.getString(R.string.app_name), style = MiuixTheme.textStyles.title2)
-            Text(text = strings.getString(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(text = strings.getString(R.string.app_name), style = MiuixTheme.textStyles.title3,
+                color = MiuixTheme.colorScheme.onSurfaceContainer, textAlign = TextAlign.Center)
+            Text(text = strings.getString(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                textAlign = TextAlign.Center)
         }
     }
-    SettingsGroup(strings.getString(R.string.about_section_developer)) {
-        ArrowPreference(title = strings.getString(R.string.about_developer_name), summary = strings.getString(R.string.about_platform_github),
-            onClick = { action(HostSettingsAction.OpenLink("https://github.com/nairain233")) })
-        ArrowPreference(title = strings.getString(R.string.about_repository), onClick = { action(HostSettingsAction.OpenLink("https://github.com/nairain233/huawei-health-customization")) })
+    SettingsGroup(strings.getString(R.string.about_section_links)) {
+        AboutLink(strings.getString(R.string.about_developer), strings.getString(R.string.about_platform_github),
+            "https://github.com/nairain233", action)
+        AboutLink(strings.getString(R.string.about_repository), strings.getString(R.string.about_platform_github),
+            "https://github.com/nairain233/huawei-health-customization", action)
+        AboutLink(strings.getString(R.string.about_sponsor), strings.getString(R.string.about_sponsor),
+            "https://blog.nairain.love/sponsor/", action)
         ArrowPreference(title = strings.getString(R.string.about_open_source_section), onClick = { action(HostSettingsAction.Navigate("licenses")) })
     }
+}
+
+@Composable
+private fun AboutLink(title: String, platform: String, url: String, action: (HostSettingsAction) -> Unit) {
+    ArrowPreference(title = title, endActions = {
+        Text(text = platform, style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+    }, onClick = { action(HostSettingsAction.OpenLink(url)) })
 }
 
 @Composable

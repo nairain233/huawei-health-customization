@@ -24,7 +24,7 @@ class LanguageResourcesTest {
         assertEquals("后台服务精简", chinese.getString(R.string.service_block_title))
         assertEquals("dexkit扫描", chinese.getString(R.string.scan_title))
         assertEquals("关于", chinese.getString(R.string.about_title))
-        assertEquals("开发者", chinese.getString(R.string.about_section_developer))
+        assertEquals("链接", chinese.getString(R.string.about_section_links))
         assertEquals("卡片", chinese.getString(R.string.settings_group_cards))
         assertEquals("数据", chinese.getString(R.string.settings_group_data))
         assertEquals("我的页营销卡片", chinese.getString(R.string.settings_mine_marketing))
@@ -44,7 +44,7 @@ class LanguageResourcesTest {
         assertEquals("Background service customization", english.getString(R.string.service_block_title))
         assertEquals("DexKit scan", english.getString(R.string.scan_title))
         assertEquals("About", english.getString(R.string.about_title))
-        assertEquals("Developer", english.getString(R.string.about_section_developer))
+        assertEquals("Links", english.getString(R.string.about_section_links))
         assertEquals("Restart", english.getString(R.string.host_restart))
         assertEquals("Restart Huawei Health", english.getString(R.string.host_restart_description))
     }
