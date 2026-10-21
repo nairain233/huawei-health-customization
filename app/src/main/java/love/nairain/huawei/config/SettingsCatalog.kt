@@ -258,7 +258,7 @@ object SettingsCatalog {
 
     fun normalizeBottomTabs(values: Map<String, Boolean>): Map<String, Boolean> {
         val normalized = values.toMutableMap()
-        if (normalized[SettingsKeys.BOTTOM_MINE] == true || normalized[SettingsKeys.MINE_SETTINGS] == true ||
+        if (normalized[SettingsKeys.BOTTOM_MINE] == true ||
             bottomTabKeys.all { normalized[it] == true }) {
             normalized[SettingsKeys.BOTTOM_HEALTH] = false
         }

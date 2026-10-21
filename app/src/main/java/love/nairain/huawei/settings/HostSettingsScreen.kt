@@ -143,8 +143,7 @@ internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources
                                 if (category == SettingsCategory.BOTTOM && model.needsHealthRoute) SettingsNotice(strings.getString(R.string.host_settings_health_route), strings)
                                 SettingsCatalog.groupsFor(category).forEach { group ->
                                     SettingsGroup(group.title?.let(strings::getString)) { group.settings.forEach { setting ->
-                                        LayoutSwitch(setting.key, strings.getString(setting.title), model, action,
-                                            if (setting.key == SettingsKeys.BOTTOM_HEALTH && model.needsHealthRoute) strings.getString(R.string.host_settings_health_route) else null)
+                                        LayoutSwitch(setting.key, strings.getString(setting.title), model, action)
                                     } }
                                 }
                             }
@@ -257,8 +256,8 @@ internal fun SettingsNote(text: String) {
 
 @Composable
 internal fun LayoutSwitch(key: String, title: String, model: HostSettingsUiState,
-    action: (HostSettingsAction) -> Unit, summary: String? = null) {
-    SwitchPreference(title = title, summary = summary, checked = model.configuration.layout.getValue(key),
+    action: (HostSettingsAction) -> Unit) {
+    SwitchPreference(title = title, checked = model.configuration.layout.getValue(key),
         enabled = model.layoutEditable(key), onCheckedChange = { action(HostSettingsAction.Layout(key, it)) })
 }
 
@@ -338,7 +337,8 @@ private fun ScanPage(model: HostSettingsUiState, strings: Resources, action: (Ho
                     else -> R.string.host_scan_service_disabled
                 })))
             }
-            if (model.scanPending) Text(text = strings.getString(R.string.scan_scheduled))
+            if (model.scanPending && model.settings.notice != HostSettingsNotice.SCHEDULED)
+                Text(text = strings.getString(R.string.scan_scheduled))
         }
     }
     TextButton(text = strings.getString(R.string.scan_rescan), enabled = model.canRescan, modifier = Modifier.fillMaxWidth(), onClick = { action(HostSettingsAction.Rescan) })

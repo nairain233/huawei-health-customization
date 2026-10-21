@@ -16,7 +16,7 @@
     <string name="host_scan_service_unsupported">入口未适配，保持放行</string>
     <string name="host_scan_limit">扫描匹配不代表 Hook 安装或真机回归成功。</string>
     <string name="host_settings_retry">重新读取配置</string>
-    <string name="host_settings_health_route">为保留“健康 → 更多 → 设置”入口，“我的”底栏或其设置条目被隐藏时，健康底栏保持显示。</string>
+    <string name="host_settings_health_route">隐藏“我的”底栏时，健康底栏保持显示，以保留“健康 → 更多 → 设置”入口。</string>
     <string name="host_ui_loading">正在读取配置…</string>
     <string name="host_ui_saving">正在保存，等待结果确认…</string>
     <string name="host_ui_saved">已保存，下次启动华为运动健康生效。</string>

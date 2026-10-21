@@ -16,7 +16,7 @@
     <string name="host_scan_service_unsupported">Unsupported; services allowed</string>
     <string name="host_scan_limit">Scan matches do not confirm hook installation or device regression results.</string>
     <string name="host_settings_retry">Reload settings</string>
-    <string name="host_settings_health_route">Health stays visible when Me or its Settings row is hidden, preserving the Health → More → Settings route.</string>
+    <string name="host_settings_health_route">When the Me tab is hidden, Health stays visible to preserve the Health → More → Settings route.</string>
     <string name="host_ui_loading">Loading settings…</string>
     <string name="host_ui_saving">Saving; waiting for confirmation…</string>
     <string name="host_ui_saved">Saved. Changes take effect next time Huawei Health starts.</string>

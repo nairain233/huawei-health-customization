@@ -136,6 +136,17 @@ class HostSettingsSessionTest {
         assertEquals("home", f.page.route)
     }
 
+    @Test fun hiddenMineSettingsDoesNotBlockHealthTabEdits() {
+        val f = Fixture()
+        val base = HostConfiguration()
+        f.accept(base.copy(layout = base.layout + (SettingsKeys.MINE_SETTINGS to true)))
+        assertFalse(f.session.model().needsHealthRoute)
+        assertTrue(f.session.model().layoutEditable(SettingsKeys.BOTTOM_HEALTH))
+        f.session.dispatch(HostSettingsAction.Layout(SettingsKeys.BOTTOM_HEALTH, true))
+        assertEquals(listOf(SettingsKeys.BOTTOM_HEALTH to true), f.commands.layout)
+        assertFalse(f.session.model().configuration.layout.getValue(SettingsKeys.BOTTOM_HEALTH))
+    }
+
     @Test fun missingSelectedComponentCanBeRemovedButCannotBeAdded() {
         val f = Fixture()
         val component = "com.huawei.health/com.huawei.health.Missing"

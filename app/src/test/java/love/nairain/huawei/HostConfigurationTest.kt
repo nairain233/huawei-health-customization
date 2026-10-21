@@ -126,17 +126,32 @@ class HostConfigurationTest {
         assertThrows(IllegalArgumentException::class.java) { HostConfiguration.decode(raw.toString()) }
     }
 
-    @Test fun backupRouteNormalizationCoversBothMineEntryFailuresAndAllTabsHidden() {
+    @Test fun backupRouteNormalizationCoversHiddenMineTabAndAllTabsHidden() {
         val base = SettingsCatalog.defaults + (SettingsKeys.BOTTOM_HEALTH to true)
         assertTrue(SettingsCatalog.normalize(base).getValue(SettingsKeys.BOTTOM_HEALTH))
-        listOf(SettingsKeys.BOTTOM_MINE, SettingsKeys.MINE_SETTINGS).forEach { key ->
-            val guarded = SettingsCatalog.normalize(base + (key to true))
+        listOf(false, true).forEach { settingsHidden ->
+            val key = SettingsKeys.BOTTOM_MINE
+            val guarded = SettingsCatalog.normalize(base + (key to true) + (SettingsKeys.MINE_SETTINGS to settingsHidden))
             assertFalse(guarded.getValue(SettingsKeys.BOTTOM_HEALTH))
             assertTrue(guarded.getValue(key))
+            assertEquals(settingsHidden, guarded.getValue(SettingsKeys.MINE_SETTINGS))
             assertFalse(SettingsCatalog.normalizeWrite(SettingsKeys.BOTTOM_HEALTH, true, guarded).getValue(SettingsKeys.BOTTOM_HEALTH))
         }
         assertFalse(SettingsCatalog.normalize(base + SettingsCatalog.bottomTabKeys.associateWith { true })
             .getValue(SettingsKeys.BOTTOM_HEALTH))
+    }
+
+    @Test fun hiddenMineSettingsKeepsHealthTabChoiceThroughWritesAndStorage() {
+        val base = SettingsCatalog.defaults + (SettingsKeys.BOTTOM_HEALTH to true)
+        val layout = SettingsCatalog.normalizeWrite(SettingsKeys.MINE_SETTINGS, true, base)
+        assertTrue(layout.getValue(SettingsKeys.MINE_SETTINGS))
+        assertTrue(layout.getValue(SettingsKeys.BOTTOM_HEALTH))
+        val shownHealth = SettingsCatalog.normalizeWrite(SettingsKeys.BOTTOM_HEALTH, false, layout)
+        assertFalse(shownHealth.getValue(SettingsKeys.BOTTOM_HEALTH))
+        val hiddenHealth = SettingsCatalog.normalizeWrite(SettingsKeys.BOTTOM_HEALTH, true, shownHealth)
+        assertTrue(hiddenHealth.getValue(SettingsKeys.BOTTOM_HEALTH))
+        val config = HostConfiguration(layout = hiddenHealth)
+        assertEquals(config, HostConfiguration.decode(config.encode()))
     }
 
     @Test fun catalogHasNoDesktopOrMoreMenuChoicesAndGroupsRemainUnique() {

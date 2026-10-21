@@ -36,8 +36,7 @@ internal data class HostSettingsUiState(
     val configuration get() = settings.configuration
     val services get() = configuration.services
     val declared get() = settings.catalog.services.map { it.component }.toSet()
-    val needsHealthRoute get() = configuration.layout[SettingsKeys.BOTTOM_MINE] == true ||
-        configuration.layout[SettingsKeys.MINE_SETTINGS] == true
+    val needsHealthRoute get() = configuration.layout[SettingsKeys.BOTTOM_MINE] == true
     val scanPending get() = configuration.scanRequest.let {
         if (it.isEmpty()) settings.notice == HostSettingsNotice.SCHEDULED else report?.request != it || report.phase != "complete"
     }
