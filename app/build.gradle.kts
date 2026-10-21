@@ -18,8 +18,8 @@ extensions.configure<ApplicationExtension> {
         applicationId = "love.nairain.huawei"
         minSdk = 28
         targetSdk = 37
-        versionCode = 15
-        versionName = "1.5"
+        versionCode = 20
+        versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -39,9 +39,6 @@ extensions.configure<ApplicationExtension> {
     buildFeatures {
         buildConfig = true
         compose = true
-    }
-    androidResources {
-        generateLocaleConfig = true
     }
     lint {
         // 构建插件升级需要单独验证，不作为源码质量告警处理。
