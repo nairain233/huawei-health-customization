@@ -18,7 +18,7 @@
     <string name="about_lib_summary">%1$s · %2$s</string>
     <string name="about_link_failed">No app can open this link</string>
 
-    <string name="settings_health_title">Health page items</string>
+    <string name="settings_health_title">Today page items</string>
     <string name="settings_sport_title">Exercise page items</string>
     <string name="settings_device_title">Devices page items</string>
     <string name="settings_mine_title">Me page items</string>
@@ -26,8 +26,8 @@
     <string name="settings_group_page_top">Top of page</string>
     <string name="settings_group_quick_entries">Shortcuts</string>
     <string name="settings_group_sport_recommend">Recommendations</string>
-    <string name="settings_group_sport_plan">Plans</string>
-    <string name="settings_group_sport_run">Outdoor running</string>
+    <string name="settings_group_sport_plan">Plan</string>
+    <string name="settings_group_sport_run">Outdoor run</string>
     <string name="settings_group_sport_yoga">Yoga</string>
     <string name="settings_group_sport_fitness">Fitness</string>
     <string name="settings_group_health_cards">Health cards</string>
@@ -40,7 +40,7 @@
     <string name="settings_group_other">Other</string>
     <string name="settings_group_settings_support">Settings and support</string>
     <string name="settings_search">Search</string>
-    <string name="settings_more_menu">More menu</string>
+    <string name="settings_more_menu">More items</string>
 
     <string name="settings_health_search">Search</string>
     <string name="settings_health_activity_rings">Activity rings</string>
@@ -48,7 +48,7 @@
     <string name="settings_health_edit_cards">Rearrange cards</string>
     <string name="settings_health_today">Recommended</string>
     <string name="settings_health_insights">Health insights</string>
-    <string name="settings_health_headlines">Health headlines</string>
+    <string name="settings_health_headlines">Health Daily</string>
     <string name="settings_health_tips">Tips card</string>
     <string name="settings_health_promotion">Promotional card</string>
 
@@ -72,7 +72,7 @@
     <string name="settings_sport_plan_weight">Weight management card</string>
     <string name="settings_sport_plan_training">Training plan card</string>
     <string name="settings_sport_run_summary">Running summary</string>
-    <string name="settings_sport_run_route">Route entry</string>
+    <string name="settings_sport_run_route">Route</string>
     <string name="settings_sport_run_training">Running courses</string>
     <string name="settings_sport_fitness_summary">Fitness summary</string>
     <string name="settings_sport_yoga_summary">Yoga summary</string>
@@ -80,7 +80,7 @@
     <string name="settings_sport_my_courses">My fitness courses</string>
     <string name="settings_sport_weekly_plan">Weekly training plan</string>
     <string name="settings_sport_run_warmup">Warm-up</string>
-    <string name="settings_sport_run_begin">Start running</string>
+    <string name="settings_sport_run_begin">Start workout</string>
     <string name="settings_sport_run_music">Running music</string>
     <string name="settings_sport_enjoy">Enjoy exercise</string>
     <string name="settings_sport_today">Get moving today</string>
@@ -123,18 +123,18 @@
     <string name="settings_mine_courses">Courses and plans</string>
     <string name="settings_mine_activities">My activities</string>
     <string name="settings_mine_routes">My route</string>
-    <string name="settings_mine_profile">profile</string>
+    <string name="settings_mine_profile">Profile</string>
     <string name="settings_orders">My orders</string>
     <string name="settings_assets">My assets</string>
-    <string name="settings_mine_ihealth">iHealth Labs</string>
+    <string name="settings_mine_ihealth">Experimental features</string>
     <string name="settings_settings">Settings</string>
     <string name="settings_privacy">Privacy management</string>
-    <string name="settings_help">Help</string>
-    <string name="settings_mine_feedback">Questions and suggestions</string>
+    <string name="settings_help">Help &amp; customer service</string>
+    <string name="settings_mine_feedback">Problems and suggestions</string>
     <string name="settings_update">Check for updates</string>
     <string name="settings_mine_about">About</string>
 
-    <string name="settings_tab_health">Health</string>
+    <string name="settings_tab_health">Today</string>
     <string name="settings_tab_sport">Exercise</string>
     <string name="settings_tab_member">VIP</string>
     <string name="settings_tab_device">Devices</string>
@@ -189,17 +189,17 @@
     <string name="sport_top_title">Top bar</string>
     <string name="sport_page_contents">Page content</string>
     <string name="sport_tabs_title">Top tabs</string>
-    <string name="sport_page_number">Sport page %1$d</string>
+    <string name="sport_page_number">Exercise page %1$d</string>
     <string name="sport_parent_hidden">Parent section hidden; individual choice retained</string>
 
     <!-- 运动页固定清单，不依赖宿主访问状态。 -->
     <string name="sport_page_recommend">Recommended</string>
-    <string name="sport_page_plan">Plans</string>
+    <string name="sport_page_plan">Plan</string>
     <string name="sport_page_run">Outdoor run</string>
     <string name="sport_page_yoga">Yoga</string>
     <string name="sport_page_fitness">Fitness</string>
-    <string name="sport_page_walk">Walking</string>
-    <string name="sport_page_cycle">Cycling</string>
+    <string name="sport_page_walk">Walk</string>
+    <string name="sport_page_cycle">Cycle</string>
     <string name="sport_page_golf">Golf</string>
     <string name="sport_page_rope">Jump rope</string>
     <string name="sport_fixed_500001_hide_sport_banner">Banner</string>
@@ -229,17 +229,17 @@
     <string name="sport_fixed_258_hide_sport_run_summary">Activity overview</string>
     <string name="sport_fixed_258_hide_sport_run_warmup">Warm-up</string>
     <string name="sport_fixed_258_hide_sport_run_begin">Start button</string>
-    <string name="sport_fixed_258_goal">Set a goal</string>
-    <string name="sport_fixed_258_hide_sport_run_route">Routes</string>
+    <string name="sport_fixed_258_goal">Set goal</string>
+    <string name="sport_fixed_258_hide_sport_run_route">Route</string>
     <string name="sport_fixed_257_hide_sport_run_summary">Activity overview</string>
     <string name="sport_fixed_257_hide_sport_run_warmup">Warm-up</string>
     <string name="sport_fixed_257_hide_sport_run_begin">Start button</string>
-    <string name="sport_fixed_257_goal">Set a goal</string>
+    <string name="sport_fixed_257_goal">Set goal</string>
     <string name="sport_fixed_259_hide_sport_run_summary">Activity overview</string>
     <string name="sport_fixed_259_hide_sport_run_warmup">Warm-up</string>
     <string name="sport_fixed_259_hide_sport_run_begin">Start button</string>
-    <string name="sport_fixed_259_goal">Set a goal</string>
-    <string name="sport_fixed_259_hide_sport_run_route">Routes</string>
+    <string name="sport_fixed_259_goal">Set goal</string>
+    <string name="sport_fixed_259_hide_sport_run_route">Route</string>
     <string name="sport_fixed_283_hide_sport_run_summary">Activity overview</string>
     <string name="sport_fixed_283_hide_sport_run_warmup">Warm-up</string>
     <string name="sport_fixed_283_hide_sport_run_begin">Start button</string>
