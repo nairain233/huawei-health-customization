@@ -16,10 +16,4 @@ local.properties
 /.zcf/
 /tools/
 /AGENTS.md
-/docs/*
-!/docs/运动页分层精简说明.md
-!/docs/fix-records/
-/docs/fix-records/*
-!/docs/fix-records/2026-10-20-运动页分层精简.md
-
-!/docs/fix-records/2026-10-21-运动页本地固化与设备验收.md
+/docs

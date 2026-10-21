@@ -64,6 +64,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
@@ -230,14 +231,24 @@ internal fun SettingsGroup(title: String? = null, content: @Composable ColumnSco
     }
 }
 
+/** 说明与可关闭提示共用蓝框样式，边框在卡片内部绘制，避免被背景覆盖。 */
+@Composable
+private fun SettingsInfoCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    Card(modifier = modifier.fillMaxWidth(), colors = CardDefaults.defaultColors(
+        color = colors.primary.copy(alpha = .16f).compositeOver(colors.surface), contentColor = colors.onTertiaryContainer)) {
+        Column(Modifier.fillMaxWidth().squircleBorder(width = 1.dp, color = colors.primary,
+            cornerRadius = CardDefaults.CornerRadius), content = content)
+    }
+}
+
 /** 关闭仅影响当前提示的显示；文案变化时重新显示，不写入功能配置。 */
 @Composable
 internal fun SettingsNotice(text: String, strings: Resources, modifier: Modifier = Modifier) {
     var dismissed by remember(text) { mutableStateOf(false) }
     if (dismissed) return
     val colors = MiuixTheme.colorScheme
-    Card(modifier = modifier.fillMaxWidth(), colors = CardDefaults.defaultColors(
-        color = colors.primary.copy(alpha = .16f).compositeOver(colors.surface), contentColor = colors.onTertiaryContainer)) {
+    SettingsInfoCard(modifier) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
             SelectionContainer(Modifier.weight(1f)) {
@@ -257,9 +268,11 @@ internal fun SettingsNotice(text: String, strings: Resources, modifier: Modifier
 
 @Composable
 internal fun SettingsNote(text: String) {
-    SelectionContainer {
-        Text(text = text, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+    SettingsInfoCard {
+        SelectionContainer {
+            Text(text = text, modifier = Modifier.padding(16.dp),
+                style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onTertiaryContainer)
+        }
     }
 }
 
