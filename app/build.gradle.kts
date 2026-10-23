@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
+    implementation(libs.compose.animation)
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.savedstate)
     implementation(libs.miuix.ui)

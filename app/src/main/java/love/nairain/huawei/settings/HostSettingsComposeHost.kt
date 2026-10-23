@@ -66,9 +66,10 @@ internal class HostSettingsComposeHost(
             content.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             content.setContent {
                 val current = model.value
-                val scroll = scrolls.getOrPut(current.route) { ScrollState(page.scroll[current.route] ?: 0) }
                 CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides owner) {
-                    HostSettingsScreen(current, resources, scroll, customList, action)
+                    HostSettingsScreen(current, resources, { route ->
+                        scrolls.getOrPut(route) { ScrollState(page.scroll[route] ?: 0) }
+                    }, customList, action)
                 }
             }
             view.addView(content, ViewGroup.LayoutParams(-1, -1))

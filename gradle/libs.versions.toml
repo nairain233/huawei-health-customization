@@ -24,6 +24,7 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "xposedApi" }
 compose-ui = { module = "androidx.compose.ui:ui", version.ref = "compose" }
 compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "compose" }
+compose-animation = { module = "androidx.compose.animation:animation", version.ref = "compose" }
 compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4-android", version.ref = "compose" }
 androidx-lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime", version.ref = "lifecycle" }
 androidx-savedstate = { module = "androidx.savedstate:savedstate", version.ref = "savedstate" }

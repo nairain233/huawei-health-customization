@@ -5,12 +5,23 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.view.View
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.findViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.navigationevent.setViewTreeNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -74,6 +85,91 @@ class HostSettingsComposeTest {
         }
     }
 
+    @Test fun pageTransitionMovesAndRejectsCallbacksFromDepartingPage() {
+        val requested = mutableListOf<HostSettingsAction>()
+        val initial = ready()
+        withAnimatedScreen(initial, action = requested::add) { update ->
+            val oldClick = compose.onNodeWithText(strings.getString(R.string.experimental_features_title))
+                .fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
+            val restingLeft = compose.onNodeWithTag("settings.page.home").fetchSemanticsNode().boundsInRoot.left
+            compose.mainClock.autoAdvance = false
+            try {
+                instrumentation.runOnMainSync { update(initial.copy(route = "experimental")) }
+                compose.mainClock.advanceTimeBy(48)
+                val incoming = compose.onNodeWithTag("settings.page.experimental").fetchSemanticsNode().boundsInRoot.left
+                assertTrue("进入子页应从右侧滑入", incoming > restingLeft)
+                instrumentation.runOnMainSync { oldClick() }
+                assertTrue("退场页面的旧点击不得发出导航命令", requested.isEmpty())
+                compose.mainClock.advanceTimeBy(96)
+                val approaching = compose.onNodeWithTag("settings.page.experimental").fetchSemanticsNode().boundsInRoot.left
+                assertTrue(approaching < incoming)
+                // 动画中继续进入、返回，最终只能保留当前页。
+                instrumentation.runOnMainSync { update(initial.copy(route = "services")) }
+                compose.mainClock.advanceTimeBy(48)
+                instrumentation.runOnMainSync { update(initial) }
+                compose.mainClock.advanceTimeBy(600)
+                compose.onNodeWithTag("settings.page.home").assertIsDisplayed()
+                compose.onNodeWithTag("settings.page.experimental").assertDoesNotExist()
+                compose.onNodeWithTag("settings.page.services").assertDoesNotExist()
+            } finally { compose.mainClock.autoAdvance = true }
+        }
+    }
+
+    @Test fun confirmationRetainsExitAnimationAndCanReopenWhileHiding() {
+        val requested = mutableListOf<HostSettingsAction>()
+        val initial = ready("services").copy(pendingPreset = ServicePreset.DEVICE_CORE)
+        withAnimatedScreen(initial, action = requested::add) { update ->
+            val title = strings.getString(R.string.service_confirm_block)
+            compose.onNodeWithText(title).assertIsDisplayed()
+            val oldConfirm = compose.onNodeWithText(strings.getString(android.R.string.ok))
+                .fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
+            compose.mainClock.autoAdvance = false
+            try {
+                instrumentation.runOnMainSync { update(initial.copy(pendingPreset = null)) }
+                compose.mainClock.advanceTimeBy(64)
+                compose.onNodeWithText(title).assertExists()
+                compose.onNodeWithText(strings.getString(android.R.string.ok)).assertIsNotEnabled()
+                instrumentation.runOnMainSync { oldConfirm() }
+                assertTrue("退场确认按钮不能重放业务命令", requested.isEmpty())
+                instrumentation.runOnMainSync { update(initial) }
+                compose.mainClock.advanceTimeBy(600)
+                compose.onNodeWithText(title).assertIsDisplayed()
+                compose.onNodeWithText(strings.getString(android.R.string.ok)).assertIsEnabled()
+                instrumentation.runOnMainSync { update(initial.copy(pendingPreset = null)) }
+                compose.mainClock.advanceTimeBy(400)
+                compose.onNodeWithText(title).assertDoesNotExist()
+            } finally { compose.mainClock.autoAdvance = true }
+        }
+    }
+
+    @Test fun pageDirectionMirrorsInRtlAndReversesOnBack() {
+        for (rtl in listOf(false, true)) {
+            val configuration = Configuration(strings.configuration).apply {
+                setLocale(Locale.ENGLISH)
+                setLayoutDirection(if (rtl) Locale.forLanguageTag("ar") else Locale.ENGLISH)
+            }
+            val initial = ready("experimental")
+            withAnimatedScreen(initial, configuration = configuration) { update ->
+                val resting = compose.onNodeWithTag("settings.page.experimental").fetchSemanticsNode().positionInRoot.x
+                compose.mainClock.autoAdvance = false
+                try {
+                    instrumentation.runOnMainSync { update(initial.copy(route = "services")) }
+                    compose.mainClock.advanceTimeBy(48)
+                    val forward = compose.onNodeWithTag("settings.page.services").fetchSemanticsNode().positionInRoot.x - resting
+                    assertTrue("前进方向须跟随布局方向", if (rtl) forward < 0 else forward > 0)
+                    captureNoticeScreenshot("motion-${if (rtl) "rtl" else "ltr"}-forward")
+                    compose.mainClock.advanceTimeBy(600)
+                    instrumentation.runOnMainSync { update(initial) }
+                    compose.mainClock.advanceTimeBy(48)
+                    val back = compose.onNodeWithTag("settings.page.experimental").fetchSemanticsNode().positionInRoot.x - resting
+                    assertTrue("返回须反向播放", if (rtl) back > 0 else back < 0)
+                    captureNoticeScreenshot("motion-${if (rtl) "rtl" else "ltr"}-back")
+                    compose.mainClock.advanceTimeBy(600)
+                } finally { compose.mainClock.autoAdvance = true }
+            }
+        }
+    }
+
     @Test fun confirmedValuesStayUnchangedAndErrorsKeepEditsDisabled() {
         val requested = mutableListOf<HostSettingsAction>()
         val initial = ready()
@@ -108,6 +204,7 @@ class HostSettingsComposeTest {
             android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("input keyevent 4")).use { it.readBytes() }
             compose.waitUntil(5000) { requested.contains(HostSettingsAction.CancelPreset) }
             compose.runOnIdle { host.update(initial.copy(pendingPreset = null)) }
+            compose.waitUntil(5000) { compose.onAllNodesWithText(strings.getString(R.string.service_confirm_block)).fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithText(strings.getString(R.string.service_confirm_block)).assertDoesNotExist()
         }
     }
@@ -131,6 +228,7 @@ class HostSettingsComposeTest {
             compose.onNode(hasSetTextAction()).assertTextContains("NoMatchingService")
             compose.onNodeWithText(strings.getString(R.string.service_block_empty)).assertDoesNotExist()
             compose.onNodeWithText(strings.getString(R.string.host_settings_apply_filter)).performClick()
+            compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(strings.getString(R.string.service_block_empty)))
             compose.onNodeWithText(strings.getString(R.string.service_block_empty)).assertIsDisplayed()
         }
     }
@@ -234,6 +332,7 @@ class HostSettingsComposeTest {
                 compose.onNodeWithContentDescription(dismiss).assertIsDisplayed()
                 captureNoticeScreenshot(variant)
                 compose.onNodeWithContentDescription(dismiss).performClick()
+                compose.waitUntil(5000) { compose.onAllNodesWithText(saved).fetchSemanticsNodes().isEmpty() }
                 compose.onNodeWithText(saved).assertDoesNotExist()
                 compose.runOnIdle { host.update(initial) }
                 compose.onNodeWithText(saved).assertDoesNotExist()
@@ -241,6 +340,7 @@ class HostSettingsComposeTest {
                 compose.onNodeWithText(localized.getString(R.string.host_restart)).assertIsDisplayed()
                 captureNoticeScreenshot("$variant-closed")
                 compose.runOnIdle { host.update(initial.copy(settings = initial.settings.copy(notice = HostSettingsNotice.SCHEDULED))) }
+                compose.waitUntil(5000) { compose.onNodeWithText(localized.getString(R.string.host_ui_scheduled)).isDisplayed() }
                 compose.onNodeWithText(localized.getString(R.string.host_ui_scheduled)).assertIsDisplayed()
                 compose.onNodeWithContentDescription(dismiss).assertIsDisplayed()
                 compose.runOnIdle { assertTrue(actions.isEmpty()) }
@@ -313,6 +413,50 @@ class HostSettingsComposeTest {
         assertNotNull(bitmap)
         File(instrumentation.targetContext.cacheDir, "settings-notice-$name.png").outputStream().use {
             assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+        }
+    }
+
+    /** 中间帧测试使用框架注入的窗口 Recomposer；生产宿主的独立 Recomposer 另由 withHost 回归。 */
+    private fun withAnimatedScreen(initial: HostSettingsUiState, action: (HostSettingsAction) -> Unit = {},
+        configuration: Configuration = strings.configuration, check: ((HostSettingsUiState) -> Unit) -> Unit) {
+        ActivityScenario.launch(TestHostActivity::class.java).use { scenario ->
+            val model = mutableStateOf(initial)
+            val scrolls = mutableMapOf<String, ScrollState>()
+            val list = LazyListState()
+            lateinit var owner: HostComposeOwner
+            lateinit var dialog: Dialog
+            lateinit var view: ComposeView
+            scenario.onActivity { activity ->
+                owner = HostComposeOwner()
+                @Suppress("DEPRECATION")
+                val resources = Resources(activity.resources.assets, activity.resources.displayMetrics, configuration)
+                view = ComposeView(activity).apply {
+                    setViewTreeLifecycleOwner(owner)
+                    setViewTreeSavedStateRegistryOwner(owner)
+                    setViewTreeNavigationEventDispatcherOwner(owner)
+                    setContent {
+                        CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides owner,
+                            LocalConfiguration provides configuration,
+                            LocalLayoutDirection provides if (configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr) {
+                            HostSettingsScreen(model.value, resources, { scrolls.getOrPut(it) { ScrollState(0) } }, list, action)
+                        }
+                    }
+                }
+                dialog = Dialog(activity).apply {
+                    setContentView(view)
+                    show()
+                    window!!.setLayout(activity.resources.displayMetrics.widthPixels, (activity.resources.displayMetrics.heightPixels * .82f).toInt())
+                }
+                owner.moveTo(Lifecycle.State.RESUMED)
+            }
+            try { check { model.value = it } }
+            finally {
+                scenario.onActivity {
+                    view.disposeComposition()
+                    owner.moveTo(Lifecycle.State.DESTROYED)
+                    dialog.dismiss()
+                }
+            }
         }
     }
 

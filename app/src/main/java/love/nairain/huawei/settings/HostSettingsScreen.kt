@@ -7,6 +7,15 @@ import android.view.KeyEvent
 import android.view.KeyboardShortcutGroup
 import android.view.Menu
 import android.view.Window
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.key
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +51,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
@@ -52,6 +62,7 @@ import love.nairain.huawei.app.openSourceLibraries
 import love.nairain.huawei.config.SettingsCatalog
 import love.nairain.huawei.config.SettingsCategory
 import love.nairain.huawei.config.SettingsKeys
+import love.nairain.huawei.config.ServicePreset
 import love.nairain.huawei.scan.ScanProtocol
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -75,12 +86,13 @@ import java.util.Date
 /** 全屏页面只有一个主题和 Scaffold，平台根容器统一消费系统栏及输入法 Insets。 */
 @Composable
 internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources,
-    scroll: ScrollState, customList: LazyListState, action: (HostSettingsAction) -> Unit) {
+    scrollForRoute: (String) -> ScrollState, customList: LazyListState, action: (HostSettingsAction) -> Unit) {
     val configuration = LocalConfiguration.current
     @Suppress("DEPRECATION")
     val strings = remember(resources, configuration) { Resources(resources.assets, resources.displayMetrics, configuration) }
     val theme = remember { ThemeController(ColorSchemeMode.System) }
     val initialFilterRevision = remember { model.filterRevision }
+    val currentRoute by rememberUpdatedState(model.route)
     LaunchedEffect(model.filterRevision) { if (model.filterRevision != initialFilterRevision) customList.scrollToItem(0) }
     MiuixTheme(controller = theme) {
         Scaffold(
@@ -115,53 +127,73 @@ internal fun HostSettingsScreen(model: HostSettingsUiState, resources: Resources
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                 SettingsStatus(model, strings, action)
-                key(model.route) {
-                    if (model.route == "custom") HostSettingsCustomServices(model, strings, customList, action, Modifier.weight(1f))
-                    else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        when (model.route) {
-                            "home" -> HostSettingsHome(model, strings, action)
-                            "experimental" -> {
-                                SettingsNotice(strings.getString(R.string.host_watchface_location), strings)
-                                SettingsCard { LayoutSwitch(SettingsKeys.LOCAL_WATCH_FACE, strings.getString(R.string.watchface_import_title), model, action) }
-                                SettingsCard { ArrowPreference(title = strings.getString(R.string.service_block_title), onClick = { action(HostSettingsAction.Navigate("services")) }) }
-                            }
-                            "services" -> HostSettingsServices(model, strings, action)
-                            "SPORT" -> HostSettingsSportHome(model, strings, action)
-                            "sport.top" -> HostSettingsSportTop(model, strings, action)
-                            "scan" -> ScanPage(model, strings, action)
-                            "about" -> AboutPage(strings, action)
-                            "licenses" -> SettingsCard { openSourceLibraries.forEach { library ->
-                                ArrowPreference(title = library.name, summary = strings.getString(R.string.about_lib_summary, library.license, library.author),
-                                    onClick = { action(HostSettingsAction.OpenLink(library.url)) })
-                            } }
-                            else -> if (model.route.startsWith("sport.page.")) {
-                                model.route.substringAfterLast('.').toIntOrNull()?.let {
-                                    HostSettingsSportContent(it, model, strings, action)
-                                }
-                            } else SettingsCategory.entries.firstOrNull { it.name == model.route }?.let { category ->
-                                if (category == SettingsCategory.BOTTOM && model.needsHealthRoute) SettingsNotice(strings.getString(R.string.host_settings_health_route), strings)
-                                SettingsCatalog.groupsFor(category).forEach { group ->
-                                    SettingsGroup(group.title?.let(strings::getString)) { group.settings.forEach { setting ->
-                                        LayoutSwitch(setting.key, strings.getString(setting.title), model, action)
-                                    } }
-                                }
-                            }
-                        }
-                    }
+                SettingsPageTransition(model.route, Modifier.weight(1f).fillMaxWidth()) { route ->
+                    // 路由与滚动状态跟随正在绘制的页面，退场回调不能操作新页面。
+                    val pageModel = model.copy(route = route)
+                    val pageAction: (HostSettingsAction) -> Unit = { if (route == currentRoute) action(it) }
+                    SettingsPageContent(pageModel, strings, scrollForRoute(route), customList, pageAction)
                 }
             }
         }
-        model.pendingPreset?.let { preset ->
-            WindowDialog(show = true, title = strings.getString(R.string.service_confirm_block), summary = strings.getString(preset.impact),
-                largeScreen = true, onDismissRequest = { action(HostSettingsAction.CancelPreset) }) {
-                ConfirmationWindowBackInput { action(HostSettingsAction.CancelPreset) }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextButton(text = strings.getString(R.string.service_cancel), modifier = Modifier.weight(1f), onClick = { action(HostSettingsAction.CancelPreset) })
-                    TextButton(text = strings.getString(android.R.string.ok), modifier = Modifier.weight(1f),
-                        enabled = model.presetEditable(preset), colors = ButtonDefaults.textButtonColorsPrimary(), onClick = { action(HostSettingsAction.ConfirmPreset) })
+        SettingsPresetConfirmation(model, strings, action)
+    }
+}
+
+@Composable
+private fun SettingsPageContent(model: HostSettingsUiState, strings: Resources, scroll: ScrollState,
+    customList: LazyListState, action: (HostSettingsAction) -> Unit) {
+    if (model.route == "custom") HostSettingsCustomServices(model, strings, customList, action, Modifier.fillMaxSize())
+    else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        when (val route = model.route) {
+            "home" -> HostSettingsHome(model, strings, action)
+            "experimental" -> {
+                SettingsNotice(strings.getString(R.string.host_watchface_location), strings)
+                SettingsCard { LayoutSwitch(SettingsKeys.LOCAL_WATCH_FACE, strings.getString(R.string.watchface_import_title), model, action) }
+                SettingsCard { ArrowPreference(title = strings.getString(R.string.service_block_title), onClick = { action(HostSettingsAction.Navigate("services")) }) }
+            }
+            "services" -> HostSettingsServices(model, strings, action)
+            "SPORT" -> HostSettingsSportHome(model, strings, action)
+            "sport.top" -> HostSettingsSportTop(model, strings, action)
+            "scan" -> ScanPage(model, strings, action)
+            "about" -> AboutPage(strings, action)
+            "licenses" -> SettingsCard { openSourceLibraries.forEach { library ->
+                ArrowPreference(title = library.name, summary = strings.getString(R.string.about_lib_summary, library.license, library.author),
+                    onClick = { action(HostSettingsAction.OpenLink(library.url)) })
+            } }
+            else -> if (route.startsWith("sport.page.")) {
+                route.substringAfterLast('.').toIntOrNull()?.let {
+                    HostSettingsSportContent(it, model, strings, action)
+                }
+            } else SettingsCategory.entries.firstOrNull { it.name == route }?.let { category ->
+                if (category == SettingsCategory.BOTTOM && model.needsHealthRoute) SettingsNotice(strings.getString(R.string.host_settings_health_route), strings)
+                SettingsCatalog.groupsFor(category).forEach { group ->
+                    SettingsGroup(group.title?.let(strings::getString)) { group.settings.forEach { setting ->
+                        LayoutSwitch(setting.key, strings.getString(setting.title), model, action)
+                    } }
                 }
             }
+        }
+    }
+}
+
+/** 业务立即确认/取消；仅保留退场文案，动画完成后释放，不延后或重放配置命令。 */
+@Composable
+private fun SettingsPresetConfirmation(model: HostSettingsUiState, strings: Resources, action: (HostSettingsAction) -> Unit) {
+    var retained by remember { mutableStateOf<ServicePreset?>(null) }
+    val pending = model.pendingPreset
+    SideEffect { if (pending != null) retained = pending }
+    val preset = pending ?: retained ?: return
+    val currentPending by rememberUpdatedState(pending)
+    val cancel = { if (currentPending == preset) action(HostSettingsAction.CancelPreset) }
+    WindowDialog(show = pending != null, title = strings.getString(R.string.service_confirm_block), summary = strings.getString(preset.impact),
+        largeScreen = true, onDismissRequest = cancel,
+        onDismissFinished = { if (currentPending == null) retained = null }) {
+        ConfirmationWindowBackInput(cancel)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton(text = strings.getString(R.string.service_cancel), modifier = Modifier.weight(1f), enabled = pending != null, onClick = cancel)
+            TextButton(text = strings.getString(android.R.string.ok), modifier = Modifier.weight(1f),
+                enabled = pending != null && model.presetEditable(preset), colors = ButtonDefaults.textButtonColorsPrimary(),
+                onClick = { if (currentPending == preset) action(HostSettingsAction.ConfirmPreset) })
         }
     }
 }
@@ -242,20 +274,22 @@ private fun SettingsInfoCard(modifier: Modifier = Modifier, content: @Composable
 @Composable
 internal fun SettingsNotice(text: String, strings: Resources, modifier: Modifier = Modifier) {
     var dismissed by remember(text) { mutableStateOf(false) }
-    if (dismissed) return
     val colors = MiuixTheme.colorScheme
-    SettingsInfoCard(modifier) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            SelectionContainer(Modifier.weight(1f)) {
-                Text(text = text, modifier = Modifier.padding(vertical = 8.dp),
-                    style = MiuixTheme.textStyles.body2, color = colors.onTertiaryContainer)
-            }
-            IconButton(onClick = { dismissed = true },
-                modifier = Modifier.size(48.dp).semantics { contentDescription = strings.getString(R.string.host_ui_dismiss_notice) }) {
-                Canvas(Modifier.size(14.dp)) {
-                    drawLine(colors.onTertiaryContainer, Offset.Zero, Offset(size.width, size.height), 1.5.dp.toPx(), StrokeCap.Round)
-                    drawLine(colors.onTertiaryContainer, Offset(size.width, 0f), Offset(0f, size.height), 1.5.dp.toPx(), StrokeCap.Round)
+    AnimatedVisibility(visible = !dismissed, enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+        exit = fadeOut(tween(140)) + shrinkVertically(tween(180))) {
+        SettingsInfoCard(modifier) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                SelectionContainer(Modifier.weight(1f)) {
+                    Text(text = text, modifier = Modifier.padding(vertical = 8.dp),
+                        style = MiuixTheme.textStyles.body2, color = colors.onTertiaryContainer)
+                }
+                IconButton(onClick = { dismissed = true },
+                    modifier = Modifier.size(48.dp).semantics { contentDescription = strings.getString(R.string.host_ui_dismiss_notice) }) {
+                    Canvas(Modifier.size(14.dp)) {
+                        drawLine(colors.onTertiaryContainer, Offset.Zero, Offset(size.width, size.height), 1.5.dp.toPx(), StrokeCap.Round)
+                        drawLine(colors.onTertiaryContainer, Offset(size.width, 0f), Offset(0f, size.height), 1.5.dp.toPx(), StrokeCap.Round)
+                    }
                 }
             }
         }
@@ -281,23 +315,36 @@ internal fun LayoutSwitch(key: String, title: String, model: HostSettingsUiState
 
 @Composable
 private fun SettingsStatus(model: HostSettingsUiState, strings: Resources, action: (HostSettingsAction) -> Unit) {
-    val notice = when (model.settings.notice) {
-        HostSettingsNotice.LOADING -> R.string.host_ui_loading
-        HostSettingsNotice.SAVING -> R.string.host_ui_saving
-        HostSettingsNotice.SAVED -> R.string.host_ui_saved
-        HostSettingsNotice.SCHEDULED -> R.string.host_ui_scheduled
-        HostSettingsNotice.FAILED -> R.string.host_ui_save_failed
-        HostSettingsNotice.UNAVAILABLE -> R.string.host_ui_unavailable
-        HostSettingsNotice.UNCERTAIN -> R.string.host_ui_uncertain
-        HostSettingsNotice.READY -> null
+    val currentStatus by rememberUpdatedState(model.settings.notice)
+    AnimatedContent(targetState = model.settings.notice, label = "settings-status",
+        transitionSpec = { (fadeIn(tween(180)) togetherWith fadeOut(tween(120)))
+            .using(SizeTransform { _, _ -> tween(180) }) }) { status ->
+        val semantics = if (status == model.settings.notice) Modifier else Modifier.clearAndSetSemantics {}
+        Column(Modifier.fillMaxWidth().then(semantics)) {
+            val notice = when (status) {
+                HostSettingsNotice.LOADING -> R.string.host_ui_loading
+                HostSettingsNotice.SAVING -> R.string.host_ui_saving
+                HostSettingsNotice.SAVED -> R.string.host_ui_saved
+                HostSettingsNotice.SCHEDULED -> R.string.host_ui_scheduled
+                HostSettingsNotice.FAILED -> R.string.host_ui_save_failed
+                HostSettingsNotice.UNAVAILABLE -> R.string.host_ui_unavailable
+                HostSettingsNotice.UNCERTAIN -> R.string.host_ui_uncertain
+                HostSettingsNotice.READY -> null
+            }
+            notice?.let { SettingsNotice(strings.getString(it), strings,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+            if (status in setOf(HostSettingsNotice.FAILED, HostSettingsNotice.UNAVAILABLE, HostSettingsNotice.UNCERTAIN)) {
+                TextButton(text = strings.getString(R.string.host_settings_retry), modifier = Modifier.padding(horizontal = 16.dp),
+                    enabled = status == model.settings.notice,
+                    onClick = { if (status == currentStatus) action(HostSettingsAction.Refresh) })
+            }
+        }
     }
-    notice?.let { SettingsNotice(strings.getString(it), strings,
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-    if (model.settings.notice in setOf(HostSettingsNotice.FAILED, HostSettingsNotice.UNAVAILABLE, HostSettingsNotice.UNCERTAIN)) {
-        TextButton(text = strings.getString(R.string.host_settings_retry), modifier = Modifier.padding(horizontal = 16.dp), onClick = { action(HostSettingsAction.Refresh) })
+    AnimatedVisibility(visible = model.watchFaceBusy, enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+        exit = fadeOut(tween(140)) + shrinkVertically(tween(180))) {
+        SettingsNotice(strings.getString(R.string.host_restart_watchface_busy), strings,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
     }
-    if (model.watchFaceBusy) SettingsNotice(strings.getString(R.string.host_restart_watchface_busy), strings,
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
 }
 
 @Composable
