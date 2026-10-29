@@ -31,6 +31,11 @@ extensions.configure<ApplicationExtension> {
             }
         }
     }
+    packaging {
+        dex {
+            useLegacyPackaging = true
+        }
+    }
     compileOptions {
         // 保持现有工具链和字节码目标，不随 UI 迁移升级构建依赖。
         sourceCompatibility = JavaVersion.VERSION_21
