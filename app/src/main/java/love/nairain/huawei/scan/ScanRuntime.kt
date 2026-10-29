@@ -74,7 +74,11 @@ internal object ScanRuntime {
             logger.info("Scan ${if (cached == null) "finished" else "cached"}: ${result.matched.size}/${ScanProtocol.keys.size}, ${SystemClock.elapsedRealtime() - start}ms")
             result.issues.forEach { (role, reason) -> logger.info("Scan source kept: $role, $reason") }
             result.failures.forEach { (key, reason) -> logger.info("Scan kept: $key, $reason") }
-            try { install(result, identity) } catch (error: Throwable) {
+            try {
+                logger.info("Layout installation started")
+                install(result, identity)
+                logger.info("Layout installation finished")
+            } catch (error: Throwable) {
                 logger.warn("Layout installation skipped: ${error.javaClass.simpleName}")
             }
         } catch (error: Throwable) {

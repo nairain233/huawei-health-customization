@@ -74,7 +74,7 @@ internal object HookCoordinator {
             logger.warn("Huawei Health package metadata unavailable; hooks skipped")
             return
         }
-        val client = love.nairain.huawei.settings.HostSettingsController(application) { logger.warn(it) }
+        val client = love.nairain.huawei.settings.HostSettingsController(application, logger::warn, logger::info)
         val restarter = love.nairain.huawei.settings.HostRestarter.create(application, { client.canRestart }) { logger.warn(it) }
         val dex = love.nairain.huawei.scan.HostDexSession(listOf(application.applicationInfo.sourceDir) +
             application.applicationInfo.splitSourceDirs.orEmpty().sorted())

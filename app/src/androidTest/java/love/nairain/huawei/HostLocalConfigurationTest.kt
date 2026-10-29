@@ -6,12 +6,15 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.SharedPreferences
+import android.os.Handler
+import android.os.Looper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import love.nairain.huawei.config.SettingsKeys
 import love.nairain.huawei.settings.AtomicHostConfigStorage
 import love.nairain.huawei.settings.HostConfiguration
 import love.nairain.huawei.settings.HostConfigStore
+import love.nairain.huawei.settings.HostConfigStorage
 import love.nairain.huawei.settings.HostSaveResult
 import love.nairain.huawei.settings.HostSettingsController
 import love.nairain.huawei.settings.HostSettingsNotice
@@ -20,9 +23,13 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /** 真正执行 AtomicFile 与 Android 主线程回调，不启动模块服务或读取旧偏好。 */
@@ -96,6 +103,66 @@ class HostLocalConfigurationTest {
         val persisted = HostConfigStore(AtomicHostConfigStorage(context)).load()
         assertTrue(persisted.layout.getValue(SettingsKeys.HEALTH_SEARCH))
         assertFalse(startup.get().layout.getValue(SettingsKeys.HEALTH_SEARCH))
+    }
+
+    @Test fun transientStartupReadFailureRecoversUsingAndroidMainThreadAndSerialScheduler() {
+        val context = fixture()
+        val storage = AtomicHostConfigStorage(context)
+        val initial = HostConfigStore(storage).load()
+        val expected = initial.copy(layout = initial.layout + (SettingsKeys.ENABLED to true) + (SettingsKeys.HEALTH_SEARCH to true))
+        assertEquals(HostSaveResult.SAVED, HostConfigStore(storage).also { it.load() }.save(expected))
+        val originalRaw = storage.read()
+        val reads = AtomicInteger()
+        val writes = AtomicInteger()
+        val callbacks = AtomicInteger()
+        val diagnostics = ConcurrentLinkedQueue<String>()
+        val ready = CountDownLatch(1)
+        val refreshed = CountDownLatch(1)
+        val worker = Executors.newSingleThreadScheduledExecutor()
+        val main = Handler(Looper.getMainLooper())
+        val client = HostSettingsController(
+            {
+                HostConfigStore(object : HostConfigStorage {
+                    override fun read(): String? {
+                        check(Looper.myLooper() != Looper.getMainLooper())
+                        if (reads.incrementAndGet() == 1) throw IOException("private injected content")
+                        return storage.read()
+                    }
+                    override fun write(raw: String) { writes.incrementAndGet(); storage.write(raw) }
+                })
+            }, worker, { main.post(it) }, { love.nairain.huawei.app.ServiceCatalog() }, diagnostics::add,
+        )
+        var subscription: AutoCloseable? = null
+        try {
+            instrumentation.runOnMainSync {
+                subscription = client.start {
+                    if (it.notice == HostSettingsNotice.READY) {
+                        assertTrue(client.canRestart)
+                        assertEquals(expected, it.configuration)
+                        if (ready.count != 0L) ready.countDown() else refreshed.countDown()
+                    }
+                }
+                client.initialize {
+                    assertSame(Looper.getMainLooper(), Looper.myLooper())
+                    assertEquals(expected, it)
+                    assertFalse(client.canRestart)
+                    callbacks.incrementAndGet()
+                }
+                assertFalse(client.canRestart)
+            }
+            assertTrue(ready.await(5, TimeUnit.SECONDS))
+            assertEquals(2, reads.get())
+            assertEquals(1, callbacks.get())
+            instrumentation.runOnMainSync { client.refresh(); assertFalse(client.canRestart) }
+            assertTrue(refreshed.await(5, TimeUnit.SECONDS))
+            assertEquals(1, callbacks.get())
+            assertEquals(0, writes.get())
+            assertEquals(originalRaw, storage.read())
+            assertEquals(listOf("Local configuration startup failed: IOException"), diagnostics.toList())
+        } finally {
+            instrumentation.runOnMainSync { subscription?.close() }
+            worker.shutdownNow()
+        }
     }
 
     @Test fun moduleApkHasNoLauncherSettingsServiceOrConfigurationProvider() {
