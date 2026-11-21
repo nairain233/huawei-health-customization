@@ -1,5 +1,6 @@
 package love.nairain.huawei.scan
 
+import love.nairain.huawei.config.SettingsKeys
 import org.json.JSONObject
 import java.security.MessageDigest
 
@@ -42,6 +43,11 @@ internal object ScanCache {
                 require(love.nairain.huawei.config.SettingsKeys.MINE_BADGES in result.capabilities[group].orEmpty() ||
                     "$group:${love.nairain.huawei.config.SettingsKeys.MINE_BADGES}" in result.issues)
             }
+            // 旧的标题与日志定位快照需要重扫；新版的明确未命中结果仍可缓存。
+            mapOf(EDIT_CARDS_SOURCE to SettingsKeys.HEALTH_EDIT_CARDS, MY_WATCH_SOURCE to SettingsKeys.DEVICE_MY_WATCH)
+                .forEach { (group, key) ->
+                    require(key in result.capabilities[group].orEmpty() || "$group:$key" in result.issues)
+                }
             listOf("sport.identity", "sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").forEach { group ->
                 require(group in result.groups || group in result.issues)
             }

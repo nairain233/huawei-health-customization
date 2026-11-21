@@ -251,10 +251,29 @@ class ApkScanTest {
                 }.isFailure)
             }
             assertEquals(result, ScanCache.decode(ScanCache.encode("apk", "", result), "apk", "") {})
-            listOf("health.edit-cards", "sport.quick-entry-bind", "device.refresh.0", "device.refresh.1",
+            listOf(EDIT_CARDS_SOURCE, MY_WATCH_SOURCE, "sport.quick-entry-bind", "device.refresh.0", "device.refresh.1",
                 "device.new.delegates", "mine.marketing").forEach { assertTrue("缺少 $it", it in result.groups) }
             assertEquals(10, result.capabilities.getValue("device.new.arkui").size)
-            assertEquals(9, result.identities.keys.count { it.startsWith("delegate:") })
+            val watchDelegates = result.identities.filter { (role, key) -> role.startsWith("delegate:") && key == K.DEVICE_MY_WATCH }
+                .keys.map { it.removePrefix("delegate:") }.toSet()
+            assertEquals(watchDelegates, result.bindings.keys.filter { it.endsWith("#watch.create#2") }
+                .map { it.substringBefore('#') }.toSet())
+            val watchResources = setOf("layout/my_watch_layout", "layout/device_combined_watch_face_layout")
+            val withoutWatchLayouts = scan(missingResources = watchResources)
+            assertFalse(K.DEVICE_MY_WATCH in withoutWatchLayouts.matched)
+            assertTrue(K.DEVICE_WATCH_FACES in withoutWatchLayouts.matched)
+            val withoutStandalone = scan(missingResources = setOf("layout/my_watch_layout"))
+            val withoutCombined = scan(missingResources = setOf("layout/device_combined_watch_face_layout"))
+            val variants = listOf(withoutStandalone, withoutCombined).map { partial ->
+                partial.identities.filterKeys { it.startsWith("delegate:") }.filterValues { it == K.DEVICE_MY_WATCH }.keys
+                    .map { it.removePrefix("delegate:") }.toSet().also { assertTrue(it.size <= 1) }
+            }
+            assertTrue(variants[0].intersect(variants[1]).isEmpty())
+            assertEquals(watchDelegates, variants.flatten().toSet())
+            if (System.getProperty("scan.version") == "17.0.10.330") {
+                assertEquals(listOf(1, 1), variants.map { it.size })
+            }
+            assertEquals(8, result.identities.count { (role, key) -> role.startsWith("delegate:") && key != K.DEVICE_MY_WATCH })
             assertEquals(result, LayoutResolution.decode(result.encode()))
             assertTrue(result.bindings.values.all(result.descriptors::contains))
             result.bindings.values.filter { '(' in it }.forEach {
@@ -275,6 +294,8 @@ class ApkScanTest {
             val missingEdit = scan({ if (it == result.bindings.getValue("com.huawei.ui.homehealth.functionsetcard.FunctionSetCardViewHolder#edit.update#0")) throw NoSuchMethodException() })
             assertFalse(K.HEALTH_EDIT_CARDS in missingEdit.matched)
             assertTrue(K.HEALTH_QUICK_ENTRIES in missingEdit.matched)
+            val noEditTitle = scan(missingResources = setOf("string/IDS_hw_health_home_edit_card"))
+            assertTrue(K.HEALTH_EDIT_CARDS in noEditTitle.matched)
             val missingCallback = scan({ if (it == result.bindings.getValue("mine.marketing")) throw NoSuchMethodException() })
             assertFalse(K.MINE_MARKETING in missingCallback.matched)
             assertTrue(K.MINE_GROUP in missingCallback.matched)

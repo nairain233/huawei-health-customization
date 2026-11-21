@@ -1,5 +1,6 @@
 package love.nairain.huawei.scan
 
+import love.nairain.huawei.config.SettingsKeys as K
 import org.junit.Assert.*
 import org.junit.Test
 import org.json.JSONObject
@@ -15,10 +16,15 @@ class ScanCacheTest {
     private val resolution = LayoutResolution(emptySet(), emptySet(), emptyMap(), setOf("Lsample/Target;->run()V"), "manager",
         ScanProtocol.keys.associateWith { "unresolved" }, issues = listOf("mine.badges.grid", "mine.badges.kaka")
             .associate { "$it:${love.nairain.huawei.config.SettingsKeys.MINE_BADGES}" to "entry_missing" } +
-            listOf("sport.identity", "sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").associateWith { "entry_missing" })
+            listOf("sport.identity", "sport.navigation", "sport.discovery", "sport.quick.discovery", "sport.fixed").associateWith { "entry_missing" } +
+            mapOf(
+                "$EDIT_CARDS_SOURCE:${K.HEALTH_EDIT_CARDS}" to "entry_missing",
+                "$MY_WATCH_SOURCE:${K.DEVICE_MY_WATCH}" to "entry_missing",
+            ))
 
     @Test fun oldCacheMustHaveCheckedBothAdditionalMineBadgePaths() {
-        resolution.issues.keys.forEach { missing ->
+        listOf("mine.badges.grid", "mine.badges.kaka").forEach { source ->
+            val missing = "$source:${K.MINE_BADGES}"
             val old = resolution.copy(issues = resolution.issues - missing)
             var verified = false
             assertTrue(runCatching {
@@ -28,6 +34,21 @@ class ScanCacheTest {
         }
         assertEquals(8, ScanProtocol.RULES)
         assertEquals(98, ScanProtocol.keys.size)
+    }
+
+    @Test fun cacheWithPreviousEditAndWatchRulesRequiresRescan() {
+        val previous = mapOf(
+            "$EDIT_CARDS_SOURCE:${K.HEALTH_EDIT_CARDS}" to "health.edit-cards:${K.HEALTH_EDIT_CARDS}",
+            "$MY_WATCH_SOURCE:${K.DEVICE_MY_WATCH}" to "device.new.arkui:${K.DEVICE_MY_WATCH}",
+        )
+        previous.forEach { (current, old) ->
+            val stale = resolution.copy(issues = resolution.issues - current + (old to "entry_missing"))
+            assertThrows(IllegalArgumentException::class.java) {
+                ScanCache.decode(ScanCache.encode("apk1", "", stale), "apk1", "") {
+                    fail("旧缓存应在复核描述符前失效")
+                }
+            }
+        }
     }
 
     @Test fun oldCacheMustHaveCheckedSportPathsBeforeMemberVerification() {

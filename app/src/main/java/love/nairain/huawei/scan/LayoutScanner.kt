@@ -15,6 +15,9 @@ import org.luckypray.dexkit.result.ClassData
 import org.luckypray.dexkit.result.FieldData
 import org.luckypray.dexkit.result.FieldUsingType
 
+internal const val EDIT_CARDS_SOURCE = "health.edit-cards.visibility"
+internal const val MY_WATCH_SOURCE = "device.new.arkui.my-watch"
+
 /** 按页面和业务关系定位；除明确的模型/委托集合外只接受唯一候选。 */
 internal class LayoutScanner(
     private val bridges: List<DexKitBridge>,
@@ -61,12 +64,20 @@ internal class LayoutScanner(
             val target = create.invokes.filter { it.name == "<init>" }.singleOrNull() ?: return@mapNotNull null
             val data = bridges.firstNotNullOfOrNull { it.getClassData(target.className) } ?: return@mapNotNull null
             Triple(data, create, target)
-        }
+        }.distinctBy { it.first.name }
+        val watchLayouts = if (key == K.DEVICE_MY_WATCH) entries.mapNotNull { (data, _, _) -> myWatchLayout(data) }
+            .groupBy { it.first } else emptyMap()
+        val watchDelegates = watchLayouts.values.map { layouts ->
+            require(layouts.size == 1) { "ambiguous" }
+            val (_, create, inflate) = layouts.single()
+            remember(create, create.className, "watch.create")
+            if (inflate != create) remember(inflate, create.className, "watch.inflate")
+            create.className
+        }.toSet()
         val logs = when (key) {
             K.DEVICE_PRIMARY -> setOf("DeviceDisplayDelegate", "R_DeviceDisplayDelegate")
             K.DEVICE_LIST -> setOf("DeviceListDelegate")
             K.DEVICE_TIPS -> setOf("DeviceTipDelegate")
-            K.DEVICE_MY_WATCH -> setOf("DeviceMyWatchDelegate", "DeviceCombinedWatchFaceDelegate")
             K.DEVICE_WATCH_FACES -> setOf("DeviceWatchFaceDelegate")
             else -> emptySet()
         }
@@ -77,7 +88,8 @@ internal class LayoutScanner(
         }
         val layoutId = layout?.let { id(it, "layout") }
         val selected = entries.filter { (data, _, _) ->
-            if (logs.isNotEmpty()) data.methods.any { method -> method.usingStrings.any(logs::contains) }
+            if (key == K.DEVICE_MY_WATCH) data.name in watchDelegates
+            else if (logs.isNotEmpty()) data.methods.any { method -> method.usingStrings.any(logs::contains) }
             else data.methods.any { method ->
                 method.name == "createItemView" && method.returnTypeName == "android.view.View" &&
                     (method.usingFields.any { it.field.name == layout && it.field.className.endsWith("R\$layout") } ||
@@ -85,9 +97,9 @@ internal class LayoutScanner(
                             declaredClass(data.name); name(method.name); usingNumbers(layoutId)
                         } }.isNotEmpty() }))
             }
-        }.distinctBy { it.first.name }
+        }
         require(selected.isNotEmpty()) { "entry_missing" }
-        require(key == K.DEVICE_FUNCTIONS || selected.size == 1) { "ambiguous" }
+        require(key in setOf(K.DEVICE_FUNCTIONS, K.DEVICE_MY_WATCH) || selected.size == 1) { "ambiguous" }
         selected.forEach { (data, factory, constructor) ->
             require(descendants(data.name, delegateBase)) { "dependency_missing" }
             if (key in setOf(K.DEVICE_FUNCTIONS, K.DEVICE_FEATURES)) require(descendants(data.name,
@@ -98,6 +110,29 @@ internal class LayoutScanner(
             }
         }
         return selected.map { it.first.name }
+    }
+
+    /** 两种手表卡片各有独立布局；核对创建回调直接或经一层 View 工厂加载的资源。 */
+    private fun myWatchLayout(delegate: ClassData): Triple<String, MethodData, MethodData>? {
+        val view = "android.view.View"
+        val inflater = "android.view.LayoutInflater"
+        val container = "android.view.ViewGroup"
+        val create = delegate.methods.singleOrNull {
+            it.name == "onCreateView" && it.returnTypeName == view && it.paramTypeNames == listOf(inflater, container)
+        } ?: return null
+        val viewFactories = listOf(create) + create.invokes.distinctBy { it.descriptor }.filter {
+            it.returnTypeName == view && it.paramTypeNames.toSet() == setOf(inflater, container)
+        }.mapNotNull { call -> bridges.firstNotNullOfOrNull { it.getMethodData(call.descriptor) } }
+        val layouts = listOf("my_watch_layout", "device_combined_watch_face_layout").flatMap { layout ->
+            if (id(layout, "layout") == 0) emptyList()
+            else viewFactories.filter { method ->
+                method.invokes.any { call -> call.className == inflater && call.name == "inflate" &&
+                    call.returnTypeName == view && call.paramTypeNames == listOf("int", container, "boolean") } &&
+                    usesResource(method, layout, "layout")
+            }.map { Triple(layout, create, it) }
+        }
+        require(layouts.size <= 1) { "ambiguous" }
+        return layouts.singleOrNull()
     }
 
     private fun candidates(owner: String?, result: String, params: List<String>?, anchor: String? = null): List<MethodData> {
@@ -182,10 +217,10 @@ internal class LayoutScanner(
 
     private fun resource(name: String): Boolean = id(name, "id") != 0
 
-    private fun usesResource(data: MethodData, name: String): Boolean {
-        val value = id(name, "id")
+    private fun usesResource(data: MethodData, name: String, kind: String = "id"): Boolean {
+        val value = id(name, kind)
         require(value != 0) { "resource_missing" }
-        return data.usingFields.any { it.field.name == name && it.field.className.endsWith("R\$id") } ||
+        return data.usingFields.any { it.field.name == name && it.field.className.endsWith("R\$$kind") } ||
             bridges.any { bridge -> bridge.findMethod { matcher {
                 declaredClass(data.className); name(data.name); paramTypes(*data.paramTypeNames.toTypedArray())
                 usingNumbers(value)
@@ -388,25 +423,37 @@ internal class LayoutScanner(
             method(owner, "notifyItemInserted", "void", listOf("int"))
             method(owner, "notifyItemRemoved", "void", listOf("int"))
         }
-        run("health.edit-cards", setOf(K.HEALTH_EDIT_CARDS)) {
-            type(points.functionSetHolder)
-            val root = hierarchy(points.functionSetHolder).firstNotNullOfOrNull { level -> level.fields.singleOrNull {
+        run(EDIT_CARDS_SOURCE, setOf(K.HEALTH_EDIT_CARDS)) {
+            val holder = type(points.functionSetHolder)
+            val root = hierarchy(holder.name).firstNotNullOfOrNull { level -> level.fields.singleOrNull {
                 it.name == "itemView" && it.typeName == "android.view.View"
             } } ?: throw IllegalArgumentException("entry_missing")
             verifySymbol(root.descriptor); descriptors += root.descriptor; evidence?.add(root.descriptor)
-            bindings["${points.functionSetHolder}#edit.root#field"] = root.descriptor
-            evidence?.add("binding:${points.functionSetHolder}#edit.root#field")
-            require(id("modify_cards_layout", "id") != 0) { "resource_missing" }
-            val titleId = id("IDS_hw_health_home_edit_card", "string")
-            require(titleId != 0) { "resource_missing" }
-            val updates = candidates(points.functionSetHolder, "void", emptyList()).filter { update ->
-                update.invokes.any { it.name == "setVisibility" && it.paramTypeNames == listOf("int") } &&
-                    (update.usingFields.any { it.field.name == "IDS_hw_health_home_edit_card" } ||
-                    bridges.any { bridge -> bridge.findMethod { matcher {
-                        declaredClass(points.functionSetHolder); name(update.name); usingNumbers(titleId)
-                    } }.isNotEmpty() })
+            bindings["${holder.name}#edit.root#field"] = root.descriptor
+            evidence?.add("binding:${holder.name}#edit.root#field")
+            // 构造器初始化编辑容器，刷新方法读取同一个字段并更新可见性。
+            val constructor = unique(holder.methods.filter { it.name == "<init>" &&
+                it.paramTypeNames == listOf("android.view.View", "android.content.Context", "boolean") })
+            val init = unique(constructor.invokes.distinctBy { it.descriptor }.filter { method ->
+                method.className == holder.name && method.returnTypeName == "void" && method.paramTypeNames.isEmpty() &&
+                    usesResource(method, "modify_cards_layout") &&
+                    method.usingFields.any { it.field.descriptor == root.descriptor && it.usingType == FieldUsingType.Read } &&
+                    method.invokes.any { it.name == "findViewById" && it.paramTypeNames == listOf("int") }
+            })
+            val container = init.usingFields.filter { it.usingType == FieldUsingType.Write &&
+                it.field.className == holder.name && it.field.typeName == "android.widget.LinearLayout" }
+                .map { it.field }.distinctBy { it.descriptor }
+            require(container.size == 1) { if (container.isEmpty()) "entry_missing" else "ambiguous" }
+            val field = container.single()
+            verifySymbol(field.descriptor); descriptors += field.descriptor; evidence?.add(field.descriptor)
+            val updates = candidates(holder.name, "void", emptyList()).filter { update ->
+                update.usingFields.any { it.field.descriptor == field.descriptor && it.usingType == FieldUsingType.Read } &&
+                    update.invokes.any { it.className == field.typeName && it.name == "setVisibility" &&
+                        it.paramTypeNames == listOf("int") }
             }
-            remember(unique(updates), points.functionSetHolder, "edit.update")
+            remember(constructor, holder.name, "edit.constructor")
+            remember(init, holder.name, "edit.init")
+            remember(unique(updates), holder.name, "edit.update")
         }
         // 两版实际源码：FragmentSubTabPagerBean(Fragment,String,int) 连接页签、Fragment 与业务 ID。
         group("sport.identity", emptySet()) {
@@ -591,7 +638,9 @@ internal class LayoutScanner(
             K.DEVICE_MY_WATCH to "card_mywatch_view", K.DEVICE_WATCH_FACES to "card_watchface_view",
             K.DEVICE_FUNCTIONS to "device_scrollview_content", K.DEVICE_FEATURES to "device_feature_container",
         )
-        arkuiResources.forEach { (key, name) -> run("device.new.arkui", setOf(key)) {
+        arkuiResources.forEach { (key, name) -> run(
+            if (key == K.DEVICE_MY_WATCH) MY_WATCH_SOURCE else "device.new.arkui", setOf(key)
+        ) {
             lifecycle(points.arkuiDeviceFragment)
             require(resource("device_scrollview_content") && resource(name)) { "resource_missing" }
             require(id("hw_device_viewpager", "id") != 0) { "resource_missing" }
@@ -807,6 +856,11 @@ internal class LayoutScanner(
             capabilities["sport.top"] = sportViewKeys.toMutableSet()
         }
         // 旧页与 Arkui 页共享部分配置键；旧页命中不能授权使用基准版混淆委托。
+        if (MY_WATCH_SOURCE in groups) {
+            groups += "device.new.arkui"
+            capabilities.getOrPut("device.new.arkui") { linkedSetOf() }.add(K.DEVICE_MY_WATCH)
+            requirements.getOrPut("device.new.arkui") { linkedSetOf() }.addAll(requirements.getValue(MY_WATCH_SOURCE))
+        }
         val arkuiKeys = capabilities["device.new.arkui"].orEmpty().toSet()
         if (arkuiKeys.isNotEmpty()) {
             groups += "device.new.delegates"
